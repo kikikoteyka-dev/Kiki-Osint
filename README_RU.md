@@ -1,9 +1,9 @@
+[:gb: English](README.md) | :ru: Русский
+
 # Kiki OSINT - Инструмент разведки цифрового следа
 
-> [English version](README.md)
-
 Веб-инструмент для сбора открытых данных по username, email или номеру телефона.
-Поддерживает поиск по VK, Telegram, сотням сайтов через Maigret, проверку email через Holehe и HaveIBeenPwned, а также AI-аналитику через Claude, ChatGPT или Gemini.
+Поиск по VK, Telegram, сотням сайтов через Maigret, проверка email через Holehe и HaveIBeenPwned, AI-аналитика через Claude, ChatGPT или Gemini.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey)
@@ -43,46 +43,47 @@
 
 ## Настройка API-ключей
 
-Скопируй шаблон: cp .env.example .env
+Скопируй шаблон:
 
-Открой .env и вставь ключи:
+    cp .env.example .env
+
+Заполни .env:
 
     VK_TOKEN=ваш_токен_здесь
     TG_API_ID=12345678
     TG_API_HASH=ваш_хеш_здесь
 
-### Где взять VK Token
+### VK Token
 
 1. Открой https://vkhost.github.io/
 2. Выбери Kate Mobile, нажми Разрешить
-3. В адресной строке найди access_token= и скопируй значение до &
+3. Скопируй access_token= из адресной строки (до символа &)
 
 Токен привязан к твоему аккаунту VK. Не передавай его никому.
 
-### Где взять Telegram API
+### Telegram API
 
 1. Зайди на https://my.telegram.org
 2. Выбери API development tools
-3. Скопируй App api_id (-> TG_API_ID) и App api_hash (-> TG_API_HASH)
+3. Скопируй App api_id -> TG_API_ID и App api_hash -> TG_API_HASH
 
-### Первый запуск Telegram (авторизация сессии)
+### Первый запуск Telegram
 
     python auth.py
 
-Введи номер в формате +7XXXXXXXXXX, затем код из Telegram.
-Создастся файл osint_session.session - он хранит сессию локально.
-Никогда не выкладывай его в публичный репозиторий! Он уже добавлен в .gitignore.
+Введи номер (+7XXXXXXXXXX) и код из Telegram.
+Создастся osint_session.session - никогда не выкладывай его, он уже в .gitignore.
 
 ### AI-портрет (опционально)
 
-В интерфейсе нажми AI Config и введи:
+Нажми AI Config в интерфейсе, введи:
 - Provider: anthropic, openai или google
 - API Key: твой ключ
 
 Получить ключи:
-- Claude: https://console.anthropic.com - API Keys
-- ChatGPT: https://platform.openai.com - API Keys
-- Gemini: https://aistudio.google.com - Get API key
+- Claude: https://console.anthropic.com
+- ChatGPT: https://platform.openai.com
+- Gemini: https://aistudio.google.com
 
 ---
 
@@ -116,10 +117,10 @@
 
 ## Важно
 
-Инструмент предназначен только для легальных целей: проверка собственного цифрового следа, OSINT-обучение, тестирование безопасности с разрешения субъекта. Не используй для слежки или нарушения приватности других людей.
+Только для легальных целей: проверка собственного цифрового следа, OSINT-обучение, тестирование безопасности с разрешения субъекта.
 
 ---
 
 ## Лицензия
 
-MIT - свободное использование с указанием автора.
+MIT
