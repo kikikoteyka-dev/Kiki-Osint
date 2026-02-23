@@ -1,0 +1,50 @@
+# Секреты — НИКОГДА не пушить!
+.env
+*.session
+*.session-journal
+
+# Python кэш
+__pycache__/
+*.pyc
+*.pyo
+
+# Отладочные файлы (временные, не нужны в репозитории)
+frontend/debug*.py
+frontend/fix*.py
+frontend/patch*.py
+frontend/build*.py
+frontend/build*.txt
+frontend/build_err*.txt
+frontend/p1.py
+frontend/p1out.txt
+frontend/test.py
+frontend/dbg*.py
+frontend/asm.py
+frontend/write_body.py
+frontend/body.txt
+frontend/script.txt
+frontend/newcss.txt
+frontend/cssbase.txt
+frontend/tmp_css.txt
+frontend/find_ru.py
+frontend/debug_out.txt
+frontend/fix_err.txt
+frontend/fix2_err.txt
+frontend/build_out.txt
+test_*.py
+*_out.txt
+*_result.txt
+*_debug.txt
+name_debug.txt
+tg_out.txt
+api_out.txt
+tg_api_out.txt
+
+# Отчёты и временные данные
+reports/
+tmp_test/
+
+# IDE
+.vscode/
+.idea/
+.claude/

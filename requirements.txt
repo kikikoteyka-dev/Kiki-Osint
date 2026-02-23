@@ -1,0 +1,12 @@
+flask
+flask-cors
+vk-api
+telethon
+maigret
+holehe
+httpx
+beautifulsoup4
+phonenumbers
+python-dotenv
+anthropic
+openai
