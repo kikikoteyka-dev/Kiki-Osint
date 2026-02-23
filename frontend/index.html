@@ -1239,6 +1239,10 @@ const TRANSLATIONS = {
     sec_limit:         "Лимит",
     sb_sites:          "Сайтов",
     placeholder_query2:"новый запрос...",
+    disc_title:        "Предупреждение об ограничениях анализа",
+    disc_item1:        "Анализ основан исключительно на <strong>публично доступных данных</strong> — точность не гарантируется.",
+    disc_item2:        "<strong>Не все платформы</strong> могут относиться к одному человеку — один и тот же никнейм мог быть занят <strong>разными пользователями</strong> на разных сайтах.",
+    disc_item3:        "Высокую уверенность имеют только профили с <strong>совпадающими аватарами, биографией или стилем.</strong>",
   },
   en: {
     label_query:       "query",
@@ -1258,6 +1262,10 @@ const TRANSLATIONS = {
     sec_limit:         "Limit",
     sb_sites:          "Sites",
     placeholder_query2:"new query...",
+    disc_title:        "Analysis Limitations Warning",
+    disc_item1:        "Analysis is based exclusively on <strong>publicly available data</strong> — accuracy is not guaranteed.",
+    disc_item2:        "<strong>Not all platforms</strong> may belong to the same person — the same username could be registered by <strong>different people</strong> on different sites.",
+    disc_item3:        "High confidence applies only to profiles with <strong>matching avatars, bios, or writing style.</strong>",
   }
 };
 let currentLang = "en";
@@ -1910,23 +1918,24 @@ function renderResult(d){
     }
 
     // disclaimer
+    const dt = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
     html+=`<div class="ai-disclaimer-block">
       <div class="ai-disc-header">
         <span class="ai-disc-icon">⚠</span>
-        <span class="ai-disc-title">Предупреждение об ограничениях анализа</span>
+        <span class="ai-disc-title">${dt.disc_title}</span>
       </div>
       <div class="ai-disc-items">
         <div class="ai-disc-item">
           <span class="ai-disc-bullet">◆</span>
-          <span>Анализ основан исключительно на <strong>публично доступных данных</strong> — точность не гарантируется.</span>
+          <span>${dt.disc_item1}</span>
         </div>
         <div class="ai-disc-item">
           <span class="ai-disc-bullet">◆</span>
-          <span><strong>Не все платформы</strong> могут относиться к одному человеку — один и тот же никнейм мог быть занят <strong>разными пользователями</strong> на разных сайтах.</span>
+          <span>${dt.disc_item2}</span>
         </div>
         <div class="ai-disc-item">
           <span class="ai-disc-bullet">◆</span>
-          <span>Высокую уверенность имеют только профили с <strong>совпадающими аватарами, биографией или стилем.</strong></span>
+          <span>${dt.disc_item3}</span>
         </div>
       </div>
     </div>`;
