@@ -1627,7 +1627,7 @@ async function runSearch(q,sources,limit){
     const resp=await fetch("/api/search/stream",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto"})
+      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto",ai_provider:document.getElementById("aiProvider")?.value||""})
     });
     if(!resp.ok){log("Server error: "+resp.status,"err");return;}
 
@@ -1713,10 +1713,8 @@ async function doSearch(){
   const limit=parseInt(document.getElementById("siteLimit").value)||100;
   const aiProvider=document.getElementById("aiProvider").value;
   const aiKey=document.getElementById("aiKey")?document.getElementById("aiKey").value:"";
-  if(aiProvider&&aiKey){
-    await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({provider:aiProvider,api_key:aiKey})});
-  }
+  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({provider:aiProvider||null,api_key:aiKey||null})});
   document.getElementById("root").classList.add("active");
   const q2=document.getElementById("query2");
   if(q2)q2.value=q;

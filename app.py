@@ -67,7 +67,8 @@ def search_stream():
             yield from search_email_holehe(query, send, collected)
             yield from search_email_hibp(query, send, collected)
 
-        if AI_CONFIG["api_key"] and AI_CONFIG["provider"]:
+        req_ai_provider = data.get("ai_provider", "")
+        if req_ai_provider and AI_CONFIG["api_key"] and AI_CONFIG["provider"]:
             yield send("progress", {"source": "ai", "status": "searching", "msg": "Generating AI portrait..."})
             try:
                 portrait = generate_portrait(query, query_type, AI_CONFIG, collected, ai_lang)
