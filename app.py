@@ -1,11 +1,16 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import os, json, subprocess, sys, re
+from config import GEMINI_API_KEY
 
 app = Flask(__name__, static_folder="frontend")
 CORS(app)
 
-AI_CONFIG = {"provider": None, "api_key": None}
+# Автоматически подставляем Gemini если ключ есть в .env
+AI_CONFIG = {
+    "provider": "gemini" if GEMINI_API_KEY else None,
+    "api_key": GEMINI_API_KEY if GEMINI_API_KEY else None
+}
 
 @app.route("/")
 def index():
@@ -28,6 +33,7 @@ def search_stream():
     query = data.get("query", "").strip()
     sources = data.get("sources", ["vk", "maigret"])
     maigret_limit = int(data.get("maigret_limit", 100))
+    ai_lang = data.get("ai_lang", "ru")
 
     # Auto-detect query type from content
     if "@" in query and "." in query.split("@")[-1]:
@@ -41,27 +47,30 @@ def search_stream():
         def send(event, payload):
             return f"data: {json.dumps({'event': event, 'data': payload}, ensure_ascii=False)}\n\n"
 
+        # Collector — собираем все результаты для передачи в ИИ
+        collected = {}
+
         yield send("start", {"query": query, "type": query_type})
 
         if query_type == "username":
             if "vk" in sources:
-                yield from search_vk_username(query, send)
+                yield from search_vk_username(query, send, collected)
             if "maigret" in sources:
-                yield from search_maigret(query, maigret_limit, send)
-            yield from search_telegram(query, send)
+                yield from search_maigret(query, maigret_limit, send, collected)
+            yield from search_telegram(query, send, collected)
 
         elif query_type == "phone":
-            yield from search_phone(query, send)
-            yield from search_vk_phone(query, send)
+            yield from search_phone(query, send, collected)
+            yield from search_vk_phone(query, send, collected)
 
         elif query_type == "email":
-            yield from search_email_holehe(query, send)
-            yield from search_email_hibp(query, send)
+            yield from search_email_holehe(query, send, collected)
+            yield from search_email_hibp(query, send, collected)
 
         if AI_CONFIG["api_key"] and AI_CONFIG["provider"]:
             yield send("progress", {"source": "ai", "status": "searching", "msg": "Generating AI portrait..."})
             try:
-                portrait = generate_portrait(query, query_type, AI_CONFIG)
+                portrait = generate_portrait(query, query_type, AI_CONFIG, collected, ai_lang)
                 yield send("result", {"source": "ai", "data": portrait})
                 yield send("progress", {"source": "ai", "status": "done", "msg": "Done"})
             except Exception as e:
@@ -98,7 +107,7 @@ def fetch_telegram_profile(url):
     except Exception:
         return None
 
-def search_telegram(query, send):
+def search_telegram(query, send, collected=None):
     yield send("progress", {"source": "telegram", "status": "searching", "msg": "Fetching Telegram profile..."})
     try:
         import httpx
@@ -124,6 +133,8 @@ def search_telegram(query, send):
             "url":         url,
             "username":    query,
         }
+        if collected is not None:
+            collected["telegram"] = result
         yield send("result", {"source": "telegram", "data": result})
         yield send("progress", {"source": "telegram", "status": "done",
                                 "msg": result["name"] or "Found"})
@@ -131,11 +142,13 @@ def search_telegram(query, send):
         yield send("result", {"source": "telegram", "data": {"error": str(e)}})
         yield send("progress", {"source": "telegram", "status": "error", "msg": str(e)})
 
-def search_vk_username(query, send):
+def search_vk_username(query, send, collected=None):
     yield send("progress", {"source": "vk", "status": "searching", "msg": "Searching VK..."})
     try:
         from vk_module import get_vk_profile
         result = get_vk_profile(query)
+        if collected is not None:
+            collected["vk"] = result
         yield send("result", {"source": "vk", "data": result})
         if "error" not in result:
             yield send("progress", {"source": "vk", "status": "done", "msg": result.get("name", "found")})
@@ -145,11 +158,13 @@ def search_vk_username(query, send):
         yield send("result", {"source": "vk", "data": {"error": str(e)}})
         yield send("progress", {"source": "vk", "status": "error", "msg": str(e)})
 
-def search_vk_phone(query, send):
+def search_vk_phone(query, send, collected=None):
     yield send("progress", {"source": "vk", "status": "searching", "msg": "Searching VK by phone..."})
     try:
         from vk_module import get_vk_profile
         result = get_vk_profile(query)
+        if collected is not None:
+            collected["vk"] = result
         yield send("result", {"source": "vk", "data": result})
         if "error" not in result:
             yield send("progress", {"source": "vk", "status": "done", "msg": result.get("name", "found")})
@@ -159,7 +174,7 @@ def search_vk_phone(query, send):
         yield send("result", {"source": "vk", "data": {"error": str(e)}})
         yield send("progress", {"source": "vk", "status": "error", "msg": str(e)})
 
-def search_maigret(query, limit, send):
+def search_maigret(query, limit, send, collected=None):
     yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Starting scan ({limit} sites)..."})
     try:
         found_sites = []
@@ -183,6 +198,10 @@ def search_maigret(query, limit, send):
                 site_name, url = (parts.split(": ", 1) if ": " in parts else (parts, ""))
                 site_name = site_name.strip()
                 url = url.strip()
+                # Permanently blacklisted prefixes (false positives / irrelevant)
+                MAIGRET_BLACKLIST_PREFIXES = ("OP.GG",)
+                if any(site_name.startswith(p) for p in MAIGRET_BLACKLIST_PREFIXES):
+                    continue
                 found_sites.append({"site": site_name, "url": url})
                 yield send("maigret_hit", {"site": site_name, "url": url, "count": len(found_sites)})
                 yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Found {len(found_sites)} so far..."})
@@ -197,13 +216,15 @@ def search_maigret(query, limit, send):
             proc.wait(timeout=300)
         except subprocess.TimeoutExpired:
             proc.kill()
+        if collected is not None:
+            collected["maigret"] = {"found": found_sites, "total": len(found_sites)}
         yield send("result", {"source": "maigret", "data": {"found": found_sites, "total": len(found_sites)}})
         yield send("progress", {"source": "maigret", "status": "done", "msg": f"Done — {len(found_sites)} accounts found"})
     except Exception as e:
         yield send("result", {"source": "maigret", "data": {"error": str(e)}})
         yield send("progress", {"source": "maigret", "status": "error", "msg": str(e)})
 
-def search_phone(query, send):
+def search_phone(query, send, collected=None):
     yield send("progress", {"source": "phone", "status": "searching", "msg": "Analyzing phone number..."})
     try:
         import phonenumbers
@@ -222,6 +243,8 @@ def search_phone(query, send):
             "national": phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.NATIONAL),
             "country_code": pn.country_code,
         }
+        if collected is not None:
+            collected["phone"] = result
         yield send("result", {"source": "phone", "data": result})
         yield send("progress", {"source": "phone", "status": "done",
                                 "msg": f"{result['country']} · {result['carrier'] or 'unknown'}"})
@@ -229,7 +252,7 @@ def search_phone(query, send):
         yield send("result", {"source": "phone", "data": {"error": str(e)}})
         yield send("progress", {"source": "phone", "status": "error", "msg": str(e)})
 
-def search_email_holehe(query, send):
+def search_email_holehe(query, send, collected=None):
     yield send("progress", {"source": "holehe", "status": "searching", "msg": "Running Holehe scan..."})
     try:
         found_sites = []
@@ -264,13 +287,15 @@ def search_email_holehe(query, send):
         except subprocess.TimeoutExpired:
             proc.kill()
         all_sites = found_sites + rate_limited
+        if collected is not None:
+            collected["holehe"] = {"found": found_sites, "rate_limited": rate_limited, "total": len(all_sites)}
         yield send("result", {"source": "holehe", "data": {"found": found_sites, "rate_limited": rate_limited, "total": len(all_sites)}})
         yield send("progress", {"source": "holehe", "status": "done", "msg": f"Done — {len(found_sites)} confirmed, {len(rate_limited)} rate-limited"})
     except Exception as e:
         yield send("result", {"source": "holehe", "data": {"error": str(e)}})
         yield send("progress", {"source": "holehe", "status": "error", "msg": str(e)})
 
-def search_email_hibp(query, send):
+def search_email_hibp(query, send, collected=None):
     yield send("progress", {"source": "hibp", "status": "searching", "msg": "Checking HaveIBeenPwned..."})
     try:
         import httpx
@@ -282,6 +307,8 @@ def search_email_hibp(query, send):
             result = {"breaches": [{"name": b["Name"], "date": b.get("BreachDate","?"),
                                     "pwn_count": b.get("PwnCount",0),
                                     "data_classes": b.get("DataClasses",[])} for b in breaches], "total": len(breaches)}
+            if collected is not None:
+                collected["hibp"] = result
             yield send("result", {"source": "hibp", "data": result})
             yield send("progress", {"source": "hibp", "status": "done", "msg": f"Found in {len(breaches)} breaches"})
         elif r.status_code == 404:
@@ -297,20 +324,89 @@ def search_email_hibp(query, send):
         yield send("result", {"source": "hibp", "data": {"error": str(e)}})
         yield send("progress", {"source": "hibp", "status": "error", "msg": str(e)})
 
-def generate_portrait(query, query_type, config):
-    type_context = {"username": f"username '{query}'", "phone": f"phone number '{query}'", "email": f"email '{query}'"}.get(query_type, f"'{query}'")
-    prompt = f"Create a brief OSINT-style digital portrait for {type_context}. Include likely platforms, geographic hints, behavioral patterns, and risk assessment. Be concise and analytical."
+def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
+    # Формируем контекст из реально собранных данных
+    context_parts = []
+
+    if collected:
+        if "vk" in collected and "error" not in collected["vk"]:
+            vk = collected["vk"]
+            context_parts.append(f"VK profile: name={vk.get('name')}, city={vk.get('city')}, country={vk.get('country')}, "
+                                  f"followers={vk.get('followers')}, bdate={vk.get('bdate')}, sex={vk.get('sex')}, "
+                                  f"last_seen={vk.get('last_seen')}, education={vk.get('education')}, "
+                                  f"groups={vk.get('groups', [])[:10]}, posts={vk.get('posts', [])[:3]}, closed={vk.get('closed')}")
+
+        if "telegram" in collected and "error" not in collected["telegram"]:
+            tg = collected["telegram"]
+            context_parts.append(f"Telegram profile: name={tg.get('name')}, username=@{tg.get('username')}, "
+                                  f"bio={tg.get('bio')}, subscribers={tg.get('subscribers')}")
+
+        if "maigret" in collected:
+            sites = [s["site"] for s in collected["maigret"].get("found", [])]
+            context_parts.append(f"Accounts found on {len(sites)} sites: {', '.join(sites[:30])}")
+
+        if "phone" in collected and "error" not in collected["phone"]:
+            ph = collected["phone"]
+            context_parts.append(f"Phone info: number={ph.get('number')}, country={ph.get('country')}, "
+                                  f"carrier={ph.get('carrier')}, type={ph.get('type')}, timezones={ph.get('timezones')}")
+
+        if "holehe" in collected:
+            confirmed = [s["site"] for s in collected["holehe"].get("found", [])]
+            context_parts.append(f"Email registered on: {', '.join(confirmed) if confirmed else 'none confirmed'}")
+
+        if "hibp" in collected:
+            breaches = [b["name"] for b in collected["hibp"].get("breaches", [])]
+            context_parts.append(f"Found in data breaches: {', '.join(breaches) if breaches else 'none'}")
+
+    type_label = {"username": f"username '{query}'", "phone": f"phone '{query}'", "email": f"email '{query}'"}.get(query_type, f"'{query}'")
+
+    lang_instruction = {
+        "ru": "Отвечай строго на русском языке.",
+        "en": "Respond strictly in English.",
+    }.get(ai_lang, "Respond strictly in English.")
+
+    caveat = (
+        "ВАЖНО: В конце анализа обязательно добавь раздел '⚠ Важная оговорка' где укажи, что "
+        "не все найденные аккаунты могут принадлежать одному человеку — на разных платформах "
+        "один и тот же никнейм мог быть занят разными людьми. Указывай уверенность только для "
+        "тех платформ, где есть прямые совпадения (аватар, биография, стиль). Это ОБЯЗАТЕЛЬНАЯ часть анализа."
+        if ai_lang == "ru" else
+        "IMPORTANT: At the end of your analysis, add a section '⚠ Important Disclaimer' stating that "
+        "not all found accounts may belong to the same person — the same username could be registered "
+        "by different people on different platforms. Only express high confidence for platforms with "
+        "direct cross-references (avatar, bio, writing style). This section is MANDATORY."
+    )
+    if context_parts:
+        data_section = "\n".join(f"- {p}" for p in context_parts)
+        prompt = (f"You are an OSINT analyst. Based on the following gathered data about {type_label}, "
+                  f"write a concise analytical portrait: personality traits, online behavior, geographic hints, "
+                  f"risk assessment, and interesting patterns.\n\nGathered data:\n{data_section}\n\n"
+                  f"{lang_instruction} {caveat}")
+    else:
+        prompt = (f"You are an OSINT analyst. Write a brief analytical portrait for {type_label}. "
+                  f"Include likely platforms, geographic hints, behavioral patterns, and risk assessment. "
+                  f"{lang_instruction} {caveat}")
+
     if config["provider"] == "anthropic":
         import anthropic
         client = anthropic.Anthropic(api_key=config["api_key"])
-        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=800,
+        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=1000,
             messages=[{"role": "user", "content": prompt}])
         return {"portrait": msg.content[0].text}
+
     elif config["provider"] == "openai":
         from openai import OpenAI
         client = OpenAI(api_key=config["api_key"])
-        resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
+        resp = client.chat.completions.create(model="gpt-4o-mini", max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}])
         return {"portrait": resp.choices[0].message.content}
+
+    elif config["provider"] == "gemini":
+        from google import genai
+        client = genai.Client(api_key=config["api_key"])
+        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        return {"portrait": resp.text}
+
     return {"error": "Unknown provider"}
 
 if __name__ == "__main__":

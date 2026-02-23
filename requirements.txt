@@ -10,3 +10,4 @@ phonenumbers
 python-dotenv
 anthropic
 openai
+google-genai

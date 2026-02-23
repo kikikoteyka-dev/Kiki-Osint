@@ -427,6 +427,7 @@ select option{background:#050a10}
 .rb-tg{background:rgba(0,240,255,.1);color:#00f0ff;border:1px solid rgba(0,240,255,.2)}
 .rb-email{background:rgba(88,188,255,.1);color:#58bcff;border:1px solid rgba(88,188,255,.2)}
 .rb-hibp{background:rgba(255,68,102,.1);color:#ff6b6b;border:1px solid rgba(255,68,102,.2)}
+.rb-phone{background:rgba(0,229,150,.1);color:#00e596;border:1px solid rgba(0,229,150,.2)}
 
 .r-profile{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .r-av{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,240,255,.3);flex-shrink:0}
@@ -443,7 +444,50 @@ select option{background:#050a10}
 .hit-n{font-size:44px;font-weight:700;color:#00f0ff;font-family:'JetBrains Mono',monospace;line-height:1;letter-spacing:-.03em;text-shadow:0 0 20px rgba(0,240,255,.5)}
 .hit-s{font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:3px;margin-bottom:14px}
 .portrait{font-size:14px;line-height:1.75;color:var(--t1);white-space:pre-wrap}
+/* AI card header */
+.ai-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid rgba(108,99,255,.15)}
+.ai-card-meta{display:flex;align-items:center;gap:12px}
+.ai-card-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(108,99,255,.2),rgba(108,99,255,.08));border:1px solid rgba(108,99,255,.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ai-card-label{font-size:15px;font-weight:700;color:#fff;line-height:1.2}
+.ai-card-sub{font-size:12px;color:rgba(156,143,255,.7);font-family:'JetBrains Mono',monospace;margin-top:2px}
+/* AI sections */
+.ai-section{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(108,99,255,.08)}
+.ai-section:last-child{margin-bottom:0;border-bottom:none;padding-bottom:0}
+.ai-sec-title{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:#9c8fff;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 8px;background:rgba(108,99,255,.07);border-radius:7px;border-left:2px solid rgba(108,99,255,.5)}
+.ai-para{font-size:14px;line-height:1.8;color:rgba(255,255,255,.82)}
+.ai-para+.ai-para{margin-top:8px}
+.ai-para strong,.ai-para b{color:#e8d5ff;font-weight:600}
+.ai-para em,.ai-para i{color:rgba(255,255,255,.5);font-style:italic}
+.ai-ul{list-style:none;padding:0;margin:4px 0;display:flex;flex-direction:column;gap:6px}
+.ai-ul li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.65;color:rgba(255,255,255,.8);padding:3px 0}
+.ai-ul li strong,.ai-ul li b{color:#e8d5ff}
+.ai-ul li::before{content:'›';color:#9c8fff;font-size:16px;line-height:1.4;flex-shrink:0}
+/* AI disclaimer */
+.ai-disclaimer{margin-top:20px;padding:12px 16px;background:linear-gradient(135deg,rgba(255,193,7,.07),rgba(255,140,0,.03));border:1px solid rgba(255,193,7,.22);border-radius:10px;font-size:12px;color:rgba(255,210,90,.85);line-height:1.7;display:flex;gap:10px;align-items:flex-start}
+.ai-disclaimer-icon{flex-shrink:0;font-size:15px;margin-top:1px}
+.ai-disclaimer strong{color:rgba(255,220,100,.95);font-weight:600}
+
+/* AI disclaimer block v2 */
+.ai-disclaimer-block{
+  margin-top:24px;border-radius:14px;overflow:hidden;
+  border:1px solid rgba(255,170,0,.2);
+  background:linear-gradient(135deg,rgba(255,150,0,.07) 0%,rgba(255,100,0,.04) 50%,rgba(0,0,0,.2) 100%);
+  backdrop-filter:blur(16px);
+}
+.ai-disc-header{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;
+  background:linear-gradient(90deg,rgba(255,150,0,.12),rgba(255,100,0,.06));
+  border-bottom:1px solid rgba(255,170,0,.15);
+}
+.ai-disc-icon{font-size:16px;flex-shrink:0}
+.ai-disc-title{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(255,190,60,.9)}
+.ai-disc-items{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.ai-disc-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.65;color:rgba(255,220,160,.75)}
+.ai-disc-bullet{color:rgba(255,160,40,.7);font-size:8px;flex-shrink:0;margin-top:5px}
+.ai-disc-item strong{color:rgba(255,210,110,.95);font-weight:600}
 .errmsg{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:13px}
+.closed-badge{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:12px;color:rgba(255,200,100,.7);padding:6px 12px;background:rgba(255,200,0,.06);border:1px solid rgba(255,200,0,.2);border-radius:8px;font-family:'JetBrains Mono',monospace;letter-spacing:.05em}
 
 /* VK card specific */
 .vk-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0 8px}
@@ -652,7 +696,7 @@ select option{background:#050a10}
   background:linear-gradient(135deg,rgba(0,240,255,.05),rgba(0,0,0,.25));
   cursor:pointer;transition:all .25s;
   font-size:19px;font-weight:600;color:rgba(255,255,255,.5);
-  backdrop-filter:blur(16px);position:relative;overflow:hidden;
+  backdrop-filter:blur(16px);position:relative;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
 }
 .hf-toggle:hover{border-color:rgba(0,240,255,.25);color:rgba(255,255,255,.8);transform:translateY(-1px)}
@@ -1059,6 +1103,30 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
   .hf-ai-sel{padding:14px 18px;font-size:15px}
 }
 
+/* ════ LANGUAGE SWITCHER ════ */
+.lang-switcher{
+  position:fixed;top:20px;right:24px;z-index:9999;
+  display:flex;align-items:center;
+  background:linear-gradient(135deg,rgba(0,240,255,.08),rgba(0,0,0,.4));
+  border:1px solid rgba(0,240,255,.18);border-radius:100px;
+  padding:5px;gap:3px;
+  backdrop-filter:blur(20px) saturate(180%);
+  box-shadow:0 4px 20px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);
+}
+.lang-btn{
+  padding:7px 14px;border-radius:100px;border:none;cursor:pointer;
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  background:transparent;color:rgba(255,255,255,.4);
+  transition:all .2s;
+}
+.lang-btn:hover{color:rgba(255,255,255,.8)}
+.lang-btn.active{
+  background:linear-gradient(135deg,rgba(0,240,255,.25),rgba(0,200,255,.12));
+  color:#00f0ff;
+  box-shadow:0 0 16px rgba(0,240,255,.2),inset 0 1px 0 rgba(255,255,255,.12);
+}
+
 </style>
 </head>
 <body>
@@ -1072,28 +1140,28 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
       
       <img class="hero-cat-big" src="/kiki_logo.png" alt=""><div class="hero-badge-wrap"><div class="hero-dot"></div>Kiki OSINT</div>
       <div class="hero-title">Find<br>digital<br>footprint</div>
-      <div class="hero-sub">username &middot; email &middot; phone &rarr; full digital portrait</div>
+      <div class="hero-sub" data-i18n="hero_sub">username &middot; email &middot; phone &rarr; full digital portrait</div>
       <div class="hero-stats">
-        <div class="stat-item"><div class="stat-n">500+</div><div class="stat-l">sites</div></div>
-        <div class="stat-item"><div class="stat-n">VK</div><div class="stat-l">social</div></div>
-        <div class="stat-item"><div class="stat-n">AI</div><div class="stat-l">analysis</div></div>
+        <div class="stat-item"><div class="stat-n">500+</div><div class="stat-l" data-i18n="stat_sites">sites</div></div>
+        <div class="stat-item"><div class="stat-n">VK</div><div class="stat-l" data-i18n="stat_social">social</div></div>
+        <div class="stat-item"><div class="stat-n">AI</div><div class="stat-l" data-i18n="stat_analysis">analysis</div></div>
       </div>
     </div>
     <div class="hero-right">
       <div class="hf-group">
-        <div class="hf-label">query</div>
-        <div class="hf-row"><input class="hf-inp" id="query" placeholder="username, email, +7..." type="text" onkeydown="if(event.key==='Enter')doSearch()"><button class="hf-btn" id="searchBtn" onclick="doSearch()">Search →</button></div>
+        <div class="hf-label" data-i18n="label_query">query</div>
+        <div class="hf-row"><input class="hf-inp" id="query" placeholder="username, email, +7..." type="text" onkeydown="if(event.key==='Enter')doSearch()"><button class="hf-btn" id="searchBtn" onclick="doSearch()" data-i18n="btn_search">Search →</button></div>
       </div>
       <div class="hf-group">
-        <div class="hf-label">search type</div>
+        <div class="hf-label" data-i18n="label_type">search type</div>
         <div class="hf-segment">
-          <div class="hf-seg-btn on" data-src="username" onclick="toggleExtra(this)">Username</div>
-          <div class="hf-seg-btn" data-src="phone" onclick="toggleExtra(this)">Phone</div>
+          <div class="hf-seg-btn on" data-src="username" onclick="toggleExtra(this)" data-i18n="seg_username">Username</div>
+          <div class="hf-seg-btn" data-src="phone" onclick="toggleExtra(this)" data-i18n="seg_phone">Phone</div>
           <div class="hf-seg-btn" data-src="email" onclick="toggleExtra(this)">Email</div>
         </div>
       </div>
       <div class="hf-group hf-group-sources" id="sourcesGroup">
-        <div class="hf-label">sources &amp; limit</div>
+        <div class="hf-label" data-i18n="label_sources">sources &amp; limit</div>
         <div class="hf-toggles">
           <div class="hf-toggle on" data-src="vk" onclick="toggleSrc(this)"><div class="hf-dot"></div><span>VKontakte</span></div>
           <div class="hf-toggle on" data-src="maigret" onclick="toggleSrc(this)"><div class="hf-dot"></div><span>Maigret</span></div>
@@ -1101,13 +1169,18 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
         <div class="hf-limit-row"><input type="range" id="siteLimit" min="10" max="500" value="100" step="10" oninput="updateSlider(this)" style="flex:1"><span class="hf-limit-val" id="limitVal">100</span></div>
       </div>
       <div class="hf-group">
-        <div class="hf-label">AI analysis</div>
+        <div class="hf-label" data-i18n="label_ai">AI analysis</div>
         <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
-          <option value="">— disabled —</option>
+          <option value="" data-i18n="ai_disabled">— disabled —</option>
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="openai">GPT-4 (OpenAI)</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
         <div id="aiKeyWrap" style="display:none"><input class="hf-inp" id="aiKey" placeholder="API key..." type="password"></div>
+        <select class="hf-ai-sel" id="aiLang" style="margin-top:6px">
+          <option value="ru">🇷🇺 Русский</option>
+          <option value="en" selected>🇬🇧 English</option>
+        </select>
       </div>
     </div>
   </div>
@@ -1117,19 +1190,19 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
     <div class="logo-name">Kiki <span>OSINT</span></div>
   </div>
   <div class="card hl" style="margin-bottom:10px">
-    <div class="sec-title">Search</div>
-    <input id="query2" placeholder="new query..." type="text" style="margin-bottom:8px;font-size:16px;padding:13px 15px" onkeydown="if(event.key==='Enter')doSearch2()">
-    <button class="btn btn-p" id="searchBtn2" onclick="doSearch2()" style="padding:13px;font-size:16px;margin-top:0">Search →</button>
+    <div class="sec-title" data-i18n="sec_search">Search</div>
+    <input id="query2" placeholder="new query..." type="text" data-i18n-placeholder="placeholder_query2" style="margin-bottom:8px;font-size:16px;padding:13px 15px" onkeydown="if(event.key==='Enter')doSearch2()">
+    <button class="btn btn-p" id="searchBtn2" onclick="doSearch2()" style="padding:13px;font-size:16px;margin-top:0" data-i18n="btn_search">Search →</button>
   </div>
   <div class="card" style="margin-bottom:10px">
-    <div class="sec-title">Sources</div>
+    <div class="sec-title" data-i18n="sec_sources">Sources</div>
     <div class="src-toggle on" data-src="vk" onclick="toggleSrc(this)"><div class="src-label" style="font-size:16px">VKontakte</div><div class="pill"></div></div>
     <div class="src-toggle on" data-src="maigret" onclick="toggleSrc(this)"><div class="src-label" style="font-size:16px">Maigret</div><div class="pill"></div></div>
   </div>
   <div class="card sb-limit-card">
-    <div class="sec-title">Limit</div>
+    <div class="sec-title" data-i18n="sec_limit">Limit</div>
     <div class="sb-limit-row">
-      <span class="sb-limit-label">Sites</span>
+      <span class="sb-limit-label" data-i18n="sb_sites">Sites</span>
       <span class="slider-val" id="limitVal2">100</span>
     </div>
     <input type="range" id="siteLimit2" min="10" max="500" value="100" step="10" oninput="updateSlider2(this)" style="width:100%;margin-top:10px">
@@ -1137,10 +1210,87 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 </div>
   <div class="stage" id="stage"><div class="sbars" id="srcBars"></div><div class="log-box" style="margin-bottom:16px"><div class="log-top"><div class="log-live"></div>Search log</div><div class="log-lines" id="logBox"></div></div><div id="results"></div></div>
 </div>
+<div class="lang-switcher" id="langSwitcher">
+  <button class="lang-btn" id="langRU" onclick="setLang('ru')">🇷🇺 RU</button>
+  <button class="lang-btn active" id="langEN" onclick="setLang('en')">🇬🇧 EN</button>
+</div>
 <script>
 const active=new Set(["vk","maigret"]);
 const extras=new Set(["username"]);
 let currentQueryType="username";
+
+/* ══ i18n ══ */
+const TRANSLATIONS = {
+  ru: {
+    label_query:       "запрос",
+    label_type:        "тип поиска",
+    label_sources:     "источники и лимит",
+    label_ai:          "ИИ-анализ",
+    btn_search:        "Поиск →",
+    seg_username:      "Никнейм",
+    seg_phone:         "Телефон",
+    stat_sites:        "сайтов",
+    stat_social:       "соцсети",
+    stat_analysis:     "анализ",
+    hero_sub:          "никнейм · email · телефон → полный цифровой портрет",
+    ai_disabled:       "— отключён —",
+    sec_search:        "Поиск",
+    sec_sources:       "Источники",
+    sec_limit:         "Лимит",
+    sb_sites:          "Сайтов",
+    placeholder_query2:"новый запрос...",
+  },
+  en: {
+    label_query:       "query",
+    label_type:        "search type",
+    label_sources:     "sources & limit",
+    label_ai:          "AI analysis",
+    btn_search:        "Search →",
+    seg_username:      "Username",
+    seg_phone:         "Phone",
+    stat_sites:        "sites",
+    stat_social:       "social",
+    stat_analysis:     "analysis",
+    hero_sub:          "username · email · phone → full digital portrait",
+    ai_disabled:       "— disabled —",
+    sec_search:        "Search",
+    sec_sources:       "Sources",
+    sec_limit:         "Limit",
+    sb_sites:          "Sites",
+    placeholder_query2:"new query...",
+  }
+};
+let currentLang = "en";
+
+function setLang(lang){
+  currentLang = lang;
+  const t = TRANSLATIONS[lang];
+  // Update data-i18n elements
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key = el.dataset.i18n;
+    if(t[key] !== undefined) el.textContent = t[key];
+  });
+  // Update data-i18n-placeholder elements
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{
+    const key = el.dataset.i18nPlaceholder;
+    if(t[key] !== undefined) el.placeholder = t[key];
+  });
+  // Sync searchBtn — restore after possible "loading" state
+  const sbtn = document.getElementById("searchBtn");
+  if(sbtn && !sbtn.classList.contains("loading")) sbtn.textContent = t["btn_search"];
+  // Sync aiProvider first option
+  const aiSel = document.getElementById("aiProvider");
+  if(aiSel && aiSel.options[0]) aiSel.options[0].textContent = t["ai_disabled"];
+  // Sync aiLang to match site lang
+  const aiLangSel = document.getElementById("aiLang");
+  if(aiLangSel) aiLangSel.value = lang;
+  // Update buttons
+  document.getElementById("langRU").classList.toggle("active", lang==="ru");
+  document.getElementById("langEN").classList.toggle("active", lang==="en");
+}
+
+// Apply English by default on load
+document.addEventListener("DOMContentLoaded",()=>{ setLang("en"); });
 
 /* ══ INTERACTIVE INIT ══ */
 document.addEventListener("DOMContentLoaded",()=>{
@@ -1409,8 +1559,11 @@ function toggleExtra(el){
   // Update placeholder
   const qinput=document.getElementById("query");
   if(qinput){
-    const ph={username:"username, nickname...",phone:"+7 999 123 45 67",email:"user@example.com"};
-    qinput.placeholder=ph[s]||"query...";
+    const ph={
+      ru:{username:"никнейм, username...",phone:"+7 999 123 45 67",email:"user@example.com"},
+      en:{username:"username, nickname...",phone:"+1 555 000 0000",email:"user@example.com"}
+    };
+    qinput.placeholder=(ph[currentLang]||ph.en)[s]||"query...";
   }
   // Show/hide sources based on type
   const srcGroup=document.getElementById("sourcesGroup");
@@ -1464,7 +1617,7 @@ async function runSearch(q,sources,limit){
   renderedOnce.clear();
   const btn2=document.getElementById("searchBtn2");
   const btn=document.getElementById("searchBtn");
-  if(btn2){btn2.textContent="Searching...";btn2.disabled=true;}
+  if(btn2){btn2.textContent=currentLang==="ru"?"Идёт поиск...":"Searching...";btn2.disabled=true;}
   if(btn){btn.classList.add("loading");btn.disabled=true;}
   showProgress(true);
   initBars(sources);
@@ -1474,7 +1627,7 @@ async function runSearch(q,sources,limit){
     const resp=await fetch("/api/search/stream",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType})
+      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto"})
     });
     if(!resp.ok){log("Server error: "+resp.status,"err");return;}
 
@@ -1534,8 +1687,8 @@ async function runSearch(q,sources,limit){
     const b=bars[k];
     if(b&&!b.className.includes("done")&&!b.className.includes("err"))setBar(k,"done","Done");
   });
-  if(btn2){btn2.textContent="Search";btn2.disabled=false;}
-  if(btn){btn.classList.remove("loading");btn.disabled=false;}
+  if(btn2){btn2.textContent=TRANSLATIONS[currentLang].btn_search;btn2.disabled=false;}
+  if(btn){btn.classList.remove("loading");btn.textContent=TRANSLATIONS[currentLang].btn_search;btn.disabled=false;}
   showProgress(false);
 }
 
@@ -1705,7 +1858,82 @@ function renderResult(d){
 
   }else if(src==="ai"){
     card.className="rcard";
-    card.innerHTML='<div class="rbadge rb-ai">AI Analysis</div><div class="portrait">'+(data.portrait||JSON.stringify(data))+'</div>';
+    const raw=data.portrait||JSON.stringify(data);
+
+    function parseMd(text){
+      // inline: **bold**, *italic*
+      return text
+        .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g,'<em>$1</em>');
+    }
+
+    const lines=raw.split('\n');
+    let html='<div class="rbadge rb-ai">AI Analysis</div>';
+    let i=0;
+    while(i<lines.length){
+      const line=lines[i].trimEnd();
+      // H2/H3 — section title
+      if(/^#{1,3}\s/.test(line)){
+        const title=line.replace(/^#+\s*/,'');
+        html+='<div class="ai-section"><div class="ai-sec-title">'+parseMd(title)+'</div>';
+        // collect following content until next heading or end
+        let body='';
+        i++;
+        let ulItems=[];
+        while(i<lines.length&&!/^#{1,3}\s/.test(lines[i])){
+          const l=lines[i].trimEnd();
+          if(/^\s*[\*\-]\s/.test(l)){
+            if(body){html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';body='';}
+            ulItems.push(l.replace(/^\s*[\*\-]\s*/,''));
+          } else {
+            if(ulItems.length){
+              html+='<ul class="ai-ul">'+ulItems.map(x=>'<li>'+parseMd(x)+'</li>').join('')+'</ul>';
+              ulItems=[];
+            }
+            if(l)body+=(body?' ':'')+ l; else if(body){html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';body='';}
+          }
+          i++;
+        }
+        if(ulItems.length)html+='<ul class="ai-ul">'+ulItems.map(x=>'<li>'+parseMd(x)+'</li>').join('')+'</ul>';
+        if(body)html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';
+        html+='</div>';
+      } else if(/^\s*[\*\-]\s/.test(line)){
+        // top-level list
+        let ulItems=[];
+        while(i<lines.length&&/^\s*[\*\-]\s/.test(lines[i])){
+          ulItems.push(lines[i].replace(/^\s*[\*\-]\s*/,'').trimEnd());
+          i++;
+        }
+        html+='<ul class="ai-ul">'+ulItems.map(x=>'<li>'+parseMd(x)+'</li>').join('')+'</ul>';
+      } else if(line){
+        html+='<div class="ai-para">'+parseMd(line)+'</div>';
+        i++;
+      } else { i++; }
+    }
+
+    // disclaimer
+    html+=`<div class="ai-disclaimer-block">
+      <div class="ai-disc-header">
+        <span class="ai-disc-icon">⚠</span>
+        <span class="ai-disc-title">Предупреждение об ограничениях анализа</span>
+      </div>
+      <div class="ai-disc-items">
+        <div class="ai-disc-item">
+          <span class="ai-disc-bullet">◆</span>
+          <span>Анализ основан исключительно на <strong>публично доступных данных</strong> — точность не гарантируется.</span>
+        </div>
+        <div class="ai-disc-item">
+          <span class="ai-disc-bullet">◆</span>
+          <span><strong>Не все платформы</strong> могут относиться к одному человеку — один и тот же никнейм мог быть занят <strong>разными пользователями</strong> на разных сайтах.</span>
+        </div>
+        <div class="ai-disc-item">
+          <span class="ai-disc-bullet">◆</span>
+          <span>Высокую уверенность имеют только профили с <strong>совпадающими аватарами, биографией или стилем.</strong></span>
+        </div>
+      </div>
+    </div>`;
+
+    card.innerHTML=html;
   }else{return;}
 
   grid.appendChild(card);
