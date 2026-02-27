@@ -11,3 +11,5 @@ python-dotenv
 anthropic
 openai
 google-genai
+dnspython
+socksio

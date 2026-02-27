@@ -558,7 +558,10 @@ def search_email_holehe(query, send, collected=None):
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         # Use exe directly, not -m (holehe has no __main__)
-        holehe_exe = os.path.join(os.path.dirname(sys.executable), "Scripts", "holehe.exe")
+        if sys.platform == "win32":
+            holehe_exe = os.path.join(os.path.dirname(sys.executable), "Scripts", "holehe.exe")
+        else:
+            holehe_exe = os.path.join(os.path.dirname(sys.executable), "holehe")
         proc = subprocess.Popen(
             [holehe_exe, query, "--no-color"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
