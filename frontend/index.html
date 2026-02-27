@@ -1281,6 +1281,26 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 .key-status.ok{background:rgba(0,229,150,.1);color:#00e596;border:1px solid rgba(0,229,150,.2)}
 .key-status.missing{background:rgba(255,100,100,.08);color:rgba(255,120,120,.7);border:1px solid rgba(255,100,100,.15)}
 
+/* Export bar */
+.export-bar{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:16px;padding:12px 16px;
+  background:linear-gradient(135deg,rgba(0,240,255,.06),rgba(0,0,0,.25));
+  border:1px solid rgba(0,240,255,.15);border-radius:12px;
+  backdrop-filter:blur(16px);
+  animation:fadeUp .3s ease;
+}
+.export-label{font-size:12px;color:rgba(255,255,255,.4);font-family:'JetBrains Mono',monospace;flex:1;letter-spacing:.05em}
+.export-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:8px;border:1px solid rgba(0,240,255,.2);
+  background:rgba(0,240,255,.06);color:#00f0ff;
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.export-btn:hover{background:rgba(0,240,255,.15);border-color:rgba(0,240,255,.5);box-shadow:0 0 16px rgba(0,240,255,.2)}
+.export-btn.copied{color:#00e596;border-color:rgba(0,229,150,.4);background:rgba(0,229,150,.08)}
+
 </style>
 </head>
 <body>
@@ -1303,14 +1323,20 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
     </div>
     <div class="hero-right">
       <div class="hf-group">
-        <div class="hf-label" data-i18n="label_query">query</div>
+        <div class="hf-label" id="labelQuery" data-i18n="label_query">query</div>
         <div class="hf-row"><input class="hf-inp" id="query" placeholder="username, email..." type="text" onkeydown="if(event.key==='Enter')doSearch()"><button class="hf-btn" id="searchBtn" onclick="doSearch()" data-i18n="btn_search">Search →</button></div>
+        <div id="bothGroup" style="display:none;margin-top:4px">
+          <div class="hf-label" data-i18n="label_email" style="margin-bottom:6px">email</div>
+          <div class="hf-row"><input class="hf-inp" id="queryEmail" type="text" placeholder="user@example.com" onkeydown="if(event.key==='Enter')doSearch()" style="flex:1;min-height:67px"></div>
+          <div class="char-counter" style="visibility:hidden">0 / 64</div>
+        </div>
       </div>
       <div class="hf-group">
         <div class="hf-label" data-i18n="label_type">search type</div>
         <div class="hf-segment">
           <div class="hf-seg-btn on" data-src="username" onclick="toggleExtra(this)" data-i18n="seg_username">Username</div>
           <div class="hf-seg-btn" data-src="email" onclick="toggleExtra(this)">Email</div>
+          <div class="hf-seg-btn" data-src="both" onclick="toggleExtra(this)" data-i18n="seg_both">Both</div>
         </div>
       </div>
       <div class="hf-group hf-group-sources" id="sourcesGroup">
@@ -1392,6 +1418,8 @@ const TRANSLATIONS = {
     label_ai:          "ИИ-анализ",
     btn_search:        "Поиск →",
     seg_username:      "Никнейм",
+    seg_both:          "Оба",
+    label_email:       "email",
     stat_sites:        "сайтов",
     stat_social:       "соцсети",
     stat_analysis:     "анализ",
@@ -1416,7 +1444,8 @@ const TRANSLATIONS = {
     label_ai:          "AI analysis",
     btn_search:        "Search →",
     seg_username:      "Username",
-    stat_sites:        "sites",
+    seg_both:          "Both",
+    label_email:       "email",
     stat_social:       "social",
     stat_analysis:     "analysis",
     hero_sub:          "username · email → full digital portrait",
@@ -1731,16 +1760,23 @@ function toggleExtra(el){
   currentQueryType=s;
   // Update placeholder
   const qinput=document.getElementById("query");
+  const bothGroup=document.getElementById("bothGroup");
+  const labelQuery=document.getElementById("labelQuery");
   if(qinput){
     const ph={
-      ru:{username:"никнейм, username...",email:"user@example.com"},
-      en:{username:"username, nickname...",email:"user@example.com"}
+      ru:{username:"никнейм, username...",email:"user@example.com",both:"никнейм, username..."},
+      en:{username:"username, nickname...",email:"user@example.com",both:"username, nickname..."}
     };
     qinput.placeholder=(ph[currentLang]||ph.en)[s]||"query...";
   }
+  if(labelQuery){
+    labelQuery.textContent=(s==="both")?(currentLang==="ru"?"никнейм":"username"):(currentLang==="ru"?"запрос":"query");
+    labelQuery.removeAttribute("data-i18n");
+  }
+  if(bothGroup) bothGroup.style.display=(s==="both")?"block":"none";
   // Show/hide sources based on type
   const srcGroup=document.getElementById("sourcesGroup");
-  if(srcGroup) srcGroup.style.display=(s==="username")?"flex":"none";
+  if(srcGroup) srcGroup.style.display=(s==="username"||s==="both")?"flex":"none";
 }
 
 function toggleAiEnabled(){
@@ -1762,7 +1798,7 @@ function toggleAiKey(){
   hint.style.display = (provider && !hasKey) ? "block" : "none";
 }
 
-const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP"};
+const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP",telegram:"Telegram",github:"GitHub",gravatar:"Gravatar",github_email:"GitHub",email_domain:"Domain"};
 let bars={};
 
 function initBars(sources){
@@ -1801,6 +1837,7 @@ async function runSearch(q,sources,limit){
   document.getElementById("logBox").innerHTML="";
   document.getElementById("results").innerHTML="";
   renderedOnce.clear();
+  allResults.length=0;
   const btn2=document.getElementById("searchBtn2");
   const btn=document.getElementById("searchBtn");
   if(btn2){btn2.textContent=currentLang==="ru"?"Идёт поиск...":"Searching...";btn2.disabled=true;}
@@ -1808,15 +1845,13 @@ async function runSearch(q,sources,limit){
   showProgress(true);
   initBars(sources);
   log("Query: "+q+" ["+currentQueryType+"]");
+  await runStream({query:q,sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto",ai_provider:(document.getElementById("aiEnabled")?.checked?document.getElementById("aiProvider")?.value:"")||""});
+}
 
+async function runStream(payload){
   try{
-    const resp=await fetch("/api/search/stream",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto",ai_provider:(document.getElementById("aiEnabled")?.checked ? document.getElementById("aiProvider")?.value : "")||""})
-    });
+    const resp=await fetch("/api/search/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     if(!resp.ok){log("Server error: "+resp.status,"err");return;}
-
     const reader=resp.body.getReader();
     const dec=new TextDecoder();
     let buf="";
@@ -1824,8 +1859,7 @@ async function runSearch(q,sources,limit){
       const{done,value}=await reader.read();
       if(done)break;
       buf+=dec.decode(value,{stream:true});
-      const parts=buf.split("\n\n");
-      buf=parts.pop();
+      const parts=buf.split("\n\n");buf=parts.pop();
       for(const p of parts){
         if(!p.trim())continue;
         const line=p.startsWith("data:")?p.slice(5).trim():p.trim();
@@ -1835,52 +1869,69 @@ async function runSearch(q,sources,limit){
           const evt=ev.event||ev.type;
           const d=ev.data||ev;
           if(evt==="start"){
-            // Init bars based on query type detected by server
             const qt=d.type||"username";
-            const srcs=qt==="email"?["holehe","hibp"]:qt==="phone"?["phone","vk"]:getSources().concat(["telegram"]);
-            initBars(srcs);
-            // Sync segment UI
-            document.querySelectorAll(".hf-seg-btn").forEach(e=>{
-              e.classList.remove("on");
-              if(e.dataset.src===qt)e.classList.add("on");
-            });
+            if(currentQueryType!=="both"){
+              const srcs=qt==="email"?["holehe","hibp","gravatar","github_email","email_domain"]:qt==="phone"?["phone","vk"]:getSources().concat(["telegram","github"]);
+              initBars(srcs);
+              document.querySelectorAll(".hf-seg-btn").forEach(e=>{e.classList.remove("on");if(e.dataset.src===qt)e.classList.add("on");});
+            }
           }else if(evt==="progress"||evt==="status"){
-            const src=d.source||d.src;
-            const state=d.status||d.state;
-            const msg=d.msg||d.message||"";
+            const src=d.source||d.src;const state=d.status||d.state;const msg=d.msg||d.message||"";
             if(src)setBar(src,state,msg);
             log("["+src+"] "+msg,state==="done"?"done":state==="error"?"err":"info");
           }else if(evt==="result"){
-            console.log('RESULT',JSON.stringify(d).substring(0,200));
-            renderResult(d);
+            allResults.push(d);renderResult(d);
             if(d.source)setBar(d.source,"done","Done");
           }else if(evt==="maigret_hit"||evt==="holehe_hit"){
             log("[+] "+d.site+(d.url?" — "+d.url:""),"done");
           }else if(evt==="done"){
             log("Search complete","done");
-            Object.keys(bars).forEach(k=>{
-              const b=bars[k];
-              if(b&&!b.className.includes("done")&&!b.className.includes("err"))setBar(k,"done","Done");
-            });
+            Object.keys(bars).forEach(k=>{const b=bars[k];if(b&&!b.className.includes("done")&&!b.className.includes("err"))setBar(k,"done","Done");});
           }
         }catch(e){}
       }
     }
-  }catch(e){
-    log("Error: "+e.message,"err");
-  }
-  Object.keys(bars).forEach(k=>{
-    const b=bars[k];
-    if(b&&!b.className.includes("done")&&!b.className.includes("err"))setBar(k,"done","Done");
-  });
-  if(btn2){btn2.textContent=TRANSLATIONS[currentLang].btn_search;btn2.disabled=false;}
-  if(btn){btn.classList.remove("loading");btn.textContent=TRANSLATIONS[currentLang].btn_search;btn.disabled=false;}
-  showProgress(false);
+  }catch(e){log("Error: "+e.message,"err");}
+  Object.keys(bars).forEach(k=>{const b=bars[k];if(b&&!b.className.includes("done")&&!b.className.includes("err"))setBar(k,"done","Done");});
 }
 
 async function doSearch(){
   const q=document.getElementById("query").value.trim();
   if(!q)return;
+
+  // Both mode — run username + email searches sequentially
+  if(currentQueryType==="both"){
+    const qEmail=document.getElementById("queryEmail")?.value.trim();
+    if(!qEmail){alert(currentLang==="ru"?"Введите email для режима Both":"Enter email for Both mode");return;}
+    document.getElementById("root").classList.add("active");
+    document.getElementById("logBox").innerHTML="";
+    document.getElementById("results").innerHTML="";
+    renderedOnce.clear(); allResults.length=0;
+    const btn=document.getElementById("searchBtn");
+    const btn2=document.getElementById("searchBtn2");
+    if(btn){btn.classList.add("loading");btn.disabled=true;}
+    if(btn2){btn2.disabled=true;}
+    showProgress(true);
+    const sources=getSources();
+    const limit=parseInt(document.getElementById("siteLimit").value)||100;
+    const aiProvider=document.getElementById("aiEnabled")?.checked?document.getElementById("aiProvider")?.value:"";
+    const aiLang=document.getElementById("aiLang")?.value||"auto";
+    // Init bars for both query types
+    const allSrcs=sources.concat(["telegram","github","holehe","hibp","gravatar","github_email","email_domain"]);
+    initBars(allSrcs);
+    // Username search first
+    await runStream({query:q,sources,maigret_limit:limit,query_type:"username",ai_lang:aiLang,ai_provider:""});
+    // Email search second
+    await runStream({query:qEmail,sources:[],maigret_limit:limit,query_type:"email",ai_lang:aiLang,ai_provider:""});
+    // AI portrait with all collected data
+    if(aiProvider) await runStream({query:q+" / "+qEmail,sources:[],maigret_limit:0,query_type:"both",ai_lang:aiLang,ai_provider:aiProvider});
+    if(btn){btn.classList.remove("loading");btn.textContent=TRANSLATIONS[currentLang].btn_search;btn.disabled=false;}
+    if(btn2){btn2.textContent=TRANSLATIONS[currentLang].btn_search;btn2.disabled=false;}
+    showProgress(false);
+    if(allResults.length) showExportBar(q+" + "+qEmail);
+    return;
+  }
+
   // Auto-detect type from query
   if(q.includes("@") && q.includes(".")){
     currentQueryType="email";
@@ -1913,6 +1964,7 @@ async function doSearch2(){
 }
 
 const renderedOnce=new Set();
+const allResults=[];
 
 function renderResult(d){
   const cont=document.getElementById("results");
@@ -2037,6 +2089,79 @@ function renderResult(d){
           (b.data_classes||[]).slice(0,3).join(", ")+'</span></li>').join("")+
       '</ul>':"");
 
+  }else if(src==="github_email"){
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(255,255,255,.08);color:#e6edf3;border-color:rgba(255,255,255,.15)">GitHub</div>'+
+      (data.avatar?'<img src="'+data.avatar+'" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(0,240,255,.3)">':'')+
+      '<div class="hit-n">'+data.name+'</div>'+
+      '<div class="hit-s">@'+data.username+(data.location?' · '+data.location:'')+'</div>'+
+      (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
+      '<div style="display:flex;gap:16px;margin:10px 0;font-size:13px;color:rgba(0,240,255,.8);font-family:\'JetBrains Mono\',monospace">'+
+        '<span>⭐ '+data.followers+' followers</span>'+
+        '<span>📦 '+data.public_repos+' repos</span>'+
+      '</div>'+
+      '<div class="divider"></div>'+
+      '<a href="'+data.url+'" target="_blank" class="tg-link">Open GitHub ↗</a>';
+
+  }else if(src==="email_domain"){
+    const mx=(data.mx||[]).slice(0,3);
+    const dispBadge=data.disposable
+      ?'<span style="color:#ff6b6b;font-size:11px;margin-left:8px">⚠ DISPOSABLE</span>'
+      :'<span style="color:#00e596;font-size:11px;margin-left:8px">✓ real domain</span>';
+    const typeBadge=data.account_type==="personal/free"
+      ?'<span style="background:rgba(0,229,150,.1);color:#00e596;border:1px solid rgba(0,229,150,.2);padding:2px 8px;border-radius:6px;font-size:11px">Personal / Free</span>'
+      :'<span style="background:rgba(0,160,255,.1);color:#6eb4ff;border:1px solid rgba(0,160,255,.2);padding:2px 8px;border-radius:6px;font-size:11px">Corporate / Custom</span>';
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(100,200,255,.08);color:#6eb4ff;border-color:rgba(100,200,255,.2)">Domain Info</div>'+
+      '<div class="hit-n" style="font-size:18px">@'+data.domain+dispBadge+'</div>'+
+      '<div style="margin:10px 0">'+typeBadge+'</div>'+
+      '<table style="width:100%;font-size:13px;font-family:\'JetBrains Mono\',monospace;border-collapse:collapse">'+
+        (data.mail_provider?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0;width:120px">Mail</td><td style="color:#fff">'+data.mail_provider+'</td></tr>':'')+
+        (data.ip?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">IP</td><td style="color:#fff">'+data.ip+'</td></tr>':'')+
+        (data.registered?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">Registered</td><td style="color:#fff">'+data.registered+'</td></tr>':'')+
+        (data.expiry?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">Expiry</td><td style="color:#fff">'+data.expiry+'</td></tr>':'')+
+        (data.registrar?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">Registrar</td><td style="color:#fff">'+data.registrar+'</td></tr>':'')+
+      '</table>'+
+      (mx.length?'<div class="divider"></div><div style="font-size:12px;color:rgba(0,240,255,.5);margin-bottom:4px">MX Records</div>'+
+        mx.map(m=>'<div style="font-size:12px;font-family:\'JetBrains Mono\',monospace;color:rgba(255,255,255,.5)">'+m[0]+' '+m[1]+'</div>').join(""):'');
+
+  }else if(src==="github"){
+    const repos=data.repos||[];
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(255,255,255,.08);color:#e6edf3;border-color:rgba(255,255,255,.15)">GitHub</div>'+
+      (data.avatar?'<img src="'+data.avatar+'" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(0,240,255,.3)">':'')+
+      '<div class="hit-n">'+data.name+'</div>'+
+      '<div class="hit-s">@'+data.username+(data.location?' · '+data.location:'')+'</div>'+
+      (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
+      '<div style="display:flex;gap:16px;margin:10px 0;font-size:13px;color:rgba(0,240,255,.8);font-family:\'JetBrains Mono\',monospace">'+
+        '<span>⭐ '+data.followers+' followers</span>'+
+        '<span>📦 '+data.public_repos+' repos</span>'+
+        (data.created_at?'<span>📅 '+data.created_at+'</span>':'')+
+      '</div>'+
+      (repos.length?'<div class="divider"></div><ul class="rlist">'+
+        repos.map(r=>'<li><a href="'+r.url+'" target="_blank" style="color:#00f0ff">'+r.name+'</a>'+
+          (r.lang?' <span style="color:rgba(255,255,255,.4);font-size:11px">['+r.lang+']</span>':'')+
+          (r.stars?' <span style="color:rgba(255,200,0,.7)">⭐'+r.stars+'</span>':'')+
+        '</li>').join("")+'</ul>':'')+
+      '<div class="divider"></div>'+
+      '<a href="'+data.url+'" target="_blank" class="tg-link">Open GitHub ↗</a>';
+
+  }else if(src==="gravatar"){
+    const accs=data.accounts||[];
+    const urls=data.urls||[];
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(26,150,255,.1);color:#6eb4ff;border-color:rgba(26,150,255,.25)">Gravatar</div>'+
+      (data.avatar?'<img src="'+data.avatar+'" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(0,240,255,.3)">':'')+
+      '<div class="hit-n">'+(data.name||data.username||"—")+'</div>'+
+      (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
+      (data.location?'<div style="font-size:13px;color:rgba(255,255,255,.4)">📍 '+data.location+'</div>':'')+
+      (accs.length?'<div class="divider"></div><div style="font-size:12px;color:rgba(0,240,255,.6);margin-bottom:6px">Linked accounts</div><ul class="rlist">'+
+        accs.map(a=>'<li><a href="'+a.url+'" target="_blank" style="color:#00f0ff">'+a.title+'</a></li>').join("")+'</ul>':'')+
+      (urls.length?'<div class="divider"></div><ul class="rlist">'+
+        urls.map(u=>'<li><a href="'+u+'" target="_blank" style="color:rgba(0,240,255,.7)">'+u+'</a></li>').join("")+'</ul>':'')+
+      '<div class="divider"></div>'+
+      '<a href="'+data.profile_url+'" target="_blank" class="tg-link">Open Gravatar ↗</a>';
+
   }else if(src==="ai"){
     card.className="rcard rcard-ai-wide";
     const raw=data.portrait||JSON.stringify(data);
@@ -2119,6 +2244,104 @@ function renderResult(d){
   }else{return;}
 
   grid.appendChild(card);
+}
+
+/* ════ EXPORT ════ */
+function showExportBar(query){
+  const stage=document.getElementById("stage");
+  if(!stage) return;
+  const old=document.getElementById("exportBar");
+  if(old) old.remove();
+  const bar=document.createElement("div");
+  bar.className="export-bar";bar.id="exportBar";
+  const ts=new Date().toISOString().slice(0,19).replace("T","_").replace(/:/g,"-");
+  const filename=`kiki_osint_${query}_${ts}`;
+  bar.innerHTML=
+    '<span class="export-label">📦 '+allResults.length+' sources · '+query+'</span>'+
+    '<button class="export-btn" id="btnCopyJson" onclick="exportCopyJson()">⧉ Copy JSON</button>'+
+    '<button class="export-btn" id="btnExportTxt" onclick="exportTxt(\''+filename+'\')">↓ Export TXT</button>'+
+    '<button class="export-btn" id="btnExportJson" onclick="exportJson(\''+filename+'\')">↓ Export JSON</button>';
+  const results=document.getElementById("results");
+  stage.insertBefore(bar, results);
+}
+
+function resultsToText(){
+  const lines=[];
+  const ts=new Date().toLocaleString();
+  lines.push("═══════════════════════════════════════");
+  lines.push("  KIKI OSINT — Search Results");
+  lines.push("  Generated: "+ts);
+  lines.push("═══════════════════════════════════════\n");
+  allResults.forEach(r=>{
+    const src=(r.source||"unknown").toUpperCase();
+    const d=r.data||r;
+    lines.push("┌── "+src+" ──────────────────────────────");
+    if(d.error){lines.push("│  ERROR: "+d.error);}
+    else if(src==="VK"){
+      lines.push("│  Name:     "+(d.name||"-"));
+      lines.push("│  ID:       "+(d.domain?"@"+d.domain:d.id?"id"+d.id:"-"));
+      lines.push("│  City:     "+(d.city||"-"));
+      lines.push("│  Followers:"+(d.followers||"-"));
+      if(d.status) lines.push("│  Status:   "+d.status);
+    }else if(src==="TELEGRAM"){
+      lines.push("│  Name:     "+(d.name||"-"));
+      lines.push("│  Username: @"+(d.username||"-"));
+      lines.push("│  Bio:      "+(d.bio||"-"));
+      lines.push("│  URL:      "+(d.url||"-"));
+    }else if(src==="MAIGRET"){
+      const sites=d.found||d.sites||[];
+      lines.push("│  Found: "+sites.length+" accounts");
+      sites.forEach(s=>{
+        const name=typeof s==="object"?(s.site||s.name):s;
+        const url=typeof s==="object"?s.url:"";
+        lines.push("│    > "+name+(url?" — "+url:""));
+      });
+    }else if(src==="GITHUB"){
+      lines.push("│  Name:     "+(d.name||"-"));
+      lines.push("│  Username: @"+(d.username||"-"));
+      lines.push("│  Location: "+(d.location||"-"));
+      lines.push("│  Followers:"+(d.followers||0));
+      lines.push("│  Repos:    "+(d.public_repos||0));
+      lines.push("│  Since:    "+(d.created_at||"-"));
+      if(d.bio) lines.push("│  Bio:      "+d.bio);
+      lines.push("│  URL:      "+(d.url||"-"));
+    }else if(src==="GRAVATAR"){
+      lines.push("│  Name:     "+(d.name||"-"));
+      lines.push("│  Username: "+(d.username||"-"));
+      lines.push("│  Location: "+(d.location||"-"));
+      if(d.bio) lines.push("│  Bio:      "+d.bio);
+      (d.accounts||[]).forEach(a=>lines.push("│  Account:  "+a.title+" — "+a.url));
+      (d.urls||[]).forEach(u=>lines.push("│  URL:      "+u));
+    }else if(src==="HOLEHE"){
+      (d.found||[]).forEach(s=>lines.push("│  ✓ "+(s.site||s)));
+      (d.rate_limited||[]).forEach(s=>lines.push("│  ~ "+(s.site||s)+" (rate limited)"));
+    }else if(src==="HIBP"){
+      (d.breaches||[]).forEach(b=>lines.push("│  ⚠ "+b.name+" ("+b.date+")"));
+      if(!(d.breaches||[]).length) lines.push("│  ✓ No breaches found");
+    }else if(src==="AI"){
+      lines.push("│");
+      lines.push((d.portrait||"").split("\n").map(l=>"│  "+l).join("\n"));
+    }
+    lines.push("└────────────────────────────────────\n");
+  });
+  return lines.join("\n");
+}
+
+function exportCopyJson(){
+  navigator.clipboard.writeText(JSON.stringify(allResults,null,2)).then(()=>{
+    const btn=document.getElementById("btnCopyJson");
+    if(btn){btn.textContent="✓ Copied!";btn.classList.add("copied");setTimeout(()=>{btn.textContent="⧉ Copy JSON";btn.classList.remove("copied")},2000);}
+  });
+}
+
+function exportTxt(filename){
+  const blob=new Blob([resultsToText()],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename+".txt";a.click();
+}
+
+function exportJson(filename){
+  const blob=new Blob([JSON.stringify(allResults,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename+".json";a.click();
 }
 
 /* ════ SETTINGS / WIZARD ════ */

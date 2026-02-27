@@ -2,8 +2,8 @@
 
 # 🔍 Kiki OSINT — Инструмент разведки цифрового следа
 
-Веб-инструмент для сбора открытых данных по **username** или **email**.  
-Поддерживает поиск по VK, Telegram, сотням сайтов через Maigret, проверку email через Holehe и HaveIBeenPwned, а также AI-аналитику через Claude, ChatGPT или Gemini.
+Веб-инструмент для сбора открытых данных по **username**, **email** или обоим сразу.  
+Поддерживает поиск по VK, Telegram, GitHub, сотням сайтов через Maigret, проверку email через Holehe, HaveIBeenPwned и Gravatar, анализ домена через WHOIS, а также AI-аналитику через Claude, ChatGPT или Gemini.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey)
@@ -13,10 +13,13 @@
 
 ## 📸 Возможности
 
-- 🔎 **Username** — поиск по VK, Telegram и 500+ сайтам (Maigret)
-- 📧 **Email** — проверка регистраций (Holehe) + утечки (HaveIBeenPwned)
+- 🔎 **Username** — поиск по VK, Telegram, GitHub и 500+ сайтам (Maigret)
+- 📧 **Email** — регистрации (Holehe) + утечки (HaveIBeenPwned) + профиль Gravatar + GitHub аккаунт
+- 🌐 **Domain Info** — MX-записи, WHOIS (регистратор, дата), IP, определение одноразовых адресов
+- 🔀 **Both mode** — одновременный поиск username + email в одном интерфейсе
 - 🤖 **AI-портрет** — аналитическая сводка через Claude, ChatGPT или Gemini
-- 🌐 **Переключатель языка** — интерфейс на русском и английском
+- 📤 **Экспорт** — Copy JSON / Export TXT / Export JSON после каждого поиска
+- 🌍 **Переключатель языка** — интерфейс на русском и английском
 - ⚡ **Потоковая передача** — результаты появляются в реальном времени (SSE)
 - 💾 **Персистентные ключи** — сохраняются в локальный `keys.json`, не теряются при перезапуске
 
@@ -53,7 +56,9 @@ pip install -r requirements.txt
 
 ## 🔑 Настройка API-ключей
 
-Нажми **«Settings»** в интерфейсе приложения и введи ключи прямо в браузере — никаких конфиг-файлов не нужно. Ключи сохраняются автоматически в локальный файл `keys.json`.
+Нажми **«Settings»** в интерфейсе приложения и введи ключи прямо в браузере — никаких конфиг-файлов не нужно. Ключи сохраняются автоматически в локальный `keys.json`.
+
+При первом запуске Settings открывается автоматически, если API-ключи не настроены.
 
 ### VK Token
 
@@ -80,6 +85,8 @@ pip install -r requirements.txt
 
 Нужен для проверки утечек email. Получить на **https://haveibeenpwned.com/API/Key**
 
+> GitHub поиск работает без API ключей.
+
 ---
 
 ## ▶️ Запуск
@@ -89,8 +96,6 @@ python app.py
 ```
 
 Открой в браузере: **http://localhost:5000**
-
-При первом запуске Settings открывается автоматически, если API-ключи не настроены.
 
 ---
 
@@ -103,6 +108,7 @@ Kiki-Osint/
 ├── vk_module.py        # Поиск по VK API
 ├── tg_module.py        # Поиск по Telegram (через t.me)
 ├── maigret_module.py   # Интеграция с Maigret
+├── keys_store.py       # Хранение ключей (keys.json)
 ├── sources/            # Дополнительные источники данных
 ├── frontend/
 │   ├── index.html      # Интерфейс (EN/RU)

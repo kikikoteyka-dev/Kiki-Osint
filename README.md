@@ -2,8 +2,8 @@
 
 # 🔍 Kiki OSINT — Digital Footprint Discovery Tool
 
-An open-source web tool for gathering public data by **username** or **email**.  
-Supports search across VK, Telegram, 500+ websites via Maigret, email checks via Holehe and HaveIBeenPwned, and AI-generated portraits via Claude, ChatGPT, or Gemini.
+An open-source web tool for gathering public data by **username**, **email**, or both at once.  
+Supports search across VK, Telegram, GitHub, 500+ websites via Maigret, email checks via Holehe, HaveIBeenPwned and Gravatar, domain WHOIS analysis, and AI-generated portraits via Claude, ChatGPT, or Gemini.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey)
@@ -13,10 +13,13 @@ Supports search across VK, Telegram, 500+ websites via Maigret, email checks via
 
 ## 📸 Features
 
-- 🔎 **Username** — search across VK, Telegram and 500+ sites (Maigret)
-- 📧 **Email** — registration check (Holehe) + breach lookup (HaveIBeenPwned)
+- 🔎 **Username** — search across VK, Telegram, GitHub and 500+ sites (Maigret)
+- 📧 **Email** — registration check (Holehe) + breach lookup (HaveIBeenPwned) + Gravatar profile + GitHub account
+- 🌐 **Domain Info** — MX records, WHOIS (registrar, registration date), IP, disposable email detection
+- 🔀 **Both mode** — search username + email simultaneously in one interface
 - 🤖 **AI Portrait** — analytical summary via Claude, ChatGPT, or Gemini
-- 🌐 **Language switcher** — EN/RU interface toggle
+- 📤 **Export results** — Copy JSON / Export TXT / Export JSON after each search
+- 🌍 **Language switcher** — EN/RU interface toggle
 - ⚡ **Real-time streaming** — results appear as they arrive (SSE)
 - 💾 **Persistent API keys** — saved to local `keys.json`, survive server restarts
 
@@ -55,6 +58,8 @@ pip install -r requirements.txt
 
 Click **«Settings»** in the app interface and enter your keys directly in the browser — no config files needed. Keys are saved automatically to a local `keys.json` file.
 
+On first launch, the Settings modal opens automatically if no keys are configured.
+
 ### VK Token
 
 1. Open **https://vkhost.github.io/**
@@ -80,6 +85,8 @@ Where to get API keys:
 
 Required for email breach lookup. Get it at **https://haveibeenpwned.com/API/Key**
 
+> GitHub search works without any API key.
+
 ---
 
 ## ▶️ Running the app
@@ -89,8 +96,6 @@ python app.py
 ```
 
 Open in your browser: **http://localhost:5000**
-
-On first launch, the Settings modal opens automatically if no API keys are configured.
 
 ---
 
@@ -103,6 +108,7 @@ Kiki-Osint/
 ├── vk_module.py        # VK API search
 ├── tg_module.py        # Telegram search (via t.me scraping)
 ├── maigret_module.py   # Maigret integration
+├── keys_store.py       # Persistent key storage (keys.json)
 ├── sources/            # Additional data sources
 ├── frontend/
 │   ├── index.html      # UI (EN/RU)

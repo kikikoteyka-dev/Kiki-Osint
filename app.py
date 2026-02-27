@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
-import os, json, subprocess, sys, re
+import os, json, subprocess, sys, re, requests
 import keys_store
 
 app = Flask(__name__, static_folder="frontend")
@@ -127,10 +127,14 @@ def search_stream():
             if "maigret" in sources:
                 yield from search_maigret(query, maigret_limit, send, collected)
             yield from search_telegram(query, send, collected)
+            yield from search_github(query, send, collected)
 
         elif query_type == "email":
             yield from search_email_holehe(query, send, collected)
             yield from search_email_hibp(query, send, collected)
+            yield from search_gravatar(query, send, collected)
+            yield from search_github_by_email(query, send, collected)
+            yield from search_email_domain(query, send, collected)
 
         # AI portrait — always load key fresh from keys.json for the requested provider
         req_ai_provider = data.get("ai_provider", "")
@@ -185,6 +189,11 @@ def fetch_telegram_profile(url):
         return None
 
 def search_telegram(query, send, collected=None):
+    import re
+    # Telegram usernames: 5-32 chars, only a-z 0-9 _
+    if not re.match(r'^[a-zA-Z0-9_]{5,32}$', query):
+        yield send("progress", {"source": "telegram", "status": "done", "msg": "Skipped (invalid TG username)"})
+        return
     yield send("progress", {"source": "telegram", "status": "searching", "msg": "Fetching Telegram profile..."})
     try:
         import httpx
@@ -331,6 +340,215 @@ def search_phone(query, send, collected=None):
     except Exception as e:
         yield send("result", {"source": "phone", "data": {"error": str(e)}})
         yield send("progress", {"source": "phone", "status": "error", "msg": str(e)})
+
+def search_github(query, send, collected=None):
+    yield send("progress", {"source": "github", "status": "searching", "msg": "Searching GitHub..."})
+    try:
+        r = requests.get(f"https://api.github.com/users/{query}",
+                         headers={"Accept": "application/vnd.github+json"}, timeout=8)
+        if r.status_code == 404:
+            yield send("progress", {"source": "github", "status": "done", "msg": "Not found"})
+            return
+        if r.status_code != 200:
+            yield send("progress", {"source": "github", "status": "error", "msg": f"GitHub API error {r.status_code}"})
+            return
+        u = r.json()
+        # Repos
+        repos_r = requests.get(f"https://api.github.com/users/{query}/repos?per_page=5&sort=pushed",
+                                headers={"Accept": "application/vnd.github+json"}, timeout=8)
+        repos = []
+        if repos_r.status_code == 200:
+            repos = [{"name": x["name"], "url": x["html_url"],
+                      "stars": x["stargazers_count"], "lang": x["language"]} for x in repos_r.json()]
+        data = {
+            "source": "github",
+            "name":       u.get("name") or u.get("login"),
+            "username":   u.get("login"),
+            "avatar":     u.get("avatar_url"),
+            "bio":        u.get("bio") or "",
+            "location":   u.get("location") or "",
+            "company":    u.get("company") or "",
+            "blog":       u.get("blog") or "",
+            "email":      u.get("email") or "",
+            "followers":  u.get("followers", 0),
+            "following":  u.get("following", 0),
+            "public_repos": u.get("public_repos", 0),
+            "created_at": (u.get("created_at") or "")[:10],
+            "url":        u.get("html_url"),
+            "repos":      repos,
+        }
+        if collected is not None:
+            collected["github"] = data
+        yield send("result", {"source": "github", "data": data})
+        yield send("progress", {"source": "github", "status": "done", "msg": "Done"})
+    except Exception as e:
+        yield send("progress", {"source": "github", "status": "error", "msg": str(e)})
+
+
+def search_gravatar(query, send, collected=None):
+    yield send("progress", {"source": "gravatar", "status": "searching", "msg": "Checking Gravatar..."})
+    try:
+        import hashlib
+        h = hashlib.md5(query.strip().lower().encode()).hexdigest()
+        r = requests.get(f"https://www.gravatar.com/{h}.json", timeout=8)
+        if r.status_code == 404:
+            yield send("progress", {"source": "gravatar", "status": "done", "msg": "No Gravatar profile"})
+            return
+        if r.status_code != 200:
+            yield send("progress", {"source": "gravatar", "status": "error", "msg": f"Error {r.status_code}"})
+            return
+        entry = r.json().get("entry", [{}])[0]
+        data = {
+            "source":      "gravatar",
+            "name":        (entry.get("displayName") or entry.get("preferredUsername") or ""),
+            "username":    entry.get("preferredUsername") or "",
+            "avatar":      f"https://www.gravatar.com/avatar/{h}?s=200",
+            "bio":         entry.get("aboutMe") or "",
+            "location":    (entry.get("currentLocation") or ""),
+            "urls":        [u.get("value") for u in entry.get("urls", []) if u.get("value")],
+            "accounts":    [{"title": a.get("shortname",""), "url": a.get("url","")}
+                            for a in entry.get("accounts", [])],
+            "profile_url": f"https://gravatar.com/{entry.get('preferredUsername',h)}",
+            "hash":        h,
+        }
+        if collected is not None:
+            collected["gravatar"] = data
+        yield send("result", {"source": "gravatar", "data": data})
+        yield send("progress", {"source": "gravatar", "status": "done", "msg": "Done"})
+    except Exception as e:
+        yield send("progress", {"source": "gravatar", "status": "error", "msg": str(e)})
+
+
+def search_github_by_email(query, send, collected=None):
+    yield send("progress", {"source": "github_email", "status": "searching", "msg": "Searching GitHub by email..."})
+    try:
+        r = requests.get(
+            f"https://api.github.com/search/users?q={query}+in:email",
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=8
+        )
+        if r.status_code != 200:
+            yield send("progress", {"source": "github_email", "status": "done", "msg": "No results"})
+            return
+        items = r.json().get("items", [])
+        if not items:
+            yield send("progress", {"source": "github_email", "status": "done", "msg": "Not found on GitHub"})
+            return
+        # Fetch full profile for top result
+        user = items[0]
+        profile_r = requests.get(f"https://api.github.com/users/{user['login']}",
+                                  headers={"Accept": "application/vnd.github+json"}, timeout=8)
+        if profile_r.status_code == 200:
+            u = profile_r.json()
+            data = {
+                "source":       "github_email",
+                "name":         u.get("name") or u.get("login"),
+                "username":     u.get("login"),
+                "avatar":       u.get("avatar_url"),
+                "bio":          u.get("bio") or "",
+                "location":     u.get("location") or "",
+                "company":      u.get("company") or "",
+                "blog":         u.get("blog") or "",
+                "followers":    u.get("followers", 0),
+                "public_repos": u.get("public_repos", 0),
+                "created_at":   (u.get("created_at") or "")[:10],
+                "url":          u.get("html_url"),
+                "total_found":  len(items),
+            }
+            if collected is not None:
+                collected["github_email"] = data
+            yield send("result", {"source": "github_email", "data": data})
+            yield send("progress", {"source": "github_email", "status": "done", "msg": f"Found: @{data['username']}"})
+    except Exception as e:
+        yield send("progress", {"source": "github_email", "status": "error", "msg": str(e)})
+
+
+DISPOSABLE_DOMAINS = {
+    "mailinator.com","guerrillamail.com","10minutemail.com","tempmail.com",
+    "throwaway.email","yopmail.com","sharklasers.com","guerrillamailblock.com",
+    "grr.la","guerrillamail.info","guerrillamail.biz","guerrillamail.de",
+    "guerrillamail.net","guerrillamail.org","spam4.me","trashmail.com",
+    "trashmail.me","trashmail.net","dispostable.com","mailnull.com",
+    "spamgourmet.com","spamgourmet.net","spamgourmet.org","maildrop.cc",
+}
+
+def search_email_domain(query, send, collected=None):
+    yield send("progress", {"source": "email_domain", "status": "searching", "msg": "Analysing email domain..."})
+    try:
+        import socket, dns.resolver
+        domain = query.split("@")[-1].lower()
+        result = {"source": "email_domain", "domain": domain}
+
+        # Disposable check
+        result["disposable"] = domain in DISPOSABLE_DOMAINS
+
+        # MX records
+        try:
+            mx = dns.resolver.resolve(domain, "MX")
+            mx_list = sorted([(r.preference, str(r.exchange).rstrip(".")) for r in mx])
+            result["mx"] = mx_list
+            # Detect mail provider
+            mx_str = " ".join(h for _, h in mx_list).lower()
+            if "google" in mx_str or "gmail" in mx_str:
+                result["mail_provider"] = "Google Workspace / Gmail"
+            elif "outlook" in mx_str or "microsoft" in mx_str or "hotmail" in mx_str:
+                result["mail_provider"] = "Microsoft / Outlook"
+            elif "protonmail" in mx_str or "proton.ch" in mx_str:
+                result["mail_provider"] = "ProtonMail"
+            elif "yandex" in mx_str:
+                result["mail_provider"] = "Yandex Mail"
+            elif "mail.ru" in mx_str:
+                result["mail_provider"] = "Mail.ru"
+            elif "zoho" in mx_str:
+                result["mail_provider"] = "Zoho Mail"
+            else:
+                result["mail_provider"] = mx_list[0][1] if mx_list else "Unknown"
+        except Exception:
+            result["mx"] = []
+            result["mail_provider"] = "No MX (invalid domain?)"
+
+        # A record — does domain exist?
+        try:
+            a = dns.resolver.resolve(domain, "A")
+            result["ip"] = str(list(a)[0])
+        except Exception:
+            result["ip"] = None
+
+        # WHOIS via RDAP (no external lib needed)
+        try:
+            rdap = requests.get(f"https://rdap.org/domain/{domain}", timeout=6)
+            if rdap.status_code == 200:
+                j = rdap.json()
+                events = {e["eventAction"]: e["eventDate"][:10]
+                          for e in j.get("events", []) if "eventDate" in e}
+                result["registered"] = events.get("registration", "")
+                result["updated"]    = events.get("last changed", "")
+                result["expiry"]     = events.get("expiration", "")
+                entities = j.get("entities", [])
+                registrar = next((e.get("vcardArray") for e in entities
+                                  if "registrar" in e.get("roles", [])), None)
+                if registrar:
+                    for field in registrar[1]:
+                        if field[0] == "fn":
+                            result["registrar"] = field[3]
+                            break
+        except Exception:
+            pass
+
+        # Free vs corporate
+        FREE_DOMAINS = {"gmail.com","yahoo.com","hotmail.com","outlook.com","mail.ru",
+                        "yandex.ru","protonmail.com","icloud.com","me.com","live.com",
+                        "inbox.ru","bk.ru","list.ru","proton.me","tutanota.com"}
+        result["account_type"] = "personal/free" if domain in FREE_DOMAINS else "corporate/custom"
+
+        if collected is not None:
+            collected["email_domain"] = result
+        yield send("result", {"source": "email_domain", "data": result})
+        yield send("progress", {"source": "email_domain", "status": "done",
+                                 "msg": result.get("mail_provider", domain)})
+    except Exception as e:
+        yield send("progress", {"source": "email_domain", "status": "error", "msg": str(e)})
+
 
 def search_email_holehe(query, send, collected=None):
     yield send("progress", {"source": "holehe", "status": "searching", "msg": "Running Holehe scan..."})
