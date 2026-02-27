@@ -359,8 +359,8 @@ select option{background:#050a10}
 .src-label{font-size:15px;font-weight:500}
 .pill{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.1);position:relative;transition:background .2s;flex-shrink:0}
 .src-toggle.on .pill{background:#00f0ff;box-shadow:0 0 10px rgba(0,240,255,.4)}
-.pill::after{content:'';position:absolute;top:4px;left:4px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.src-toggle.on .pill::after{transform:translateX(16px)}
+.pill::after{content:'';position:absolute;top:50%;left:4px;transform:translateY(-50%);width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.src-toggle.on .pill::after{transform:translate(16px,-50%)}
 
 .slider-val{font-size:13px;font-family:'JetBrains Mono',monospace;color:#00f0ff;background:rgba(0,240,255,.08);border:1px solid rgba(0,240,255,.2);border-radius:6px;padding:3px 9px;white-space:nowrap}
 .slider-row{display:flex;align-items:center;gap:10px;margin-top:8px}
@@ -506,7 +506,7 @@ select option{background:#050a10}
 
 /* HERO fullscreen */
 .hero-full{
-  position:fixed;inset:0;z-index:2;
+  position:fixed;inset:0;z-index:2;background:var(--bg);
   display:grid;grid-template-columns:1fr 1fr;
   transition:opacity .5s ease,visibility .5s ease;
 }
@@ -742,6 +742,36 @@ input[type=range]::-webkit-slider-thumb{
 input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 
 /* AI Select */
+/* AI toggle switch */
+.ai-toggle-wrap{display:flex;align-items:center;justify-content:space-between}
+.ai-power-btn{
+  position:relative;width:54px;height:28px;flex-shrink:0;cursor:pointer;
+}
+.ai-power-btn input{opacity:0;width:0;height:0;position:absolute}
+.ai-power-track{
+  position:absolute;inset:0;border-radius:14px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  transition:all .3s;
+}
+.ai-power-btn input:checked ~ .ai-power-track{
+  background:linear-gradient(135deg,rgba(0,240,255,.35),rgba(0,180,255,.2));
+  border-color:rgba(0,240,255,.6);
+  box-shadow:0 0 16px rgba(0,240,255,.4),inset 0 1px 0 rgba(255,255,255,.15);
+}
+.ai-power-knob{
+  position:absolute;top:50%;left:5px;width:18px;height:18px;border-radius:50%;
+  background:#fff;opacity:.35;transform:translateY(-50%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s,box-shadow .3s;
+  box-shadow:0 1px 4px rgba(0,0,0,.4);
+}
+.ai-power-btn input:checked ~ .ai-power-track ~ .ai-power-knob,
+.ai-power-btn input:checked + .ai-power-track + .ai-power-knob{
+  transform:translate(26px,-50%);opacity:1;
+  box-shadow:0 0 10px rgba(0,240,255,.8),0 1px 4px rgba(0,0,0,.3);
+  background:#00f0ff;
+}
+.ai-body{overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1),opacity .3s;max-height:200px;opacity:1}
+.ai-body.collapsed{max-height:0;opacity:0;pointer-events:none}
 .hf-ai-sel{
   width:100%;
   background:linear-gradient(135deg,rgba(0,240,255,.06),rgba(0,0,0,.35));
@@ -805,6 +835,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 
 /* Result cards */
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;margin-top:8px}
+.rcard-ai-wide{grid-column:1/-1}
 .rcard{
   background:linear-gradient(145deg,rgba(0,240,255,.06) 0%,rgba(0,0,0,.3) 100%);
   border:1px solid rgba(0,240,255,.12);border-radius:20px;padding:24px;
@@ -866,10 +897,10 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 .hf-extra.on{border-color:rgba(0,240,255,.3);background:linear-gradient(135deg,rgba(0,240,255,.1),rgba(0,240,255,.03))}
 .hf-extra-name{font-size:15px;font-weight:600;color:rgba(255,255,255,.7)}
 .hf-extra.on .hf-extra-name{color:#00f0ff}
-.hf-switch{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);position:relative;transition:all .25s;flex-shrink:0}
-.hf-extra.on .hf-switch{background:#00f0ff;border-color:#00f0ff;box-shadow:0 0 10px rgba(0,240,255,.4)}
-.hf-switch::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.hf-extra.on .hf-switch::after{transform:translateX(16px)}
+.hf-switch{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.1);position:relative;transition:all .25s;flex-shrink:0}
+.hf-extra.on .hf-switch{background:#00f0ff;box-shadow:0 0 10px rgba(0,240,255,.4)}
+.hf-switch::after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;top:50%;left:4px;transform:translateY(-50%);transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.hf-extra.on .hf-switch::after{transform:translate(16px,-50%)}
 
 /* VK card */
 .vk-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0 8px}
@@ -946,6 +977,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
   z-index:100;
 }
 [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+/* Prevent tooltip overflow on left edge */
+.hf-toggles .hf-toggle:first-child[data-tip]::after{left:0;transform:translateX(0) translateY(4px)}
+.hf-toggles .hf-toggle:first-child[data-tip]:hover::after{transform:translateX(0) translateY(0)}
+/* Prevent tooltip overflow on right edge */
+.hf-toggles .hf-toggle:last-child[data-tip]::after{left:auto;right:0;transform:translateX(0) translateY(4px)}
+.hf-toggles .hf-toggle:last-child[data-tip]:hover::after{transform:translateX(0) translateY(0)}
 
 /* Particles canvas */
 #particles{position:fixed;inset:0;z-index:0;pointer-events:none}
@@ -1013,11 +1050,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* Shimmer на sidebar карточках при hover */
-.card{position:relative;overflow:hidden}
+.card{position:relative}
 .card::after{
   content:'';position:absolute;inset:0;
   background:linear-gradient(105deg,transparent 40%,rgba(0,240,255,.04) 50%,transparent 60%);
   transform:translateX(-100%);transition:transform .6s ease;pointer-events:none;
+  border-radius:var(--r);
 }
 .card:hover::after{transform:translateX(100%)}
 
@@ -1127,6 +1165,122 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
   box-shadow:0 0 16px rgba(0,240,255,.2),inset 0 1px 0 rgba(255,255,255,.12);
 }
 
+/* ════ SETTINGS / WIZARD MODAL ════ */
+.modal-overlay{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.75);
+  backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-box{
+  width:680px;max-width:96vw;max-height:90vh;overflow-y:auto;
+  background:linear-gradient(145deg,rgba(0,15,30,.97),rgba(0,5,15,.99));
+  border:1px solid rgba(0,240,255,.25);border-radius:24px;
+  box-shadow:0 24px 80px rgba(0,0,0,.7),0 0 60px rgba(0,240,255,.08),inset 0 1px 0 rgba(255,255,255,.07);
+  padding:44px;
+  transform:translateY(20px);transition:transform .3s;
+}
+.modal-overlay.open .modal-box{transform:translateY(0)}
+.modal-box::-webkit-scrollbar{width:4px}
+.modal-box::-webkit-scrollbar-thumb{background:rgba(0,240,255,.2);border-radius:2px}
+
+.modal-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.modal-title-icon{font-size:28px}
+.modal-sub{font-size:15px;color:rgba(255,255,255,.45);margin-bottom:32px;line-height:1.6;font-family:'JetBrains Mono',monospace}
+
+.modal-section{margin-bottom:28px}
+.modal-section-title{
+  font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  font-family:'JetBrains Mono',monospace;color:rgba(0,240,255,.7);
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;
+}
+.modal-section-title::before{content:'';width:16px;height:1px;background:rgba(0,240,255,.4)}
+
+.modal-field{margin-bottom:14px}
+.modal-field label{display:block;font-size:14px;color:rgba(255,255,255,.55);font-family:'JetBrains Mono',monospace;margin-bottom:7px}
+.modal-field label a{color:rgba(0,240,255,.6);text-decoration:none}
+.modal-field label a:hover{color:#00f0ff;text-decoration:underline}
+.modal-inp{
+  width:100%;font-size:16px;padding:14px 18px;border-radius:12px;
+  background:linear-gradient(135deg,rgba(0,240,255,.05),rgba(0,0,0,.35));
+  border:1px solid rgba(0,240,255,.15);color:#fff;outline:none;
+  font-family:'JetBrains Mono',monospace;
+  box-shadow:0 2px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.06);
+  transition:border-color .2s,box-shadow .2s;
+}
+.modal-inp:focus{border-color:rgba(0,240,255,.45);box-shadow:0 0 0 3px rgba(0,240,255,.12)}
+.modal-inp::placeholder{color:rgba(255,255,255,.18)}
+.modal-inp-sublabel{font-size:12px;color:rgba(0,240,255,.45);font-family:'JetBrains Mono',monospace;text-align:center;margin-top:5px}
+
+.modal-inp-row{display:flex;gap:12px}
+.modal-inp-row .modal-inp:first-child{width:140px;flex-shrink:0}
+.modal-inp-row .modal-inp:last-child{flex:1}
+
+.modal-divider{height:1px;background:rgba(0,240,255,.08);margin:20px 0}
+
+.modal-actions{display:flex;gap:10px;margin-top:28px}
+.modal-btn-save{
+  flex:1;padding:14px;border-radius:12px;border:1px solid rgba(0,240,255,.4);cursor:pointer;
+  background:linear-gradient(135deg,rgba(0,240,255,.25),rgba(0,180,255,.12));
+  color:#00f0ff;font-family:'Inter',sans-serif;font-weight:700;font-size:16px;
+  box-shadow:0 0 24px rgba(0,240,255,.2);transition:all .25s;
+}
+.modal-btn-save:hover{background:linear-gradient(135deg,rgba(0,240,255,.4),rgba(0,200,255,.2));color:#fff;box-shadow:0 0 40px rgba(0,240,255,.35)}
+.modal-btn-cancel{
+  padding:14px 24px;border-radius:12px;border:1px solid rgba(255,255,255,.1);cursor:pointer;
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);
+  font-family:'Inter',sans-serif;font-weight:600;font-size:15px;transition:all .2s;
+}
+.modal-btn-cancel:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.8)}
+
+.modal-saved-badge{
+  display:none;align-items:center;gap:6px;
+  font-size:13px;color:#00f0ff;font-family:'JetBrains Mono',monospace;
+  padding:8px 16px;border-radius:8px;
+  background:rgba(0,240,255,.08);border:1px solid rgba(0,240,255,.2);
+  margin-top:14px;
+}
+.modal-saved-badge.show{display:flex}
+
+/* Settings gear button */
+.settings-btn{
+  position:fixed;bottom:20px;right:20px;z-index:8000;
+  width:44px;height:44px;border-radius:50%;border:1px solid rgba(0,240,255,.25);
+  background:linear-gradient(135deg,rgba(0,240,255,.12),rgba(0,0,0,.4));
+  color:#00f0ff;font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(16px);
+  box-shadow:0 4px 20px rgba(0,0,0,.4),0 0 16px rgba(0,240,255,.1);
+  transition:all .25s;
+}
+.settings-btn:hover{
+  border-color:rgba(0,240,255,.6);
+  box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 30px rgba(0,240,255,.25);
+  transform:rotate(30deg);
+}
+
+/* Wizard steps */
+.wizard-steps{display:flex;gap:8px;margin-bottom:28px}
+.wizard-step{flex:1;height:3px;border-radius:2px;background:rgba(0,240,255,.12);transition:background .4s}
+.wizard-step.done{background:#00f0ff}
+.wizard-step.active{background:linear-gradient(90deg,#00f0ff,rgba(0,240,255,.4));animation:progressScan 1.8s ease-in-out infinite}
+
+/* Hint text */
+.modal-hint{font-size:12px;color:rgba(255,255,255,.3);font-family:'JetBrains Mono',monospace;margin-top:4px;line-height:1.5}
+.modal-hint a{color:rgba(0,240,255,.5)}
+.modal-hint a:hover{color:#00f0ff}
+
+/* Status indicator next to section */
+.key-status{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-family:'JetBrains Mono',monospace;
+  padding:2px 8px;border-radius:20px;margin-left:8px;
+}
+.key-status.ok{background:rgba(0,229,150,.1);color:#00e596;border:1px solid rgba(0,229,150,.2)}
+.key-status.missing{background:rgba(255,100,100,.08);color:rgba(255,120,120,.7);border:1px solid rgba(255,100,100,.15)}
+
 </style>
 </head>
 <body>
@@ -1140,7 +1294,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
       
       <img class="hero-cat-big" src="/kiki_logo.png" alt=""><div class="hero-badge-wrap"><div class="hero-dot"></div>Kiki OSINT</div>
       <div class="hero-title">Find<br>digital<br>footprint</div>
-      <div class="hero-sub" data-i18n="hero_sub">username &middot; email &middot; phone &rarr; full digital portrait</div>
+      <div class="hero-sub" data-i18n="hero_sub">username &middot; email &rarr; full digital portrait</div>
       <div class="hero-stats">
         <div class="stat-item"><div class="stat-n">500+</div><div class="stat-l" data-i18n="stat_sites">sites</div></div>
         <div class="stat-item"><div class="stat-n">VK</div><div class="stat-l" data-i18n="stat_social">social</div></div>
@@ -1150,13 +1304,12 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
     <div class="hero-right">
       <div class="hf-group">
         <div class="hf-label" data-i18n="label_query">query</div>
-        <div class="hf-row"><input class="hf-inp" id="query" placeholder="username, email, +7..." type="text" onkeydown="if(event.key==='Enter')doSearch()"><button class="hf-btn" id="searchBtn" onclick="doSearch()" data-i18n="btn_search">Search →</button></div>
+        <div class="hf-row"><input class="hf-inp" id="query" placeholder="username, email..." type="text" onkeydown="if(event.key==='Enter')doSearch()"><button class="hf-btn" id="searchBtn" onclick="doSearch()" data-i18n="btn_search">Search →</button></div>
       </div>
       <div class="hf-group">
         <div class="hf-label" data-i18n="label_type">search type</div>
         <div class="hf-segment">
           <div class="hf-seg-btn on" data-src="username" onclick="toggleExtra(this)" data-i18n="seg_username">Username</div>
-          <div class="hf-seg-btn" data-src="phone" onclick="toggleExtra(this)" data-i18n="seg_phone">Phone</div>
           <div class="hf-seg-btn" data-src="email" onclick="toggleExtra(this)">Email</div>
         </div>
       </div>
@@ -1169,18 +1322,29 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
         <div class="hf-limit-row"><input type="range" id="siteLimit" min="10" max="500" value="100" step="10" oninput="updateSlider(this)" style="flex:1"><span class="hf-limit-val" id="limitVal">100</span></div>
       </div>
       <div class="hf-group">
-        <div class="hf-label" data-i18n="label_ai">AI analysis</div>
-        <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
-          <option value="" data-i18n="ai_disabled">— disabled —</option>
-          <option value="anthropic">Claude (Anthropic)</option>
-          <option value="openai">GPT-4 (OpenAI)</option>
-          <option value="gemini">Gemini (Google)</option>
-        </select>
-        <div id="aiKeyWrap" style="display:none"><input class="hf-inp" id="aiKey" placeholder="API key..." type="password"></div>
-        <select class="hf-ai-sel" id="aiLang" style="margin-top:6px">
-          <option value="ru">🇷🇺 Русский</option>
-          <option value="en" selected>🇬🇧 English</option>
-        </select>
+        <div class="ai-toggle-wrap">
+          <div class="hf-label" data-i18n="label_ai">AI analysis</div>
+          <label class="ai-power-btn" title="Enable / Disable AI">
+            <input type="checkbox" id="aiEnabled" checked onchange="toggleAiEnabled()">
+            <div class="ai-power-track"></div>
+            <div class="ai-power-knob"></div>
+          </label>
+        </div>
+        <div class="ai-body" id="aiBody">
+          <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
+            <option value="" data-i18n="ai_disabled">— disabled —</option>
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="openai">GPT-4 (OpenAI)</option>
+            <option value="gemini">Gemini (Google)</option>
+          </select>
+          <div id="aiKeyHint" style="display:none;font-size:12px;color:rgba(255,200,80,.8);font-family:'JetBrains Mono',monospace;margin-top:5px">
+            ⚠ No key saved — open <a href="#" onclick="openSettings();return false;" style="color:#00f0ff">⚙ Settings</a>
+          </div>
+          <select class="hf-ai-sel" id="aiLang" style="margin-top:10px">
+            <option value="ru">🇷🇺 Русский</option>
+            <option value="en" selected>🇬🇧 English</option>
+          </select>
+        </div>
       </div>
     </div>
   </div>
@@ -1228,11 +1392,10 @@ const TRANSLATIONS = {
     label_ai:          "ИИ-анализ",
     btn_search:        "Поиск →",
     seg_username:      "Никнейм",
-    seg_phone:         "Телефон",
     stat_sites:        "сайтов",
     stat_social:       "соцсети",
     stat_analysis:     "анализ",
-    hero_sub:          "никнейм · email · телефон → полный цифровой портрет",
+    hero_sub:          "никнейм · email → полный цифровой портрет",
     ai_disabled:       "— отключён —",
     sec_search:        "Поиск",
     sec_sources:       "Источники",
@@ -1243,6 +1406,8 @@ const TRANSLATIONS = {
     disc_item1:        "Анализ основан исключительно на <strong>публично доступных данных</strong> — точность не гарантируется.",
     disc_item2:        "<strong>Не все платформы</strong> могут относиться к одному человеку — один и тот же никнейм мог быть занят <strong>разными пользователями</strong> на разных сайтах.",
     disc_item3:        "Высокую уверенность имеют только профили с <strong>совпадающими аватарами, биографией или стилем.</strong>",
+    tg_id_hint:        "API ID (числа)",
+    tg_hash_hint:      "API Hash (32 символа)",
   },
   en: {
     label_query:       "query",
@@ -1251,11 +1416,10 @@ const TRANSLATIONS = {
     label_ai:          "AI analysis",
     btn_search:        "Search →",
     seg_username:      "Username",
-    seg_phone:         "Phone",
     stat_sites:        "sites",
     stat_social:       "social",
     stat_analysis:     "analysis",
-    hero_sub:          "username · email · phone → full digital portrait",
+    hero_sub:          "username · email → full digital portrait",
     ai_disabled:       "— disabled —",
     sec_search:        "Search",
     sec_sources:       "Sources",
@@ -1266,6 +1430,8 @@ const TRANSLATIONS = {
     disc_item1:        "Analysis is based exclusively on <strong>publicly available data</strong> — accuracy is not guaranteed.",
     disc_item2:        "<strong>Not all platforms</strong> may belong to the same person — the same username could be registered by <strong>different people</strong> on different sites.",
     disc_item3:        "High confidence applies only to profiles with <strong>matching avatars, bios, or writing style.</strong>",
+    tg_id_hint:        "API ID (numbers)",
+    tg_hash_hint:      "API Hash (32 chars)",
   }
 };
 let currentLang = "en";
@@ -1344,7 +1510,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   }
 
   // Typewriter placeholder
-  const placeholders=["kiki_gamingyt","user@email.com","+7 999 123-45-67","john_doe","ivan.petrov"];
+  const placeholders=["kiki_gamingyt","user@email.com","john_doe","ivan.petrov"];
   let pi=0,ci=0,deleting=false;
   const inp2=document.getElementById("query");
   if(inp2&&inp2.value===""){
@@ -1362,9 +1528,8 @@ document.addEventListener("DOMContentLoaded",()=>{
     })();
   }
 
-  // Tooltips
-  document.querySelectorAll(".hf-toggle[data-src='vk']").forEach(el=>el.setAttribute("data-tip","VKontakte social graph"));
-  document.querySelectorAll(".hf-toggle[data-src='maigret']").forEach(el=>el.setAttribute("data-tip","500+ sites username scan"));
+  // Tooltips — only for elements outside overflow containers
+  // hf-toggles are inside overflow-y:auto, skip them
 
   // Animated stat counters
   document.querySelectorAll(".stat-n").forEach(el=>{
@@ -1568,8 +1733,8 @@ function toggleExtra(el){
   const qinput=document.getElementById("query");
   if(qinput){
     const ph={
-      ru:{username:"никнейм, username...",phone:"+7 999 123 45 67",email:"user@example.com"},
-      en:{username:"username, nickname...",phone:"+1 555 000 0000",email:"user@example.com"}
+      ru:{username:"никнейм, username...",email:"user@example.com"},
+      en:{username:"username, nickname...",email:"user@example.com"}
     };
     qinput.placeholder=(ph[currentLang]||ph.en)[s]||"query...";
   }
@@ -1578,12 +1743,26 @@ function toggleExtra(el){
   if(srcGroup) srcGroup.style.display=(s==="username")?"flex":"none";
 }
 
-function toggleAiKey(){
-  const w=document.getElementById("aiKeyWrap");
-  if(w)w.style.display=document.getElementById("aiProvider").value?"block":"none";
+function toggleAiEnabled(){
+  const enabled = document.getElementById("aiEnabled").checked;
+  const body = document.getElementById("aiBody");
+  if(body) body.classList.toggle("collapsed", !enabled);
 }
 
-const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",phone:"Phone",holehe:"Holehe",hibp:"HIBP"};
+function toggleAiKey(){
+  const provider = document.getElementById("aiProvider").value;
+  const hint = document.getElementById("aiKeyHint");
+  if(!provider || !hint) return;
+  // Check if key is saved for this provider
+  const keyMap = {gemini:"GEMINI_API_KEY", openai:"OPENAI_API_KEY", anthropic:"ANTHROPIC_API_KEY"};
+  const field = keyMap[provider];
+  // We know key status from last loadSavedKeys call
+  const el = document.getElementById("status-ai");
+  const hasKey = el && el.classList.contains("ok");
+  hint.style.display = (provider && !hasKey) ? "block" : "none";
+}
+
+const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP"};
 let bars={};
 
 function initBars(sources){
@@ -1614,7 +1793,6 @@ function log(msg,type="info"){
 }
 
 function getSources(){
-  if(currentQueryType==="phone") return ["phone","vk"];
   if(currentQueryType==="email") return ["holehe","hibp"];
   return [...active];
 }
@@ -1635,7 +1813,7 @@ async function runSearch(q,sources,limit){
     const resp=await fetch("/api/search/stream",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto",ai_provider:document.getElementById("aiProvider")?.value||""})
+      body:JSON.stringify({query:q,sources:sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto",ai_provider:(document.getElementById("aiEnabled")?.checked ? document.getElementById("aiProvider")?.value : "")||""})
     });
     if(!resp.ok){log("Server error: "+resp.status,"err");return;}
 
@@ -1704,25 +1882,22 @@ async function doSearch(){
   const q=document.getElementById("query").value.trim();
   if(!q)return;
   // Auto-detect type from query
-  if(q.includes("@")){
+  if(q.includes("@") && q.includes(".")){
     currentQueryType="email";
     document.querySelectorAll(".hf-seg-btn").forEach(e=>{
       e.classList.remove("on");
       if(e.dataset.src==="email")e.classList.add("on");
     });
-  } else if(/^[+\d\s\-()]{7,}$/.test(q)){
-    currentQueryType="phone";
+  } else {
+    currentQueryType="username";
     document.querySelectorAll(".hf-seg-btn").forEach(e=>{
       e.classList.remove("on");
-      if(e.dataset.src==="phone")e.classList.add("on");
+      if(e.dataset.src==="username")e.classList.add("on");
     });
   }
   const sources=getSources();
   const limit=parseInt(document.getElementById("siteLimit").value)||100;
-  const aiProvider=document.getElementById("aiProvider").value;
-  const aiKey=document.getElementById("aiKey")?document.getElementById("aiKey").value:"";
-  await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({provider:aiProvider||null,api_key:aiKey||null})});
+  // No api/config call needed — backend loads keys from keys.json automatically
   document.getElementById("root").classList.add("active");
   const q2=document.getElementById("query2");
   if(q2)q2.value=q;
@@ -1863,7 +2038,7 @@ function renderResult(d){
       '</ul>':"");
 
   }else if(src==="ai"){
-    card.className="rcard";
+    card.className="rcard rcard-ai-wide";
     const raw=data.portrait||JSON.stringify(data);
 
     function parseMd(text){
@@ -1946,6 +2121,175 @@ function renderResult(d){
   grid.appendChild(card);
 }
 
+/* ════ SETTINGS / WIZARD ════ */
+async function loadSavedKeys(){
+  try{
+    const r=await fetch("/api/keys");
+    if(!r.ok) return null;
+    return await r.json();
+  }catch{return null;}
+}
+
+async function saveKeysToServer(obj){
+  const r=await fetch("/api/keys",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(obj)
+  });
+  return r.ok;
+}
+
+function openSettings(){
+  document.getElementById("settingsOverlay").classList.add("open");
+}
+function closeSettings(){
+  document.getElementById("settingsOverlay").classList.remove("open");
+}
+
+async function initSettings(){
+  const keys=await loadSavedKeys();
+  if(!keys) return;
+  // Populate fields with masked values
+  const fields=["VK_TOKEN",
+                 "GEMINI_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"];
+  fields.forEach(f=>{
+    const el=document.getElementById("sk_"+f);
+    if(el && keys[f]) el.placeholder=keys[f]; // show masked value as placeholder
+  });
+  // Update key status indicators FIRST (toggleAiKey depends on them)
+  updateKeyStatuses(keys);
+  // Auto-fill AI selector based on saved keys
+  const aiSel=document.getElementById("aiProvider");
+  if(aiSel){
+    const prev=aiSel.value;
+    if(!prev){
+      if(keys.GEMINI_API_KEY && keys.GEMINI_API_KEY.length>5) aiSel.value="gemini";
+      else if(keys.OPENAI_API_KEY && keys.OPENAI_API_KEY.length>5) aiSel.value="openai";
+      else if(keys.ANTHROPIC_API_KEY && keys.ANTHROPIC_API_KEY.length>5) aiSel.value="anthropic";
+    }
+    toggleAiKey(); // show/hide hint based on current provider + key status
+  }
+  // Show wizard on first launch (no keys at all)
+  if(!keys.configured){
+    setTimeout(()=>openSettings(),600);
+  }
+}
+
+function updateKeyStatuses(keys){
+  const checks={
+    "status-vk":  keys.VK_TOKEN,
+    "status-ai":  keys.GEMINI_API_KEY||keys.OPENAI_API_KEY||keys.ANTHROPIC_API_KEY,
+    "status-hibp":keys.HIBP_API_KEY
+  };
+  Object.entries(checks).forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    if(val && val.length>4){
+      el.className="key-status ok"; el.textContent="✓ saved";
+    } else {
+      el.className="key-status missing"; el.textContent="not set";
+    }
+  });
+}
+
+async function onSaveSettings(){
+  const obj={};
+  ["VK_TOKEN",
+   "GEMINI_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"].forEach(f=>{
+    const el=document.getElementById("sk_"+f);
+    if(el && el.value.trim()) obj[f]=el.value.trim();
+  });
+  const ok=await saveKeysToServer(obj);
+  if(ok){
+    const badge=document.getElementById("savedBadge");
+    if(badge){badge.classList.add("show");setTimeout(()=>badge.classList.remove("show"),2500);}
+    await initSettings(); // reload and update statuses
+    // Tell AI config about new keys
+    const aiSel=document.getElementById("aiProvider");
+    const aiKeyEl=document.getElementById("aiKey");
+    if(aiSel && aiSel.value){
+      // Reload page AI config silently
+      let newKey="";
+      const keyMap={gemini:"GEMINI_API_KEY",openai:"OPENAI_API_KEY",anthropic:"ANTHROPIC_API_KEY"};
+      const field=keyMap[aiSel.value];
+      if(field && obj[field]) newKey=obj[field];
+      if(newKey && aiKeyEl) aiKeyEl.value=newKey;
+      await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({provider:aiSel.value,api_key:newKey||aiKeyEl?.value||""})});
+    }
+    setTimeout(()=>closeSettings(),700);
+  }
+}
+
+// On page load
+window.addEventListener("DOMContentLoaded",()=>{
+  initSettings();
+  // Always show hero on fresh load (fixes black screen after search)
+  document.getElementById("root").classList.remove("active");
+});
+
+// Fix black screen on ANY reload (F5, Ctrl+R, bfcache restore)
+window.addEventListener("pageshow", function(){
+  const root=document.getElementById("root");
+  if(root) root.classList.remove("active");
+  const results=document.getElementById("results");
+  if(results) results.innerHTML="";
+  const logBox=document.getElementById("logBox");
+  if(logBox) logBox.innerHTML="";
+  const srcBars=document.getElementById("srcBars");
+  if(srcBars) srcBars.innerHTML="";
+});
+
 </script>
+
+<!-- Settings Button -->
+<button class="settings-btn" onclick="openSettings()" title="Settings / API Keys">⚙</button>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="modal-box">
+    <div class="modal-title"><span class="modal-title-icon">⚙</span> API Keys &amp; Settings</div>
+    <div class="modal-sub">Keys saved in keys.json locally — never sent anywhere except the respective API.</div>
+    <div class="modal-section">
+      <div class="modal-section-title">VKontakte <span class="key-status missing" id="status-vk">not set</span></div>
+      <div class="modal-field">
+        <label>VK Service Token — <a href="https://dev.vk.com/ru/api/access-token/getting-started" target="_blank">get token ↗</a></label>
+        <input class="modal-inp" id="sk_VK_TOKEN" type="password" placeholder="leave blank to keep current">
+        <div class="modal-hint">Create app at vk.com/dev → copy Service key.</div>
+      </div>
+    </div>
+    <div class="modal-divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">AI Analysis <span class="key-status missing" id="status-ai">not set</span></div>
+      <div class="modal-field">
+        <label>Gemini API Key — <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com ↗</a> (free)</label>
+        <input class="modal-inp" id="sk_GEMINI_API_KEY" type="password" placeholder="AIzaSy...">
+      </div>
+      <div class="modal-field">
+        <label>OpenAI API Key — <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com ↗</a></label>
+        <input class="modal-inp" id="sk_OPENAI_API_KEY" type="password" placeholder="sk-...">
+      </div>
+      <div class="modal-field">
+        <label>Anthropic (Claude) Key — <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com ↗</a></label>
+        <input class="modal-inp" id="sk_ANTHROPIC_API_KEY" type="password" placeholder="sk-ant-...">
+      </div>
+    </div>
+    <div class="modal-divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">HaveIBeenPwned <span class="key-status missing" id="status-hibp">not set</span></div>
+      <div class="modal-field">
+        <label>HIBP API Key — <a href="https://haveibeenpwned.com/API/Key" target="_blank">haveibeenpwned.com ↗</a> ($3.50/mo, optional)</label>
+        <input class="modal-inp" id="sk_HIBP_API_KEY" type="password" placeholder="optional, leave blank to keep current">
+        <div class="modal-hint">Without key, breach search may return 401 Unauthorized.</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn-save" onclick="onSaveSettings()">💾 Save Keys</button>
+      <button class="modal-btn-cancel" onclick="closeSettings()">Cancel</button>
+    </div>
+    <div class="modal-saved-badge" id="savedBadge">✓ Keys saved to keys.json</div>
+  </div>
+</div>
+
 </body>
 </html>

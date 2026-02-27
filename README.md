@@ -1,7 +1,9 @@
+:gb: English | [:ru: Russian](README_RU.md)
+
 # 🔍 Kiki OSINT — Digital Footprint Discovery Tool
 
-Инструмент для разведки цифрового следа по **username**, **email** или **номеру телефона**.  
-Поддерживает поиск по VK, Telegram, сотням сайтов через Maigret, email-сканирование через Holehe и HaveIBeenPwned, а также AI-аналитику через Claude или GPT.
+An open-source web tool for gathering public data by **username** or **email**.  
+Supports search across VK, Telegram, 500+ websites via Maigret, email checks via Holehe and HaveIBeenPwned, and AI-generated portraits via Claude, ChatGPT, or Gemini.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey)
@@ -9,26 +11,27 @@
 
 ---
 
-## 📸 Возможности
+## 📸 Features
 
-- 🔎 **Username** — поиск по VK, Telegram и 500+ сайтам (Maigret)
-- 📧 **Email** — проверка регистраций (Holehe) + утечки (HaveIBeenPwned)
-- 📱 **Телефон** — страна, оператор, часовой пояс, формат
-- 🤖 **AI-портрет** — аналитическая сводка через Claude или ChatGPT
-- ⚡ Потоковая передача результатов в реальном времени (SSE)
+- 🔎 **Username** — search across VK, Telegram and 500+ sites (Maigret)
+- 📧 **Email** — registration check (Holehe) + breach lookup (HaveIBeenPwned)
+- 🤖 **AI Portrait** — analytical summary via Claude, ChatGPT, or Gemini
+- 🌐 **Language switcher** — EN/RU interface toggle
+- ⚡ **Real-time streaming** — results appear as they arrive (SSE)
+- 💾 **Persistent API keys** — saved to local `keys.json`, survive server restarts
 
 ---
 
-## 🚀 Установка
+## 🚀 Installation
 
-### 1. Клонируй репозиторий
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/ВАШ_НИКНЕЙМ/osint-portrait.git
-cd osint-portrait
+git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git
+cd Kiki-Osint
 ```
 
-### 2. Создай виртуальное окружение
+### 2. Create a virtual environment
 
 ```bash
 python -m venv venv
@@ -40,123 +43,83 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 3. Установи зависимости
+### 3. Install dependencies
 
 ```bash
-pip install flask flask-cors vk-api telethon maigret holehe httpx beautifulsoup4 phonenumbers python-dotenv
+pip install -r requirements.txt
 ```
 
 ---
 
-## 🔑 Настройка API-ключей
+## 🔑 API Keys Setup
 
-Скопируй шаблон и заполни своими данными:
+Click **«Settings»** in the app interface and enter your keys directly in the browser — no config files needed. Keys are saved automatically to a local `keys.json` file.
 
-```bash
-cp .env.example .env
-```
+### VK Token
 
-Открой файл `.env` и вставь ключи:
+1. Open **https://vkhost.github.io/**
+2. Select the **«Kate Mobile»** app
+3. Click **«Allow»**
+4. In the URL bar, find `access_token=` and copy everything up to `&`
 
-```env
-VK_TOKEN=ваш_токен_здесь
-TG_API_ID=12345678
-TG_API_HASH=ваш_хеш_здесь
-```
+> ⚠️ This token is tied to your VK account. Never share it with anyone.
 
----
+### AI Portrait (optional)
 
-### Где взять VK Token
+Click **«Settings»** in the app and enter:
 
-1. Открой в браузере: **https://vkhost.github.io/**
-2. Выбери приложение **«Kate Mobile»**
-3. Нажми **«Разрешить»**
-4. В адресной строке найди `access_token=` и скопируй всё значение до `&`
+- **Provider**: `anthropic`, `openai`, or `google`
+- **API Key**: your key
 
-> ⚠️ Токен привязан к твоему аккаунту VK. Не передавай его никому.
-
----
-
-### Где взять Telegram API ID и Hash
-
-1. Зайди на **https://my.telegram.org**
-2. Войди со своим номером телефона
-3. Выбери **«API development tools»**
-4. Заполни форму (название приложения — любое, например `osint`)
-5. Скопируй `App api_id` → в `.env` как `TG_API_ID`
-6. Скопируй `App api_hash` → в `.env` как `TG_API_HASH`
-
----
-
-### Первый запуск Telegram (авторизация сессии)
-
-Telegram требует одноразовой авторизации через номер телефона:
-
-```bash
-python auth.py
-```
-
-Введи номер в формате `+7XXXXXXXXXX`, затем код из Telegram.  
-После этого создастся файл `osint_session.session` — он хранит сессию локально.
-
-> ⚠️ Файл `osint_session.session` содержит авторизацию твоего аккаунта — **никогда не выкладывай его в публичный репозиторий!** Он уже добавлен в `.gitignore`.
-
----
-
-### AI-портрет (опционально)
-
-AI-блок работает без ключей, если не нужен. Если хочешь включить:
-
-В интерфейсе приложения есть кнопка **«AI Config»** — там вводишь прямо в браузере:
-
-- **Provider**: `anthropic` или `openai`
-- **API Key**: твой ключ
-
-Получить ключи:
+Where to get API keys:
 - Claude: **https://console.anthropic.com** → API Keys
 - ChatGPT: **https://platform.openai.com** → API Keys
+- Gemini: **https://aistudio.google.com** → Get API key
+
+### HaveIBeenPwned API Key (optional)
+
+Required for email breach lookup. Get it at **https://haveibeenpwned.com/API/Key**
 
 ---
 
-## ▶️ Запуск
+## ▶️ Running the app
 
 ```bash
 python app.py
 ```
 
-Открой в браузере: **http://localhost:5000**
+Open in your browser: **http://localhost:5000**
+
+On first launch, the Settings modal opens automatically if no API keys are configured.
 
 ---
 
-## 📂 Структура проекта
+## 📂 Project structure
 
 ```
-osint-portrait/
-├── app.py              # Flask-сервер, API-эндпоинты
-├── config.py           # Загрузка переменных из .env
-├── auth.py             # Одноразовая авторизация Telegram
-├── vk_module.py        # Поиск по VK API
-├── tg_module.py        # Поиск по Telegram (через Telethon)
-├── maigret_module.py   # Интеграция с Maigret
-├── sources/            # Дополнительные источники
+Kiki-Osint/
+├── app.py              # Flask server, API endpoints
+├── config.py           # Environment variable loader
+├── vk_module.py        # VK API search
+├── tg_module.py        # Telegram search (via t.me scraping)
+├── maigret_module.py   # Maigret integration
+├── sources/            # Additional data sources
 ├── frontend/
-│   ├── index.html      # Интерфейс
-│   ├── layout2.css     # Стили
-│   └── kiki_logo.png   # Логотип
-├── .env.example        # Шаблон для переменных окружения
+│   ├── index.html      # UI (EN/RU)
+│   ├── layout2.css     # Styles
+│   └── kiki_logo.png   # Logo
+├── .env.example        # Environment variables template
 └── .gitignore
 ```
 
 ---
 
-## ⚠️ Важно
+## ⚠️ Disclaimer
 
-- Этот инструмент предназначен **только для легальных целей**: проверка собственного цифрового следа, OSINT-обучение, тестирование безопасности с разрешения субъекта.
-- Не используй для слежки, преследования или нарушения приватности других людей.
-- Соблюдай [Terms of Service](https://vk.com/dev/rules) используемых API.
+This tool is intended **for legal purposes only**: checking your own digital footprint, OSINT education, and security testing with the subject's consent. Do not use it for stalking, surveillance, or violating anyone's privacy.
 
 ---
 
-## 📝 Лицензия
+## 📝 License
 
-MIT — свободное использование с указанием автора.
+MIT — free to use with attribution.

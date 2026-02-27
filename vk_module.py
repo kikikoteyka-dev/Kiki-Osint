@@ -1,8 +1,11 @@
 import vk_api
-from config import VK_TOKEN
+import keys_store
 
 def get_vk_profile(user_id_or_url: str) -> dict:
     """Получает профиль пользователя VK по username, URL или ID"""
+    VK_TOKEN = keys_store.get("VK_TOKEN")
+    if not VK_TOKEN:
+        return {"error": "VK Token not configured. Open Settings (⚙) to add it."}
     try:
         session = vk_api.VkApi(token=VK_TOKEN)
         vk = session.get_api()

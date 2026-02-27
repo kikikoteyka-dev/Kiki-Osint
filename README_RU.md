@@ -1,6 +1,8 @@
-# Kiki OSINT - Инструмент разведки цифрового следа
+[:gb: English](README.md) | :ru: Русский
 
-Веб-инструмент для сбора открытых данных по username, email или номеру телефона.
+# 🔍 Kiki OSINT — Инструмент разведки цифрового следа
+
+Веб-инструмент для сбора открытых данных по **username** или **email**.  
 Поддерживает поиск по VK, Telegram, сотням сайтов через Maigret, проверку email через Holehe и HaveIBeenPwned, а также AI-аналитику через Claude, ChatGPT или Gemini.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
@@ -9,94 +11,115 @@
 
 ---
 
-## Возможности
+## 📸 Возможности
 
-- Username - поиск по VK, Telegram и 500+ сайтам (Maigret)
-- Email - проверка регистраций (Holehe) + утечки (HaveIBeenPwned)
-- Телефон - страна, оператор, часовой пояс, формат
-- AI-портрет - аналитическая сводка через Claude, ChatGPT или Gemini
-- Переключатель языка - интерфейс на русском и английском
-- Потоковая передача - результаты появляются в реальном времени (SSE)
+- 🔎 **Username** — поиск по VK, Telegram и 500+ сайтам (Maigret)
+- 📧 **Email** — проверка регистраций (Holehe) + утечки (HaveIBeenPwned)
+- 🤖 **AI-портрет** — аналитическая сводка через Claude, ChatGPT или Gemini
+- 🌐 **Переключатель языка** — интерфейс на русском и английском
+- ⚡ **Потоковая передача** — результаты появляются в реальном времени (SSE)
+- 💾 **Персистентные ключи** — сохраняются в локальный `keys.json`, не теряются при перезапуске
 
 ---
 
-## Установка
+## 🚀 Установка
 
 ### 1. Клонируй репозиторий
 
+```bash
 git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git
 cd Kiki-Osint
+```
 
 ### 2. Создай виртуальное окружение
 
+```bash
 python -m venv venv
-# Windows: venv\Scripts\activate
-# Linux/Mac: source venv/bin/activate
+
+# Windows:
+venv\Scripts\activate
+
+# Linux / Mac:
+source venv/bin/activate
+```
 
 ### 3. Установи зависимости
 
+```bash
 pip install -r requirements.txt
+```
 
 ---
 
-## Настройка API-ключей
+## 🔑 Настройка API-ключей
 
-Скопируй шаблон: cp .env.example .env
+Нажми **«Settings»** в интерфейсе приложения и введи ключи прямо в браузере — никаких конфиг-файлов не нужно. Ключи сохраняются автоматически в локальный файл `keys.json`.
 
-Открой .env и вставь ключи:
-VK_TOKEN=ваш_токен_здесь
-TG_API_ID=12345678
-TG_API_HASH=ваш_хеш_здесь
+### VK Token
 
-Где взять VK Token:
-1. Открой https://vkhost.github.io/
-2. Выбери Kate Mobile, нажми Разрешить
-3. В адресной строке найди access_token= и скопируй значение до &
+1. Открой **https://vkhost.github.io/**
+2. Выбери приложение **«Kate Mobile»**
+3. Нажми **«Разрешить»**
+4. В адресной строке найди `access_token=` и скопируй значение до `&`
 
-Где взять Telegram API:
-1. Зайди на https://my.telegram.org
-2. Выбери API development tools
-3. Скопируй App api_id и App api_hash
+> ⚠️ Токен привязан к твоему аккаунту VK. Не передавай его никому.
 
-Первый запуск Telegram: python auth.py
+### AI-портрет (опционально)
 
-AI-портрет: нажми AI Config в интерфейсе, выбери провайдера (anthropic/openai/google) и введи ключ.
+Нажми **«Settings»** и введи:
+
+- **Provider**: `anthropic`, `openai` или `google`
+- **API Key**: твой ключ
+
+Получить ключи:
+- Claude: **https://console.anthropic.com** → API Keys
+- ChatGPT: **https://platform.openai.com** → API Keys
+- Gemini: **https://aistudio.google.com** → Get API key
+
+### HaveIBeenPwned API Key (опционально)
+
+Нужен для проверки утечек email. Получить на **https://haveibeenpwned.com/API/Key**
 
 ---
 
-## Запуск
+## ▶️ Запуск
 
+```bash
 python app.py
+```
 
-Открой в браузере: http://localhost:5000
+Открой в браузере: **http://localhost:5000**
+
+При первом запуске Settings открывается автоматически, если API-ключи не настроены.
 
 ---
 
-## Структура проекта
+## 📂 Структура проекта
 
+```
 Kiki-Osint/
-|-- app.py              Flask-сервер, API-эндпоинты
-|-- config.py           Загрузка переменных из .env
-|-- auth.py             Одноразовая авторизация Telegram
-|-- vk_module.py        Поиск по VK API
-|-- tg_module.py        Поиск по Telegram (Telethon)
-|-- maigret_module.py   Интеграция с Maigret
-|-- sources/            Дополнительные источники данных
-|-- frontend/
-|   |-- index.html      Интерфейс (EN/RU)
-|   |-- layout2.css     Стили
-|   |-- kiki_logo.png   Логотип
-|-- .env.example        Шаблон переменных окружения
-|-- .gitignore
+├── app.py              # Flask-сервер, API-эндпоинты
+├── config.py           # Загрузка переменных из .env
+├── vk_module.py        # Поиск по VK API
+├── tg_module.py        # Поиск по Telegram (через t.me)
+├── maigret_module.py   # Интеграция с Maigret
+├── sources/            # Дополнительные источники данных
+├── frontend/
+│   ├── index.html      # Интерфейс (EN/RU)
+│   ├── layout2.css     # Стили
+│   └── kiki_logo.png   # Логотип
+├── .env.example        # Шаблон переменных окружения
+└── .gitignore
+```
 
 ---
 
-## Важно
+## ⚠️ Важно
 
-Инструмент предназначен только для легальных целей: проверка собственного цифрового следа, OSINT-обучение, тестирование безопасности с разрешения субъекта.
+Инструмент предназначен **только для легальных целей**: проверка собственного цифрового следа, OSINT-обучение, тестирование безопасности с разрешения субъекта. Не используй для слежки или нарушения приватности других людей.
 
 ---
 
-## Лицензия
+## 📝 Лицензия
 
-MIT - свободное использование с указанием автора.
+MIT — свободное использование с указанием автора.

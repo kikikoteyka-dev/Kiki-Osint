@@ -1,24 +1,92 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import os, json, subprocess, sys, re
-from config import GEMINI_API_KEY
+import keys_store
 
 app = Flask(__name__, static_folder="frontend")
 CORS(app)
 
-# Автоматически подставляем Gemini если ключ есть в .env
+# ════════════════════════════════════════════════
+#  KEYS STORAGE — keys.json > .env fallback
+# ════════════════════════════════════════════════
+KEYS_FILE = os.path.join(os.path.dirname(__file__), "keys.json")
+
+def load_keys():
+    return keys_store.load()
+
+def save_keys(keys: dict):
+    with open(KEYS_FILE, "w", encoding="utf-8") as f:
+        json.dump(keys, f, indent=2, ensure_ascii=False)
+
+def get_key(name: str) -> str:
+    return keys_store.get(name)
+
+# AI runtime config (updated per-request)
 AI_CONFIG = {
-    "provider": "gemini" if GEMINI_API_KEY else None,
-    "api_key": GEMINI_API_KEY if GEMINI_API_KEY else None
+    "provider": "gemini" if get_key("GEMINI_API_KEY") else None,
+    "api_key":  get_key("GEMINI_API_KEY") or None
 }
 
 @app.route("/")
 def index():
-    return send_from_directory("frontend", "index.html")
+    resp = send_from_directory("frontend", "index.html")
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.route("/kiki_logo.png")
 def kiki_logo():
     return send_from_directory("frontend", "kiki_logo.png")
+
+@app.route("/api/keys", methods=["GET"])
+def get_keys():
+    """Return saved keys (mask secrets for display)"""
+    k = load_keys()
+    def mask(v):
+        if not v or len(v) < 8: return v
+        return v[:4] + "•" * (len(v) - 8) + v[-4:]
+    return jsonify({
+        "VK_TOKEN":          mask(k.get("VK_TOKEN","")),
+        "GEMINI_API_KEY":    mask(k.get("GEMINI_API_KEY","")),
+        "OPENAI_API_KEY":    mask(k.get("OPENAI_API_KEY","")),
+        "ANTHROPIC_API_KEY": mask(k.get("ANTHROPIC_API_KEY","")),
+        "HIBP_API_KEY":      mask(k.get("HIBP_API_KEY","")),
+        "configured": bool(
+            k.get("VK_TOKEN") or
+            k.get("GEMINI_API_KEY") or k.get("OPENAI_API_KEY") or
+            k.get("ANTHROPIC_API_KEY")
+        )
+    })
+
+@app.route("/api/keys", methods=["POST"])
+def post_keys():
+    """Save keys to keys.json"""
+    global AI_CONFIG
+    data = request.json or {}
+    existing = load_keys()
+    existing = load_keys()
+
+    # Only update fields that are provided and not masked
+    for field in ["VK_TOKEN",
+                  "GEMINI_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"]:
+        val = data.get(field)
+        if val is not None and "•" not in str(val):
+            existing[field] = str(val).strip()
+
+    save_keys(existing)
+
+    # Update AI_CONFIG based on what's available
+    if existing.get("GEMINI_API_KEY"):
+        AI_CONFIG["provider"] = "gemini"
+        AI_CONFIG["api_key"]  = existing["GEMINI_API_KEY"]
+    elif existing.get("OPENAI_API_KEY"):
+        AI_CONFIG["provider"] = "openai"
+        AI_CONFIG["api_key"]  = existing["OPENAI_API_KEY"]
+    elif existing.get("ANTHROPIC_API_KEY"):
+        AI_CONFIG["provider"] = "anthropic"
+        AI_CONFIG["api_key"]  = existing["ANTHROPIC_API_KEY"]
+
+    return jsonify({"status": "ok", "configured": True})
 
 @app.route("/api/config", methods=["POST"])
 def set_config():
@@ -31,15 +99,16 @@ def set_config():
 def search_stream():
     data = request.json
     query = data.get("query", "").strip()
+    # Strip leading @ for username searches
+    if query.startswith("@"):
+        query = query[1:]
     sources = data.get("sources", ["vk", "maigret"])
     maigret_limit = int(data.get("maigret_limit", 100))
     ai_lang = data.get("ai_lang", "ru")
 
-    # Auto-detect query type from content
+    # Auto-detect query type from content (phone removed in v1.3)
     if "@" in query and "." in query.split("@")[-1]:
         query_type = "email"
-    elif re.match(r"^\+?[\d\s\-\(\)]{7,}$", query):
-        query_type = "phone"
     else:
         query_type = "username"
 
@@ -59,24 +128,31 @@ def search_stream():
                 yield from search_maigret(query, maigret_limit, send, collected)
             yield from search_telegram(query, send, collected)
 
-        elif query_type == "phone":
-            yield from search_phone(query, send, collected)
-            yield from search_vk_phone(query, send, collected)
-
         elif query_type == "email":
             yield from search_email_holehe(query, send, collected)
             yield from search_email_hibp(query, send, collected)
 
+        # AI portrait — always load key fresh from keys.json for the requested provider
         req_ai_provider = data.get("ai_provider", "")
-        if req_ai_provider and AI_CONFIG["api_key"] and AI_CONFIG["provider"]:
-            yield send("progress", {"source": "ai", "status": "searching", "msg": "Generating AI portrait..."})
-            try:
-                portrait = generate_portrait(query, query_type, AI_CONFIG, collected, ai_lang)
-                yield send("result", {"source": "ai", "data": portrait})
-                yield send("progress", {"source": "ai", "status": "done", "msg": "Done"})
-            except Exception as e:
-                yield send("result", {"source": "ai", "data": {"error": str(e)}})
-                yield send("progress", {"source": "ai", "status": "error", "msg": str(e)})
+        if req_ai_provider:
+            key_map = {
+                "gemini":    "GEMINI_API_KEY",
+                "openai":    "OPENAI_API_KEY",
+                "anthropic": "ANTHROPIC_API_KEY"
+            }
+            ai_key = get_key(key_map.get(req_ai_provider, ""))
+            if ai_key:
+                ai_cfg = {"provider": req_ai_provider, "api_key": ai_key}
+                yield send("progress", {"source": "ai", "status": "searching", "msg": "Generating AI portrait..."})
+                try:
+                    portrait = generate_portrait(query, query_type, ai_cfg, collected, ai_lang)
+                    yield send("result", {"source": "ai", "data": portrait})
+                    yield send("progress", {"source": "ai", "status": "done", "msg": "Done"})
+                except Exception as e:
+                    yield send("result", {"source": "ai", "data": {"error": str(e)}})
+                    yield send("progress", {"source": "ai", "status": "error", "msg": str(e)})
+            else:
+                yield send("progress", {"source": "ai", "status": "error", "msg": f"No API key for {req_ai_provider}. Open ⚙ Settings."})
 
         yield send("done", {})
 
@@ -125,11 +201,14 @@ def search_telegram(query, send, collected=None):
         name  = soup.select_one(".tgme_page_title span")
         bio   = soup.select_one(".tgme_page_description")
         photo = soup.select_one(".tgme_page_photo_image")
+        photo_url = ""
+        if photo:
+            photo_url = photo.get("src") or photo.get("data-src") or ""
         subs  = soup.select_one(".tgme_page_extra")
         result = {
             "name":        name.get_text(strip=True) if name else query,
             "bio":         bio.get_text(strip=True) if bio else "",
-            "photo":       photo["src"] if photo and photo.get("src") else "",
+            "photo":       photo_url,
             "subscribers": subs.get_text(strip=True) if subs else "",
             "url":         url,
             "username":    query,
@@ -300,7 +379,10 @@ def search_email_hibp(query, send, collected=None):
     yield send("progress", {"source": "hibp", "status": "searching", "msg": "Checking HaveIBeenPwned..."})
     try:
         import httpx
+        hibp_key = get_key("HIBP_API_KEY")
         headers = {"User-Agent": "OSINT-Portrait/1.0"}
+        if hibp_key:
+            headers["hibp-api-key"] = hibp_key
         url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{query}?truncateResponse=false"
         r = httpx.get(url, headers=headers, follow_redirects=True, timeout=10)
         if r.status_code == 200:
