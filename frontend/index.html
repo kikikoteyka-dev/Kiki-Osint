@@ -729,6 +729,14 @@ select option{background:#050a10}
   font-family:"JetBrains Mono",monospace;min-width:56px;text-align:right;
   text-shadow:0 0 14px rgba(0,240,255,.5);
 }
+.unlim-btn{
+  flex-shrink:0;width:36px;height:36px;border-radius:8px;border:1px solid rgba(0,240,255,.2);
+  background:rgba(0,240,255,.06);color:rgba(0,240,255,.5);font-size:20px;line-height:1;
+  cursor:pointer;transition:all .2s;font-family:"JetBrains Mono",monospace;
+}
+.unlim-btn:hover{border-color:rgba(0,240,255,.5);color:#00f0ff;background:rgba(0,240,255,.12)}
+.unlim-btn.on{border-color:#00f0ff;color:#00f0ff;background:rgba(0,240,255,.18);
+  box-shadow:0 0 12px rgba(0,240,255,.4);text-shadow:0 0 10px #00f0ff}
 input[type=range]{
   -webkit-appearance:none;height:4px;border-radius:2px;padding:0;border:none;flex:1;
   background:linear-gradient(90deg,#00f0ff var(--p,20%),rgba(0,240,255,.15) var(--p,20%));cursor:pointer;
@@ -873,6 +881,8 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 /* Maigret + Telegram row */
 .mg-tg-row{display:flex;gap:16px;align-items:stretch;grid-column:1/-1}
 .mg-tg-row #card-maigret{flex:1;min-width:0}
+#card-maigret .rlist{columns:unset;column-width:160px;gap:0}
+#card-maigret .rlist li{padding:3px 0;font-size:13px;break-inside:avoid}
 .rcard-tg{
   width:380px;flex-shrink:0;text-align:center;padding:36px 28px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1345,7 +1355,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
           <div class="hf-toggle on" data-src="vk" onclick="toggleSrc(this)"><div class="hf-dot"></div><span>VKontakte</span></div>
           <div class="hf-toggle on" data-src="maigret" onclick="toggleSrc(this)"><div class="hf-dot"></div><span>Maigret</span></div>
         </div>
-        <div class="hf-limit-row"><input type="range" id="siteLimit" min="10" max="500" value="100" step="10" oninput="updateSlider(this)" style="flex:1"><span class="hf-limit-val" id="limitVal">100</span></div>
+        <div class="hf-limit-row"><input type="range" id="siteLimit" min="10" max="500" value="100" step="10" oninput="updateSlider(this)" style="flex:1"><span class="hf-limit-val" id="limitVal">100</span><button class="unlim-btn" id="unlimBtn" onclick="toggleUnlim()" title="All sites (no limit)">∞</button></div>
       </div>
       <div class="hf-group">
         <div class="ai-toggle-wrap">
@@ -1742,6 +1752,22 @@ function updateSlider2(el){
   if(sl){sl.value=el.value;updateSlider(sl);}
 }
 
+function toggleUnlim(){
+  const btn=document.getElementById("unlimBtn");
+  const slider=document.getElementById("siteLimit");
+  const val=document.getElementById("limitVal");
+  if(!btn)return;
+  const on=btn.classList.toggle("on");
+  if(slider)slider.disabled=on;
+  if(val)val.textContent=on?"∞":slider.value;
+}
+
+function getLimit(){
+  const btn=document.getElementById("unlimBtn");
+  if(btn&&btn.classList.contains("on")) return 0;
+  return parseInt(document.getElementById("siteLimit")?.value)||100;
+}
+
 function toggleSrc(el){
   const s=el.dataset.src;
   if(active.has(s)){active.delete(s);el.classList.remove("on")}
@@ -1913,7 +1939,7 @@ async function doSearch(){
     if(btn2){btn2.disabled=true;}
     showProgress(true);
     const sources=getSources();
-    const limit=parseInt(document.getElementById("siteLimit").value)||100;
+    const limit=getLimit();
     const aiProvider=document.getElementById("aiEnabled")?.checked?document.getElementById("aiProvider")?.value:"";
     const aiLang=document.getElementById("aiLang")?.value||"auto";
     // Init bars for both query types
@@ -1947,7 +1973,7 @@ async function doSearch(){
     });
   }
   const sources=getSources();
-  const limit=parseInt(document.getElementById("siteLimit").value)||100;
+  const limit=getLimit();
   // No api/config call needed — backend loads keys from keys.json automatically
   document.getElementById("root").classList.add("active");
   const q2=document.getElementById("query2");
@@ -1959,7 +1985,7 @@ async function doSearch2(){
   const q=document.getElementById("query2").value.trim();
   if(!q)return;
   const sources=getSources();
-  const limit=parseInt(document.getElementById("siteLimit2").value)||100;
+  const limit=getLimit();
   await runSearch(q,sources,limit);
 }
 
@@ -1972,16 +1998,27 @@ function renderResult(d){
   if(!grid){grid=document.createElement("div");grid.className="rgrid";cont.appendChild(grid);}
   const src=d.source;
   const data=d.data||d;
-  // Deduplicate telegram card
-  if(src==="telegram"){
-    if(renderedOnce.has("telegram"))return;
-    renderedOnce.add("telegram");
+  // Deduplicate single-result sources
+  const singleSources=["telegram","holehe","hibp","gravatar","github_email","email_domain","github","maigret"];
+  if(singleSources.includes(src)){
+    if(renderedOnce.has(src))return;
+    renderedOnce.add(src);
   }
   const card=document.createElement("div");
 
   if(data.error){
     // For VK - don't show big empty card, just log
     if(src==="vk"){log("[vk] "+data.error,"err");return;}
+    // For HIBP no-key — show friendly card with link
+    if(src==="hibp"){
+      card.className="rcard";
+      card.innerHTML='<div class="rbadge rb-hibp">HIBP</div>'+
+        '<div style="margin-top:14px;font-size:14px;color:rgba(255,255,255,.55);line-height:1.6">'+
+        'API key required &mdash; get it at<br>'+
+        '<a href="https://haveibeenpwned.com/API/Key" target="_blank" style="color:#ff6b6b;text-decoration:none;font-family:\'JetBrains Mono\',monospace;font-size:13px">haveibeenpwned.com/API/Key</a>'+
+        '<br><span style="font-size:12px;color:rgba(255,255,255,.3)">Then add it in ⚙ Settings</span></div>';
+      grid.appendChild(card);return;
+    }
     card.className="rcard err";
     card.innerHTML='<div class="rbadge" style="background:rgba(255,68,102,.1);color:#ff6b6b;border-color:rgba(255,68,102,.2)">'+(src||"?")+'</div><div class="errmsg">'+data.error+'</div>';
     grid.appendChild(card);return;
@@ -2057,12 +2094,11 @@ function renderResult(d){
     card.innerHTML=
       '<div class="rbadge rb-email">Holehe</div>'+
       '<div class="hit-n">'+confirmed.length+'</div>'+
-      '<div class="hit-s">confirmed · '+ratelimited.length+' rate-limited</div>'+
-      (confirmed.length?'<div class="divider"></div><div class="fld-k" style="margin-bottom:6px">Confirmed registered:</div><ul class="rlist">'+
-        confirmed.map(s=>'<li style="color:var(--teal)">'+(s.site||s)+'</li>').join("")+'</ul>':'')+
-      (ratelimited.length?'<div class="divider"></div><div class="fld-k" style="margin-bottom:6px">Rate-limited (likely registered):</div><ul class="rlist" style="column-count:2">'+
-        ratelimited.map(s=>'<li style="color:rgba(255,255,255,.6)">'+(s.site||s)+'</li>').join("")+'</ul>':'')+
-      (!confirmed.length&&!ratelimited.length?'<div style="color:rgba(255,255,255,.4);margin-top:12px">No results</div>':'');
+      '<div class="hit-s">confirmed registered</div>'+
+      (confirmed.length?'<div class="divider"></div><div class="fld-k" style="margin-bottom:6px">CONFIRMED REGISTERED:</div><ul class="rlist">'+
+        confirmed.map(s=>'<li style="color:var(--teal)">&rsaquo; '+(s.site||s)+'</li>').join("")+'</ul>':
+        '<div style="color:rgba(255,255,255,.4);margin-top:12px">No results</div>')+
+      (ratelimited.length?'<div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:10px;font-family:\'JetBrains Mono\',monospace">'+ratelimited.length+' rate-limited (inconclusive)</div>':'');
 
   }else if(src==="phone"){
     card.className="rcard";

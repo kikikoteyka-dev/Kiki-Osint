@@ -103,7 +103,11 @@ def search_stream():
     if query.startswith("@"):
         query = query[1:]
     sources = data.get("sources", ["vk", "maigret"])
-    maigret_limit = int(data.get("maigret_limit", 100))
+    if not isinstance(sources, list):
+        sources = list(sources) if sources else ["vk", "maigret"]
+    sources = [s for s in sources if isinstance(s, str)]
+    maigret_limit = data.get("maigret_limit", 100)
+    maigret_limit = int(maigret_limit) if maigret_limit is not None else 100
     ai_lang = data.get("ai_lang", "ru")
 
     # Auto-detect query type from content (phone removed in v1.3)
@@ -138,6 +142,8 @@ def search_stream():
 
         # AI portrait — always load key fresh from keys.json for the requested provider
         req_ai_provider = data.get("ai_provider", "")
+        if not isinstance(req_ai_provider, str):
+            req_ai_provider = ""
         if req_ai_provider:
             key_map = {
                 "gemini":    "GEMINI_API_KEY",
@@ -264,15 +270,18 @@ def search_vk_phone(query, send, collected=None):
         yield send("progress", {"source": "vk", "status": "error", "msg": str(e)})
 
 def search_maigret(query, limit, send, collected=None):
-    yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Starting scan ({limit} sites)..."})
+    label = "all sites" if not limit else f"{limit} sites"
+    yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Starting scan ({label})..."})
     try:
         found_sites = []
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
+        cmd = [sys.executable, "-u", "-m", "maigret", query, "--no-color", "--timeout", "10"]
+        if limit and limit > 0:
+            cmd += [f"--top-sites={limit}"]
         proc = subprocess.Popen(
-            [sys.executable, "-u", "-m", "maigret", query,
-             "--no-color", f"--top-sites={limit}", "--timeout", "10"],
+            cmd,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             bufsize=1, text=True, encoding="utf-8", errors="replace", env=env
         )
