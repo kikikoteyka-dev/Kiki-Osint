@@ -861,6 +861,20 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 .rb-email{background:rgba(88,188,255,.12);color:#58bcff;border-color:rgba(88,188,255,.3)}
 .rb-hibp{background:rgba(255,68,102,.12);color:#ff6b6b;border-color:rgba(255,68,102,.3)}
 
+/* Holehe confidence list */
+.conf-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.conf-item{display:grid;grid-template-columns:90px 1fr 60px;align-items:center;gap:8px;
+  padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.conf-item:last-child{border-bottom:none}
+.conf-pill{font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:2px 7px;
+  border-radius:4px;white-space:nowrap;letter-spacing:.04em;text-align:center}
+.conf-high{background:rgba(0,229,150,.15);color:#00e596;border:1px solid rgba(0,229,150,.3)}
+.conf-med{background:rgba(240,192,64,.12);color:#f0c040;border:1px solid rgba(240,192,64,.25)}
+.conf-name{font-size:13px;color:rgba(255,255,255,.85);font-family:'JetBrains Mono',monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conf-bar{height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.conf-fill{height:100%;border-radius:2px;transition:width .3s}
+
 .r-profile{display:flex;align-items:center;gap:16px;margin-bottom:16px}
 .r-av{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(0,240,255,.3);flex-shrink:0}
 .r-name{font-size:20px;font-weight:700;color:#fff;line-height:1.2}
@@ -1012,8 +1026,8 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 /* Decorative hero-left cat */
 
 /* Big hero cat logo */
-.hero-cat-big{position:absolute;right:40px;top:3%;width:480px;height:480px;object-fit:contain;mix-blend-mode:screen;opacity:.9;pointer-events:none;filter:drop-shadow(0 0 22px rgba(0,240,255,.7)) drop-shadow(0 0 60px rgba(0,240,255,.3));z-index:1;}
-.hero-left:hover .hero-cat-big{position:absolute;right:40px;top:3%;width:480px;height:480px;object-fit:contain;mix-blend-mode:screen;opacity:.9;pointer-events:none;filter:drop-shadow(0 0 22px rgba(0,240,255,.7)) drop-shadow(0 0 60px rgba(0,240,255,.3));z-index:1;}
+.hero-cat-big{position:absolute;right:0px;top:0%;width:380px;height:380px;object-fit:contain;mix-blend-mode:screen;opacity:.85;pointer-events:none;filter:drop-shadow(0 0 18px rgba(0,240,255,.6)) drop-shadow(0 0 40px rgba(0,240,255,.25));z-index:1;}
+.hero-left:hover .hero-cat-big{position:absolute;right:0px;top:0%;width:380px;height:380px;object-fit:contain;mix-blend-mode:screen;opacity:.9;pointer-events:none;filter:drop-shadow(0 0 22px rgba(0,240,255,.7)) drop-shadow(0 0 60px rgba(0,240,255,.3));z-index:1;}
 /* Progress bar */
 .search-progress{height:2px;background:rgba(0,240,255,.08);border-radius:1px;overflow:hidden;margin-bottom:16px;display:none}
 .search-progress.active{display:block}
@@ -1104,33 +1118,32 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
 .sbar.done .sbar-st{color:rgba(0,240,255,.85)}
 .sbar.err .sbar-st{color:var(--red)}
 
-/* ════ RESPONSIVE: 1920×1080 fullscreen ≈ 687px высота браузера ════ */
+/* ════ RESPONSIVE: 100% zoom на 1920×1080 / 125% Windows scaling ≈ 690px viewport высота ════ */
 @media (max-height: 750px) {
-  /* Hero Left: space-between делит оставшееся пространство сам — увеличиваем элементы */
   .hero-left{padding:20px 52px}
-  .hero-title{font-size:clamp(68px,9.2vw,148px);line-height:.88}
-  .hero-sub{font-size:22px;line-height:1.45}
-  .hero-badge-wrap{padding:12px 28px;font-size:14px}
-  .hero-dot{width:9px;height:9px}
-  .stat-item{padding:20px 30px}
-  .stat-n{font-size:34px}
-  .stat-l{font-size:13px}
+  .hero-title{font-size:clamp(52px,7.5vw,120px);line-height:.88}
+  .hero-sub{font-size:18px}
+  .hero-badge-wrap{padding:9px 22px;font-size:12px}
+  .hero-dot{width:7px;height:7px}
+  .stat-item{padding:14px 22px}
+  .stat-n{font-size:26px}
+  .stat-l{font-size:11px}
 
-  /* Hero Right: gap:52px между группами + большие поля */
-  .hero-right{padding:24px 48px;gap:52px}
-  .hf-group{gap:13px}
-  .hf-label{font-size:13px}
-  .hf-inp{padding:22px 22px;font-size:19px}
-  .hf-btn{padding:22px 32px;font-size:19px}
-  .hf-segment{padding:5px;gap:5px}
-  .hf-seg-btn{padding:14px 18px;font-size:17px}
-  .hf-toggles{gap:12px}
-  .hf-toggle{padding:20px 22px;font-size:18px}
-  .hf-dot{width:10px;height:10px}
-  .hf-limit-row{padding:15px 20px;gap:14px}
-  .hf-limit-val{font-size:23px;min-width:52px}
-  .hf-ai-sel{padding:20px 22px;font-size:18px}
-  #aiKeyWrap .hf-inp{padding:18px 22px;font-size:17px}
+  /* Hero Right: компактные размеры чтобы всё влезало без скролла */
+  .hero-right{padding:18px 48px;gap:14px}
+  .hf-group{gap:7px}
+  .hf-label{font-size:11px}
+  .hf-inp{padding:13px 18px;font-size:15px}
+  .hf-btn{padding:13px 22px;font-size:15px}
+  .hf-segment{padding:4px;gap:4px}
+  .hf-seg-btn{padding:9px 12px;font-size:13px}
+  .hf-toggles{gap:8px}
+  .hf-toggle{padding:12px 14px;font-size:14px}
+  .hf-dot{width:7px;height:7px}
+  .hf-limit-row{padding:10px 14px;gap:12px}
+  .hf-limit-val{font-size:14px;min-width:34px}
+  .hf-ai-sel{padding:11px 16px;font-size:14px}
+  #aiKeyWrap .hf-inp{padding:11px 16px;font-size:14px}
 }
 
 @media (max-height: 650px) {
@@ -1824,7 +1837,7 @@ function toggleAiKey(){
   hint.style.display = (provider && !hasKey) ? "block" : "none";
 }
 
-const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP",telegram:"Telegram",github:"GitHub",gravatar:"Gravatar",github_email:"GitHub",email_domain:"Domain"};
+const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP",telegram:"Telegram",github:"GitHub",gravatar:"Gravatar",github_email:"GitHub",email_domain:"Domain",emailrep:"EmailRep",skype:"Skype/MS",protonmail:"ProtonMail",google_account:"Google",twitter_email:"X / Twitter"};
 let bars={};
 
 function initBars(sources){
@@ -1897,7 +1910,7 @@ async function runStream(payload){
           if(evt==="start"){
             const qt=d.type||"username";
             if(currentQueryType!=="both"){
-              const srcs=qt==="email"?["holehe","hibp","gravatar","github_email","email_domain"]:qt==="phone"?["phone","vk"]:getSources().concat(["telegram","github"]);
+              const srcs=qt==="email"?["holehe","hibp","gravatar","github_email","email_domain","emailrep","skype","protonmail","google_account","twitter_email"]:qt==="phone"?["phone","vk"]:getSources().concat(["telegram","github"]);
               initBars(srcs);
               document.querySelectorAll(".hf-seg-btn").forEach(e=>{e.classList.remove("on");if(e.dataset.src===qt)e.classList.add("on");});
             }
@@ -1943,7 +1956,7 @@ async function doSearch(){
     const aiProvider=document.getElementById("aiEnabled")?.checked?document.getElementById("aiProvider")?.value:"";
     const aiLang=document.getElementById("aiLang")?.value||"auto";
     // Init bars for both query types
-    const allSrcs=sources.concat(["telegram","github","holehe","hibp","gravatar","github_email","email_domain"]);
+    const allSrcs=sources.concat(["telegram","github","holehe","hibp","gravatar","github_email","email_domain","emailrep","skype","protonmail","google_account","twitter_email"]);
     initBars(allSrcs);
     // Username search first
     await runStream({query:q,sources,maigret_limit:limit,query_type:"username",ai_lang:aiLang,ai_provider:""});
@@ -1999,7 +2012,7 @@ function renderResult(d){
   const src=d.source;
   const data=d.data||d;
   // Deduplicate single-result sources
-  const singleSources=["telegram","holehe","hibp","gravatar","github_email","email_domain","github","maigret"];
+  const singleSources=["telegram","holehe","hibp","gravatar","github_email","email_domain","github","maigret","emailrep","skype","protonmail","google_account","twitter_email"];
   if(singleSources.includes(src)){
     if(renderedOnce.has(src))return;
     renderedOnce.add(src);
@@ -2088,17 +2101,29 @@ function renderResult(d){
     return;
 
   }else if(src==="holehe"){
-    const confirmed=data.found||[];
-    const ratelimited=data.rate_limited||[];
+    const allSites=(data.sites||[]).concat(
+      // fallback for old format
+      (data.sites ? [] : (data.found||[]).map(s=>({...s,confidence:100,label:"Confirmed"}))
+        .concat((data.rate_limited||[]).map(s=>({...s,confidence:60,label:"Likely"}))))
+    );
+    const confirmed = allSites.filter(s=>s.confidence===100);
+    const likely    = allSites.filter(s=>s.confidence<100);
     card.className="rcard";
+    const renderSite = s => {
+      const pill = s.confidence===100
+        ? '<span class="conf-pill conf-high">✓ Confirmed</span>'
+        : '<span class="conf-pill conf-med">~ Likely</span>';
+      const bar  = `<div class="conf-bar"><div class="conf-fill" style="width:${s.confidence}%;background:${s.confidence===100?'#00e596':'#f0c040'}"></div></div>`;
+      const link = s.url ? `<a href="${s.url}" target="_blank" style="color:inherit;text-decoration:none">${s.site} →</a>` : s.site;
+      return `<li class="conf-item">${pill}<span class="conf-name">${link}</span>${bar}</li>`;
+    };
     card.innerHTML=
       '<div class="rbadge rb-email">Holehe</div>'+
-      '<div class="hit-n">'+confirmed.length+'</div>'+
-      '<div class="hit-s">confirmed registered</div>'+
-      (confirmed.length?'<div class="divider"></div><div class="fld-k" style="margin-bottom:6px">CONFIRMED REGISTERED:</div><ul class="rlist">'+
-        confirmed.map(s=>'<li style="color:var(--teal)">&rsaquo; '+(s.site||s)+'</li>').join("")+'</ul>':
-        '<div style="color:rgba(255,255,255,.4);margin-top:12px">No results</div>')+
-      (ratelimited.length?'<div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:10px;font-family:\'JetBrains Mono\',monospace">'+ratelimited.length+' rate-limited (inconclusive)</div>':'');
+      '<div class="hit-n" style="color:'+(confirmed.length?'#00e596':'rgba(255,255,255,.4)')+'">'+confirmed.length+'</div>'+
+      '<div class="hit-s">confirmed · <span style="color:#f0c040">'+likely.length+' likely</span></div>'+
+      (allSites.length ? '<div class="divider"></div><ul class="conf-list">'+
+        allSites.map(renderSite).join("")+
+      '</ul>' : '<div style="color:rgba(255,255,255,.4);margin-top:12px">No results</div>');
 
   }else if(src==="phone"){
     card.className="rcard";
@@ -2197,6 +2222,102 @@ function renderResult(d){
         urls.map(u=>'<li><a href="'+u+'" target="_blank" style="color:rgba(0,240,255,.7)">'+u+'</a></li>').join("")+'</ul>':'')+
       '<div class="divider"></div>'+
       '<a href="'+data.profile_url+'" target="_blank" class="tg-link">Open Gravatar ↗</a>';
+
+  }else if(src==="emailrep"){
+    const rep=data.reputation||"none";
+    const repColor={high:"#00e596",medium:"#f0c040",low:"#ff6b6b",none:"rgba(255,255,255,.35)"}[rep]||"rgba(255,255,255,.35)";
+    const repIcon={high:"●",medium:"◑",low:"○",none:"–"}[rep]||"–";
+    const flags=[];
+    if(data.suspicious)       flags.push({t:"⚠ Suspicious",c:"#ff6b6b"});
+    if(data.spam)             flags.push({t:"⚑ Spam",c:"#ff6b6b"});
+    if(data.malicious_activity) flags.push({t:"☣ Malicious",c:"#ff6b6b"});
+    if(data.credentials_leaked) flags.push({t:"🔑 Creds leaked",c:"#f0c040"});
+    if(data.data_breach)      flags.push({t:"💥 Breach",c:"#f0c040"});
+    const profiles=data.profiles||[];
+    card.className="rcard";
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(120,80,255,.12);color:#a78bfa;border-color:rgba(120,80,255,.3)">EmailRep</div>'+
+      '<div style="display:flex;align-items:baseline;gap:10px;margin:10px 0 4px">'+
+        '<span style="font-size:36px;font-weight:700;color:'+repColor+';font-family:\'JetBrains Mono\',monospace;line-height:1">'+repIcon+'</span>'+
+        '<span style="font-size:20px;font-weight:600;color:'+repColor+';text-transform:capitalize">'+rep+'</span>'+
+        '<span style="font-size:12px;color:rgba(255,255,255,.35);font-family:\'JetBrains Mono\',monospace">reputation</span>'+
+      '</div>'+
+      (data.references?'<div style="font-size:12px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace;margin-bottom:10px">'+data.references+' references online</div>':'')+
+      (flags.length?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">'+
+        flags.map(f=>'<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.06);color:'+f.c+'">'+f.t+'</span>').join("")+
+      '</div>':'')+
+      (data.first_seen&&data.first_seen!=="unknown"?
+        '<div style="font-size:12px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace">first seen: '+data.first_seen+'</div>':'')+ 
+      (profiles.length?'<div class="divider"></div><div style="font-size:11px;color:rgba(0,240,255,.5);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Profiles found</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
+        profiles.map(p=>'<span style="font-size:12px;padding:2px 8px;border-radius:4px;background:rgba(0,240,255,.08);color:rgba(0,240,255,.8);font-family:\'JetBrains Mono\',monospace">'+p+'</span>').join("")+
+        '</div>':'');
+
+  }else if(src==="skype"){
+    card.className="rcard";
+    const exists=data.account_exists;
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(0,120,215,.12);color:#00aff0;border-color:rgba(0,120,215,.3)">Microsoft</div>'+
+      '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
+        '<span style="font-size:32px">'+(exists?"✓":"✗")+'</span>'+
+        '<div>'+
+          '<div style="font-size:16px;font-weight:600;color:'+(exists?"#00e596":"rgba(255,255,255,.4)")+'">'+
+            (exists?"Account found":"No account")+'</div>'+
+          '<div style="font-size:12px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace;margin-top:2px">Microsoft / Skype</div>'+
+        '</div>'+
+      '</div>';
+
+  }else if(src==="protonmail"){
+    card.className="rcard";
+    const exists=data.exists;
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(109,74,255,.12);color:#9b7ff4;border-color:rgba(109,74,255,.3)">ProtonMail</div>'+
+      '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
+        '<span style="font-size:32px">'+(exists?"🔒":"✗")+'</span>'+
+        '<div>'+
+          '<div style="font-size:16px;font-weight:600;color:'+(exists?"#9b7ff4":"rgba(255,255,255,.4)")+'">'+
+            (exists?"ProtonMail account found":"Not a ProtonMail address")+'</div>'+
+          (exists&&data.key_count?'<div style="font-size:12px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace;margin-top:2px">'+data.key_count+' PGP key'+(data.key_count!==1?"s":"")+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      (exists&&data.key_fingerprints&&data.key_fingerprints.length?
+        '<div class="divider"></div>'+
+        '<div style="font-size:11px;color:rgba(255,255,255,.3);font-family:\'JetBrains Mono\',monospace">'+
+        data.key_fingerprints.map(f=>'<div>'+f+'…</div>').join("")+
+        '</div>':'');
+
+  }else if(src==="google_account"){
+    card.className="rcard";
+    const exists=data.exists;
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(255,255,255,.06);color:#e8eaed;border-color:rgba(255,255,255,.15)">Google</div>'+
+      '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
+        (data.photo?'<img src="'+data.photo+'" style="width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.2)">':
+          '<span style="font-size:32px">'+(exists?"✓":"✗")+'</span>')+
+        '<div>'+
+          '<div style="font-size:16px;font-weight:600;color:'+(exists?"#e8eaed":"rgba(255,255,255,.4)")+'">'+
+            (data.name||( exists?"Google account found":"No Google account"))+'</div>'+
+          (data.name?'<div style="font-size:12px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace;margin-top:2px">Google account</div>':'')+
+        '</div>'+
+      '</div>'+
+      (data.services&&data.services.length?
+        '<div class="divider"></div><div style="display:flex;flex-wrap:wrap;gap:5px">'+
+        data.services.map(s=>'<span style="font-size:12px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6)">'+s+'</span>').join("")+
+        '</div>':'');
+
+  }else if(src==="twitter_email"){
+    card.className="rcard";
+    const exists=data.exists;
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(0,0,0,.2);color:#e7e9ea;border-color:rgba(255,255,255,.15)">𝕏 / Twitter</div>'+
+      '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
+        '<span style="font-size:32px">'+(exists?"✓":"✗")+'</span>'+
+        '<div>'+
+          '<div style="font-size:16px;font-weight:600;color:'+(exists?"#e7e9ea":"rgba(255,255,255,.4)")+'">'+
+            (exists?"Account registered":"No X/Twitter account")+'</div>'+
+          (data.obfuscated_email?'<div style="font-size:12px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace;margin-top:2px">'+data.obfuscated_email+'</div>':'')+
+        '</div>'+
+      '</div>';
 
   }else if(src==="ai"){
     card.className="rcard rcard-ai-wide";
@@ -2549,6 +2670,8 @@ window.addEventListener("pageshow", function(){
     <div class="modal-saved-badge" id="savedBadge">✓ Keys saved to keys.json</div>
   </div>
 </div>
+
+
 
 </body>
 </html>
