@@ -3,7 +3,8 @@ from flask_cors import CORS
 import os, json, subprocess, sys, re, requests
 import keys_store
 
-app = Flask(__name__, static_folder="frontend")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "frontend"))
 CORS(app)
 
 # ════════════════════════════════════════════════
@@ -29,14 +30,14 @@ AI_CONFIG = {
 
 @app.route("/")
 def index():
-    resp = send_from_directory("frontend", "index.html")
+    resp = send_from_directory(os.path.join(BASE_DIR, "frontend"), "index.html")
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     return resp
 
 @app.route("/kiki_logo.png")
 def kiki_logo():
-    return send_from_directory("frontend", "kiki_logo.png")
+    return send_from_directory(os.path.join(BASE_DIR, "frontend"), "kiki_logo.png")
 
 @app.route("/api/keys", methods=["GET"])
 def get_keys():
@@ -723,5 +724,5 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
     return {"error": "Unknown provider"}
 
 if __name__ == "__main__":
-    os.makedirs("frontend", exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "frontend"), exist_ok=True)
     app.run(debug=False, port=5000, threaded=True)
