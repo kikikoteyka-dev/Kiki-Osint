@@ -716,9 +716,12 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
         return {"portrait": resp.choices[0].message.content}
 
     elif config["provider"] == "gemini":
-        from google import genai
+        try:
+            from google import genai
+        except ImportError:
+            return {"error": "google-genai not installed. Run: py -m pip install google-genai"}
         client = genai.Client(api_key=config["api_key"])
-        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         return {"portrait": resp.text}
 
     return {"error": "Unknown provider"}
