@@ -3,6 +3,8 @@ from flask_cors import CORS
 import os, json, subprocess, sys, re, requests, shutil, socket, contextlib, threading
 import keys_store
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # ════════════════════════════════════════════════
 #  GEMINI DNS ROUTING via xbox-dns.ru
 #  Resolves generativelanguage.googleapis.com
@@ -91,7 +93,7 @@ _HOLEHE_PYTHON  = _find_python_with("holehe")
 # Кешируем Gemini IP при старте (в фоне, не блокируем запуск)
 threading.Thread(target=_resolve_gemini_ip, daemon=True).start()
 
-app = Flask(__name__, static_folder="frontend")
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "frontend"))
 CORS(app)
 
 # ════════════════════════════════════════════════
@@ -117,7 +119,7 @@ AI_CONFIG = {
 
 @app.route("/")
 def index():
-    resp = send_from_directory("frontend", "index.html")
+    resp = send_from_directory(os.path.join(BASE_DIR, "frontend"), "index.html")
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
@@ -126,7 +128,7 @@ def index():
 
 @app.route("/kiki_logo.png")
 def kiki_logo():
-    return send_from_directory("frontend", "kiki_logo.png")
+    return send_from_directory(os.path.join(BASE_DIR, "frontend"), "kiki_logo.png")
 
 @app.route("/api/keys", methods=["GET"])
 def get_keys():
@@ -1167,5 +1169,5 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
     return {"error": "Unknown provider"}
 
 if __name__ == "__main__":
-    os.makedirs("frontend", exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "frontend"), exist_ok=True)
     app.run(debug=False, port=5000, threaded=True)
