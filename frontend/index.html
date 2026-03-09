@@ -317,6 +317,7 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:13px;height:13px;
 .nf-title{font-size:13px;font-weight:600;color:var(--fg)}
 .nf-sub{font-size:11px;color:var(--fg3)}
 
+
 /* RESULTS */
 .resa{flex:1;overflow-y:auto;padding:20px;display:none}
 #root.on .resa{display:block}
@@ -345,8 +346,27 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:13px;height:13px;
 .ck{color:var(--fg4);min-width:60px;flex-shrink:0;font-size:10px}
 .cv{color:var(--fg2);word-break:break-all}
 .cv a{color:var(--fg2)}.cv a:hover{color:var(--fg)}
-.aic{grid-column:1/-1;background:rgba(0,0,0,.015);border:1px solid rgba(0,0,0,.1)}
-.ait2{font-size:11px;line-height:1.75;color:var(--fg2);white-space:pre-wrap}
+.aic{grid-column:1/-1}
+.rb-ai{background:rgba(108,99,255,.08);color:#6c52d0;border:1px solid rgba(108,99,255,.18)}
+.ai-section{margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(0,0,0,.06)}
+.ai-section:last-child{margin-bottom:0;border-bottom:none;padding-bottom:0}
+.ai-sec-title{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;font-family:var(--f);color:#6c52d0;margin-bottom:8px;display:flex;align-items:center;gap:8px;padding:5px 9px;background:rgba(108,99,255,.05);border-radius:4px;border-left:2px solid rgba(108,99,255,.4)}
+.ai-para{font-size:11px;line-height:1.8;color:var(--fg2)}
+.ai-para+.ai-para{margin-top:6px}
+.ai-para strong{color:var(--fg);font-weight:600}
+.ai-para em{color:var(--fg3);font-style:italic}
+.ai-ul{list-style:none;padding:0;margin:4px 0;display:flex;flex-direction:column;gap:5px}
+.ai-ul li{display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.65;color:var(--fg2)}
+.ai-ul li strong{color:var(--fg)}
+.ai-ul li::before{content:'›';color:#9c7fff;font-size:13px;line-height:1.4;flex-shrink:0}
+.ai-disclaimer-block{margin-top:20px;border-radius:6px;overflow:hidden;border:1px solid rgba(180,130,0,.2);background:rgba(180,130,0,.04)}
+.ai-disc-header{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(180,130,0,.07);border-bottom:1px solid rgba(180,130,0,.12)}
+.ai-disc-icon{font-size:14px;flex-shrink:0}
+.ai-disc-title{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-family:var(--f);color:rgba(120,80,0,.85)}
+.ai-disc-items{padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.ai-disc-item{display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.6;color:rgba(100,60,0,.7)}
+.ai-disc-bullet{color:rgba(160,100,0,.6);font-size:7px;flex-shrink:0;margin-top:4px}
+.ai-disc-item strong{color:rgba(120,70,0,.9);font-weight:600}
 .card{position:relative}
 .card::before{content:'';position:absolute;inset:0;margin:auto;aspect-ratio:1;z-index:-1;
   background:radial-gradient(circle,rgba(42,171,238,.09),transparent 80%);
@@ -454,6 +474,7 @@ document.getElementById('main').innerHTML = `
     </div>
   </div>
   <div class="loga" id="loga"></div>
+
   <div class="resa"><div class="rg" id="rg"></div></div>
 </div>`;
 </script>
@@ -801,10 +822,47 @@ function renderCard(src,data){
       c.style.setProperty('--src-color',SRC_COLORS.hibp);addPixelEffect(c,SRC_COLORS.hibp);g.appendChild(c);});return;
   }
   if(src==='ai'){
-    var port=data.portrait||'';
+    var raw=data.portrait||JSON.stringify(data);
     var c=document.createElement('div');c.className='card aic';
-    c.innerHTML='<div class="ch"><div><div class="cs">AI PORTRAIT</div></div></div>'+
-      '<div class="ait2">'+port+'</div>';
+    function parseMd(t){return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');}
+    var lines=raw.split('\n'),i=0;
+    var html='<div class="ch"><div><div class="cs">AI PORTRAIT</div></div></div>';
+    while(i<lines.length){
+      var line=lines[i].replace(/\s+$/,'');
+      if(/^#{1,3}\s/.test(line)){
+        var title=line.replace(/^#+\s*/,'');
+        html+='<div class="ai-section"><div class="ai-sec-title">'+parseMd(title)+'</div>';
+        var body='',ulItems=[];i++;
+        while(i<lines.length&&!/^#{1,3}\s/.test(lines[i])){
+          var l=lines[i].replace(/\s+$/,'');
+          if(/^\s*[\*\-]\s/.test(l)){
+            if(body){html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';body='';}
+            ulItems.push(l.replace(/^\s*[\*\-]\s*/,''));
+          }else{
+            if(ulItems.length){html+='<ul class="ai-ul">'+ulItems.map(function(x){return'<li>'+parseMd(x)+'</li>';}).join('')+'</ul>';ulItems=[];}
+            if(l)body+=(body?' ':'')+l;else if(body){html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';body='';}
+          }
+          i++;
+        }
+        if(ulItems.length)html+='<ul class="ai-ul">'+ulItems.map(function(x){return'<li>'+parseMd(x)+'</li>';}).join('')+'</ul>';
+        if(body)html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';
+        html+='</div>';
+      }else if(/^\s*[\*\-]\s/.test(line)){
+        var ul2=[];
+        while(i<lines.length&&/^\s*[\*\-]\s/.test(lines[i])){ul2.push(lines[i].replace(/^\s*[\*\-]\s*/,'').replace(/\s+$/,''));i++;}
+        html+='<ul class="ai-ul">'+ul2.map(function(x){return'<li>'+parseMd(x)+'</li>';}).join('')+'</ul>';
+      }else if(line){html+='<div class="ai-para">'+parseMd(line)+'</div>';i++;}
+      else{i++;}
+    }
+    var dt=LANG[aiLang]||LANG.en;
+    html+='<div class="ai-disclaimer-block">'+
+      '<div class="ai-disc-header"><span class="ai-disc-icon">⚠</span><span class="ai-disc-title">'+(dt.disc_title||'Analysis Limitations')+'</span></div>'+
+      '<div class="ai-disc-items">'+
+        '<div class="ai-disc-item"><span class="ai-disc-bullet">◆</span><span>'+(dt.disc_item1||'')+'</span></div>'+
+        '<div class="ai-disc-item"><span class="ai-disc-bullet">◆</span><span>'+(dt.disc_item2||'')+'</span></div>'+
+        '<div class="ai-disc-item"><span class="ai-disc-bullet">◆</span><span>'+(dt.disc_item3||'')+'</span></div>'+
+      '</div></div>';
+    c.innerHTML=html;
     g.appendChild(c);return;
   }
   if(src==='telegram'){
@@ -885,9 +943,7 @@ function analyzeConnections(){
       var el=cardPool[idx].el;
       el.classList.add('conn');
       el.style.setProperty('--conn-color',g.color);
-      var badge=document.createElement('span');
-      badge.className='conn-badge';
-      badge.textContent='🔗';
+      var badge=document.createElement('span');badge.className='conn-badge';badge.textContent='🔗';
       el.appendChild(badge);
     });
     var srcs=g.indices.map(function(i){return cardPool[i].src;}).join(' ↔ ');
@@ -1019,6 +1075,10 @@ var LANG = {
     mode_user:'USER', mode_email:'ПОЧТА', mode_both:'ОБА',
     settings:'НАСТРОЙКИ',
     online:'В СЕТИ',
+    disc_title:'Предупреждение об ограничениях анализа',
+    disc_item1:'Анализ основан исключительно на <strong>публично доступных данных</strong> — точность не гарантируется.',
+    disc_item2:'<strong>Не все платформы</strong> могут относиться к одному человеку — один и тот же никнейм мог быть занят <strong>разными пользователями</strong>.',
+    disc_item3:'Высокую уверенность имеют только профили с <strong>совпадающими аватарами, биографией или стилем.</strong>',
   },
   en: {
     mode:'MODE', sources:'SOURCES', ai_section:'AI ANALYSIS', status:'STATUS',
@@ -1029,6 +1089,10 @@ var LANG = {
     mode_user:'USER', mode_email:'EMAIL', mode_both:'BOTH',
     settings:'SETTINGS',
     online:'ONLINE',
+    disc_title:'Analysis Limitations Warning',
+    disc_item1:'Analysis is based exclusively on <strong>publicly available data</strong> — accuracy is not guaranteed.',
+    disc_item2:'<strong>Not all platforms</strong> may belong to the same person — the same username could be registered by <strong>different people</strong>.',
+    disc_item3:'High confidence applies only to profiles with <strong>matching avatars, bios, or writing style.</strong>',
   }
 };
 
