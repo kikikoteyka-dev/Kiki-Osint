@@ -1165,8 +1165,7 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
         except ImportError:
             return {"error": "google-genai not installed. Run: py -m pip install google-genai"}
         client = genai.Client(api_key=config["api_key"])
-        with _gemini_dns_ctx():
-            resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         return {"portrait": resp.text}
 
     return {"error": "Unknown provider"}
