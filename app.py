@@ -1,7 +1,54 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
-import os, json, subprocess, sys, re, requests, shutil
+import os, json, subprocess, sys, re, requests, shutil, socket, contextlib, threading
 import keys_store
+
+# ════════════════════════════════════════════════
+#  GEMINI DNS ROUTING via xbox-dns.ru
+#  Resolves generativelanguage.googleapis.com
+#  through xbox-dns.ru nameservers so Gemini works
+#  in regions where Google AI is blocked.
+# ════════════════════════════════════════════════
+_GEMINI_HOST  = "generativelanguage.googleapis.com"
+_XBOX_DNS_NS  = ["176.99.11.77", "80.78.247.254"]
+_gemini_ip    = None
+_dns_lock     = threading.Lock()
+
+def _resolve_gemini_ip():
+    global _gemini_ip
+    if _gemini_ip:
+        return _gemini_ip
+    try:
+        import dns.resolver
+        r = dns.resolver.Resolver(configure=False)
+        r.nameservers = _XBOX_DNS_NS
+        r.timeout = 3
+        r.lifetime = 5
+        _gemini_ip = str(r.resolve(_GEMINI_HOST, "A")[0])
+        print(f"[Gemini DNS] {_GEMINI_HOST} → {_gemini_ip} (via xbox-dns.ru)")
+    except Exception as e:
+        print(f"[Gemini DNS] resolve failed: {e} — falling back to system DNS")
+        _gemini_ip = None
+    return _gemini_ip
+
+@contextlib.contextmanager
+def _gemini_dns_ctx():
+    """Temporarily patch socket.getaddrinfo so Gemini API calls use xbox-dns.ru resolved IP."""
+    ip = _resolve_gemini_ip()
+    if not ip:
+        yield
+        return
+    orig = socket.getaddrinfo
+    def _patched(host, port, *args, **kwargs):
+        if host == _GEMINI_HOST:
+            return orig(ip, port, *args, **kwargs)
+        return orig(host, port, *args, **kwargs)
+    with _dns_lock:
+        socket.getaddrinfo = _patched
+        try:
+            yield
+        finally:
+            socket.getaddrinfo = orig
 
 def _nw():
     """Скрыть CMD-окно при запуске дочерних процессов на Windows."""
@@ -41,6 +88,8 @@ def _find_python_with(package):
 # Кеш — ищем один раз при старте
 _MAIGRET_PYTHON = _find_python_with("maigret")
 _HOLEHE_PYTHON  = _find_python_with("holehe")
+# Кешируем Gemini IP при старте (в фоне, не блокируем запуск)
+threading.Thread(target=_resolve_gemini_ip, daemon=True).start()
 
 app = Flask(__name__, static_folder="frontend")
 CORS(app)
@@ -1111,7 +1160,8 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
     elif config["provider"] == "gemini":
         from google import genai
         client = genai.Client(api_key=config["api_key"])
-        resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        with _gemini_dns_ctx():
+            resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         return {"portrait": resp.text}
 
     return {"error": "Unknown provider"}
