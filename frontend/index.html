@@ -40,7 +40,7 @@ body{font-family:var(--f);color:var(--fg);font-size:13px}
   <div class="tb">
     <div class="tbl"><span class="logo">KIKI_OSINT</span><span class="ver">v1.5.1</span>
       <span class="sts"><span class="std"></span>ONLINE</span></div>
-    <div class="tbr"><button class="xb">RU</button><button class="xb">SETTINGS</button></div>
+    <div class="tbr"><button class="xb">EN</button><button class="xb">SETTINGS</button></div>
   </div>
   <div class="main" id="main"></div>
 </div>
@@ -454,8 +454,8 @@ document.getElementById('main').innerHTML = `
         <option value="anthropic">Anthropic</option>
       </select>
       <div class="lngs">
-        <button class="lng on" data-lang="ru">RU</button>
-        <button class="lng" data-lang="en">EN</button>
+        <button class="lng" data-lang="ru">RU</button>
+        <button class="lng on" data-lang="en">EN</button>
       </div>
     </div>
   </div>
@@ -621,7 +621,7 @@ document.getElementById('main').innerHTML = `
 <script>
 // ── APP STATE ────────────────────────────────────────────────────────────────
 var root=document.getElementById('root');
-var qType='user', aiLang='ru', unlim=false, aborted=false, reader=null;
+var qType='user', aiLang='en', unlim=false, aborted=false, reader=null;
 var cardPool=[];
 var seenSrcs=new Set();
 
@@ -1098,7 +1098,6 @@ var LANG = {
 
 function applyLang(lang) {
   var t = LANG[lang] || LANG.en;
-  aiLang = lang;
 
   // Section headings — find by text content
   document.querySelectorAll('.sh').forEach(function(el) {
@@ -1148,16 +1147,12 @@ function applyLang(lang) {
     onlineTxt.appendChild(document.createTextNode(t.online));
   }
 
-  // Sync sidebar lng buttons
-  document.querySelectorAll('.lng').forEach(function(b) {
-    b.classList.toggle('on', b.dataset.lang === lang);
-  });
 }
 
 // Topbar RU/EN button
 (function(){
   var btn = document.querySelector('.tbr .xb:first-child');
-  var cur = 'ru';
+  var cur = 'en';
   btn.addEventListener('click', function(){
     cur = cur === 'ru' ? 'en' : 'ru';
     btn.textContent = cur.toUpperCase();
@@ -1165,12 +1160,13 @@ function applyLang(lang) {
   });
 })();
 
-// Sidebar lng buttons sync
+applyLang('en');
+
+// Sidebar AI lang buttons — only change aiLang, not UI language
 document.querySelectorAll('.lng').forEach(function(b){
   b.addEventListener('click', function(){
-    var lang = b.dataset.lang;
-    document.querySelector('.tbr .xb:first-child').textContent = lang.toUpperCase();
-    applyLang(lang);
+    aiLang = b.dataset.lang;
+    document.querySelectorAll('.lng').forEach(function(x){ x.classList.toggle('on', x===b); });
   });
 });
 
