@@ -4,6 +4,18 @@ keys.json
 *.session
 *.session-journal
 
+# KikiHub sensitive
+kiki_hub/keys.json
+kiki_hub/*.pcap
+kiki_hub/*.hc22000
+kiki_hub/*.potfile
+kiki_hub/hashes/
+kiki_hub/_*.py
+kiki_hub/*.gif
+kiki_hub/wifi_cracker/hashes/
+kiki_hub/wifi_cracker/rockyou.txt
+kiki_hub/wifi_cracker/weakpass*
+
 # Python кэш
 __pycache__/
 *.pyc

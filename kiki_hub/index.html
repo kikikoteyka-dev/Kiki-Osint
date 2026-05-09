@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KikiHub</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --a:#42f5ef;--bg:#071318;--t1:#e8fffe;
+  --t2:rgba(200,250,248,.65);--t3:rgba(160,240,236,.36);
+  --g-sh2:0 8px 44px rgba(0,0,0,.65);
+  --g-spec:inset 0 1.5px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(0,10,20,.25);
+  --blur:blur(52px) saturate(240%) brightness(1.08);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t1);font-family:'Outfit',sans-serif}
+.bg-orbs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-orbs span{position:absolute;border-radius:50%;animation:orbDrift ease-in-out infinite}
+.bg-orbs span:nth-child(1){width:1200px;height:900px;background:radial-gradient(ellipse at 35% 40%,rgba(0,220,210,.22) 0%,rgba(0,80,120,.04) 60%,transparent 72%);filter:blur(60px);top:-25%;left:-20%;animation-duration:28s}
+.bg-orbs span:nth-child(2){width:900px;height:800px;background:radial-gradient(ellipse at 50% 50%,rgba(20,200,230,.16) 0%,transparent 68%);filter:blur(80px);top:25%;right:-20%;animation-duration:36s;animation-delay:-12s}
+.bg-orbs span:nth-child(3){width:700px;height:700px;background:radial-gradient(ellipse at 50% 50%,rgba(0,230,200,.12) 0%,transparent 70%);filter:blur(90px);bottom:-25%;left:30%;animation-duration:44s;animation-delay:-8s}
+@keyframes orbDrift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(55px,-40px) scale(1.06)}66%{transform:translate(-18px,52px) scale(.94)}}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:256px 256px}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(66,245,239,.007) 1px,transparent 1px),linear-gradient(90deg,rgba(66,245,239,.007) 1px,transparent 1px);background-size:68px 68px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes scanMove{0%{transform:translateY(-100vh)}100%{transform:translateY(100vh)}}
+.scanline{position:fixed;left:0;width:100%;height:2px;z-index:200;pointer-events:none;background:linear-gradient(transparent,rgba(255,255,255,.04),transparent);animation:scanMove 7s linear infinite}
+
+.panel{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:scale(1.04) translateY(-8px);filter:blur(8px);transition:none;will-change:opacity,transform,filter}
+.panel.active{opacity:1;pointer-events:all;transform:scale(1) translateY(0);filter:blur(0px);transition:opacity .45s cubic-bezier(.23,1,.32,1),transform .45s cubic-bezier(.23,1,.32,1),filter .3s cubic-bezier(.23,1,.32,1)}
+.panel.leaving{opacity:0;pointer-events:none;transform:scale(.94) translateY(12px);filter:blur(6px);transition:opacity .28s cubic-bezier(.4,0,1,1),transform .28s cubic-bezier(.4,0,1,1),filter .2s ease}
+#panel-osint,#panel-hc{overflow:hidden}
+#panel-settings{align-items:center;justify-content:center}
+.osint-frame{width:100%;height:100%;border:none}
+
+/* Dock */
+.icon-btns{position:fixed;bottom:28px;left:0;right:0;z-index:999;display:flex;gap:2em;align-items:center;justify-content:center;pointer-events:none;background:none}
+.icon-btns>.icon-btn,.icon-btns>.icon-btn-sep{pointer-events:auto}
+.icon-btns *{pointer-events:auto}
+.icon-btn{background-color:transparent;outline:none;position:relative;width:4.5em;height:4.5em;perspective:24em;transform-style:preserve-3d;-webkit-tap-highlight-color:transparent;border:none;cursor:pointer;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.icon-btn:active{transform:scale(.88)}
+.icon-btn__back,.icon-btn__front,.icon-btn__label{transition:opacity .3s cubic-bezier(.83,0,.17,1),transform .3s cubic-bezier(.83,0,.17,1)}
+.icon-btn__back,.icon-btn__front{border-radius:1.25em;position:absolute;top:0;left:0;width:100%;height:100%}
+.icon-btn__back{box-shadow:.5em -.5em .75em hsla(223,10%,10%,.15);display:block;transform:rotate(15deg);transform-origin:100% 100%;will-change:transform}
+.icon-btn__front{background-color:hsla(0,0%,100%,.15);box-shadow:0 0 0 .1em hsla(0,0%,100%,.3) inset;backdrop-filter:blur(.75em);display:flex;align-items:center;justify-content:center;transform-origin:80% 50%;will-change:transform}
+.icon-btn__icon{margin:auto;width:1.5em;height:1.5em;display:flex;align-items:center;justify-content:center;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.icon-btn__icon svg{width:100%;height:100%}
+.icon-btn__label{font-size:.75em;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;white-space:nowrap;text-align:center;line-height:2;opacity:0;position:absolute;top:100%;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.85);pointer-events:none}
+.icon-btn:hover .icon-btn__back{transform:rotate(25deg) translate3d(-.5em,-.5em,.5em)}
+.icon-btn:hover .icon-btn__front{transform:translate3d(0,0,2em)}
+.icon-btn:hover .icon-btn__label{opacity:1;transform:translateX(-50%) translateY(4px)}
+.icon-btn.is-active .icon-btn__back{transform:rotate(0deg)!important;background:linear-gradient(hsl(178,88%,44%),hsl(192,88%,34%))!important;box-shadow:0 0 22px hsla(178,88%,44%,.6),.5em -.5em .75em hsla(223,10%,10%,.15)}
+.icon-btn.is-active::after{content:'';position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.8);box-shadow:0 0 8px rgba(255,255,255,.5)}
+.icon-btn-sep{width:1px;height:36px;align-self:center;flex-shrink:0;background:linear-gradient(180deg,transparent,rgba(255,255,255,.2) 30%,rgba(255,255,255,.2) 70%,transparent)}
+.c-teal  .icon-btn__back{background:transparent}
+.c-wifi  .icon-btn__back{background:linear-gradient(hsl(200,52%,28%),hsl(212,58%,16%))}
+.c-flipper .icon-btn__front{background-image:none}
+.c-flipper .icon-btn__back{background:linear-gradient(hsl(185,85%,26%),hsl(198,88%,16%))}
+.c-flipper .icon-btn__front::after{content:'';position:absolute;inset:-3%;background:url('/flipper_logo.png') center/contain no-repeat;filter:brightness(0) invert(1);opacity:.9;transform:translate(-4%,-4%)}
+.c-slate .icon-btn__back{background:linear-gradient(hsl(215,18%,42%),hsl(222,20%,26%))}
+
+/* Settings */
+.settings-card{background:linear-gradient(145deg,rgba(66,245,239,.05),rgba(0,180,200,.02));border:1px solid rgba(66,245,239,.18);border-radius:24px;padding:36px;width:460px;max-width:92vw;backdrop-filter:var(--blur);box-shadow:var(--g-sh2),var(--g-spec);animation:fadeUp .4s cubic-bezier(.34,1.56,.64,1)}
+.settings-title{font-size:17px;font-weight:700;color:var(--t1);margin-bottom:20px}
+.setting-row{margin-bottom:13px}
+.setting-label{font-size:9px;letter-spacing:.18em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:var(--t3);margin-bottom:7px}
+.setting-inp{width:100%;background:rgba(66,245,239,.04);border:1px solid rgba(66,245,239,.16);border-radius:11px;padding:11px 14px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s}
+.setting-inp:focus{border-color:rgba(66,245,239,.45);box-shadow:0 0 0 3px rgba(66,245,239,.1)}
+.setting-inp::placeholder{color:rgba(160,240,236,.16)}
+.setting-btn{width:100%;padding:12px;border-radius:11px;border:1px solid rgba(66,245,239,.28);font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;background:linear-gradient(145deg,rgba(66,245,239,.1),rgba(0,200,220,.05));color:var(--a);margin-top:6px;transition:all .2s}
+.setting-btn:hover{background:linear-gradient(145deg,rgba(66,245,239,.2),rgba(0,210,230,.1));border-color:rgba(66,245,239,.55);color:#fff}
+
+/* Flipper panel */
+#panel-flipper{overflow:hidden}
+.flip-root{display:flex;flex-direction:column;height:100%;background:var(--bg);position:relative;z-index:1}
+.flip-hdr{display:flex;align-items:center;gap:12px;padding:14px 20px 12px;border-bottom:1px solid rgba(66,245,239,.1);flex-shrink:0}
+.flip-hdr-logo{display:flex;align-items:center;gap:10px}
+.flip-logo-icon{color:var(--a);opacity:.85;width:22px;height:22px;flex-shrink:0}
+.flip-logo-icon svg{width:100%;height:100%}
+.flip-title{font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.01em}
+.flip-conn{display:flex;align-items:center;gap:6px;margin-left:auto}
+.flip-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.15);flex-shrink:0;transition:all .3s}
+.flip-dot.ok{background:var(--a);box-shadow:0 0 8px rgba(66,245,239,.6)}
+.flip-dot.err{background:#ff6467}
+.flip-dot.spin{background:var(--a);animation:pulse .8s ease-in-out infinite}
+.flip-conn-txt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em}
+.flip-toolbar{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid rgba(66,245,239,.07);flex-shrink:0}
+.flip-port-sel{flex:1;background:rgba(66,245,239,.04);border:1px solid rgba(66,245,239,.15);border-radius:8px;padding:7px 10px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;cursor:pointer;transition:border-color .2s}
+.flip-port-sel:focus{border-color:rgba(66,245,239,.4)}
+.flip-port-sel option{background:#071318}
+.flip-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:1px solid rgba(66,245,239,.15);background:rgba(66,245,239,.04);cursor:pointer;color:var(--a);transition:all .2s;flex-shrink:0;font-size:14px}
+.flip-btn:hover{border-color:rgba(66,245,239,.4);background:rgba(66,245,239,.1)}
+.flip-bc{display:flex;align-items:center;gap:4px;padding:8px 20px;border-bottom:1px solid rgba(66,245,239,.06);flex-shrink:0;overflow-x:auto;scrollbar-width:none;min-height:34px}
+.flip-bc::-webkit-scrollbar{display:none}
+.flip-bc-seg{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);cursor:pointer;padding:2px 5px;border-radius:4px;white-space:nowrap;transition:color .15s,background .15s}
+.flip-bc-seg:hover{color:var(--a);background:rgba(66,245,239,.06)}
+.flip-bc-seg.last{color:var(--t2);cursor:default}
+.flip-bc-sep{color:rgba(66,245,239,.25);font-size:10px;flex-shrink:0}
+.flip-body{flex:1;overflow-y:auto;padding:10px 12px}
+.flip-body::-webkit-scrollbar{width:3px}
+.flip-body::-webkit-scrollbar-thumb{background:rgba(66,245,239,.12)}
+.flip-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;opacity:.4}
+.flip-empty-icon{font-size:32px}
+.flip-empty-txt{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;text-align:center;line-height:1.8;color:var(--t3)}
+.flip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:7px}
+.flip-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;border:1px solid rgba(66,245,239,.1);background:rgba(66,245,239,.025);transition:border-color .18s,background .18s;position:relative}
+.flip-item.is-dir{cursor:pointer}
+.flip-item.is-dir:hover{border-color:rgba(66,245,239,.3);background:rgba(66,245,239,.06)}
+.flip-item.is-file:hover{border-color:rgba(66,245,239,.18)}
+.flip-item-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1}
+.flip-item-info{flex:1;min-width:0}
+.flip-item-name{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;display:flex;align-items:center;gap:4px}
+.flip-item-size{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--t3);letter-spacing:.04em}
+.flip-dl{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:1px solid rgba(66,245,239,.2);background:rgba(66,245,239,.06);cursor:pointer;color:var(--a);transition:all .18s;flex-shrink:0;text-decoration:none;font-size:13px}
+.flip-dl:hover{border-color:var(--a);background:rgba(66,245,239,.18)}
+.flip-ext{font-size:8px;letter-spacing:.05em;padding:1px 4px;border-radius:3px;font-family:'JetBrains Mono',monospace;text-transform:uppercase}
+.flip-ext-pcap{background:rgba(66,245,239,.12);color:var(--a);border:1px solid rgba(66,245,239,.2)}
+.flip-ext-txt,.flip-ext-other{background:rgba(255,255,255,.06);color:var(--t3);border:1px solid rgba(255,255,255,.08)}
+.flip-err{font-family:'JetBrains Mono',monospace;font-size:10px;color:#ff6467;background:rgba(255,100,103,.06);border:1px solid rgba(255,100,103,.2);border-radius:8px;padding:8px 12px;margin-bottom:8px}
+.flip-warn{font-family:'JetBrains Mono',monospace;font-size:10px;color:#f5d742;background:rgba(245,215,66,.06);border:1px solid rgba(245,215,66,.2);border-radius:8px;padding:8px 12px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><span></span><span></span><span></span></div>
+<div class="scanline"></div>
+
+<!-- OSINT -->
+<div class="panel active" id="panel-osint">
+  <iframe class="osint-frame" id="osint-frame" src="/osint/"></iframe>
+</div>
+
+<!-- WiFi Cracker -->
+<div class="panel" id="panel-hc">
+  <iframe src="/wc/" style="width:100%;height:100%;border:none" id="wc-frame"></iframe>
+</div>
+
+<!-- Flipper Zero -->
+<div class="panel" id="panel-flipper">
+  <div class="flip-root">
+    <div class="flip-hdr">
+      <div class="flip-hdr-logo">
+        <div class="flip-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="2" width="16" height="20" rx="2.5"/>
+            <rect x="6" y="4" width="12" height="7" rx="1.2" fill="currentColor" opacity="0.22" stroke="none"/>
+            <line x1="7" y1="7.5" x2="17" y2="7.5" stroke-width="1" opacity="0.4"/>
+            <line x1="7" y1="9" x2="13" y2="9" stroke-width="1" opacity="0.25"/>
+            <circle cx="9" cy="16.5" r="2" stroke-width="1.3"/>
+            <line x1="9" y1="14.5" x2="9" y2="18.5" stroke-width="1.3"/>
+            <line x1="7" y1="16.5" x2="11" y2="16.5" stroke-width="1.3"/>
+            <circle cx="15" cy="15.5" r="1" fill="currentColor" opacity="0.55"/>
+            <circle cx="15" cy="17.5" r="1" fill="currentColor" opacity="0.55"/>
+          </svg>
+        </div>
+        <span class="flip-title">Flipper Zero</span>
+      </div>
+      <div class="flip-conn">
+        <div class="flip-dot" id="flip-dot"></div>
+        <span class="flip-conn-txt" id="flip-conn-txt">disconnected</span>
+      </div>
+    </div>
+    <div class="flip-toolbar">
+      <select class="flip-port-sel" id="flip-port-sel" onchange="flipPortChange()">
+        <option value="">— select COM port —</option>
+      </select>
+      <button class="flip-btn" onclick="flipLoadPorts()" title="Refresh ports">↺</button>
+      <button class="flip-btn" onclick="flipRefresh()" title="Refresh current folder">⟳</button>
+    </div>
+    <div class="flip-bc" id="flip-bc"></div>
+    <div class="flip-body" id="flip-body">
+      <div class="flip-empty">
+        <div class="flip-empty-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--a)"><rect x="4" y="2" width="16" height="20" rx="2.5"/><rect x="6" y="4" width="12" height="7" rx="1.2" fill="currentColor" opacity="0.15" stroke="none"/><circle cx="9" cy="16.5" r="2"/><line x1="9" y1="14.5" x2="9" y2="18.5"/><line x1="7" y1="16.5" x2="11" y2="16.5"/><circle cx="15" cy="15.5" r="1" fill="currentColor" opacity="0.6"/><circle cx="15" cy="17.5" r="1" fill="currentColor" opacity="0.6"/></svg>
+        </div>
+        <div class="flip-empty-txt">Select COM port to browse<br>Flipper Zero SD card<br><br>Close qFlipper before connecting</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="panel" id="panel-settings">
+  <div class="settings-card">
+    <div class="settings-title">Настройки</div>
+    <div class="setting-row"><div class="setting-label">VK Token</div><input class="setting-inp" id="s-vk" placeholder="vk1.a.xxx..."></div>
+    <div class="setting-row"><div class="setting-label">Gemini API</div><input class="setting-inp" id="s-gem" placeholder="AIza..."></div>
+    <div class="setting-row"><div class="setting-label">Anthropic API</div><input class="setting-inp" id="s-ant" placeholder="sk-ant-..."></div>
+    <div class="setting-row"><div class="setting-label">OpenAI API</div><input class="setting-inp" id="s-oai" placeholder="sk-..."></div>
+    <button class="setting-btn" onclick="saveSettings()">Сохранить</button>
+  </div>
+</div>
+
+<!-- Dock -->
+<div class="icon-btns">
+  <button class="icon-btn c-teal is-active" id="di-osint" onclick="sw('osint')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span></span>
+    <span class="icon-btn__label">Kiki OSINT</span>
+  </button>
+  <div class="icon-btn-sep"></div>
+  <button class="icon-btn c-wifi" id="di-hc" onclick="sw('hc')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span></span>
+    <span class="icon-btn__label">WiFi Cracker</span>
+  </button>
+  <div class="icon-btn-sep"></div>
+  <button class="icon-btn c-flipper" id="di-flipper" onclick="sw('flipper')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"></span>
+    <span class="icon-btn__label">Flipper Zero</span>
+  </button>
+  <div class="icon-btn-sep"></div>
+  <button class="icon-btn c-slate" id="di-settings" onclick="sw('settings')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></span>
+    <span class="icon-btn__label">Настройки</span>
+  </button>
+</div>
+
+<script>
+// ─── Panel switching with localStorage ───────────────────
+var current = localStorage.getItem('kiki_panel') || 'osint';
+(function init(){
+  if(current !== 'osint'){
+    document.getElementById('panel-osint').classList.remove('active');
+    document.getElementById('panel-'+current).classList.add('active');
+    document.querySelectorAll('.icon-btn').forEach(function(b){b.classList.remove('is-active')});
+    var di = document.getElementById('di-'+current);
+    if(di) di.classList.add('is-active');
+    if(current==='settings') loadSettings();
+    if(current==='flipper') flipInit();
+  }
+})();
+
+function sw(name){
+  if(name===current)return;
+  var prev=current; current=name;
+  localStorage.setItem('kiki_panel',name);
+  var btn=document.getElementById('di-'+name);
+  if(btn){btn.style.transform='scale(0.85)';setTimeout(function(){btn.style.transform='';},150)}
+  var outEl=document.getElementById('panel-'+prev);
+  if(outEl){outEl.classList.add('leaving');outEl.classList.remove('active')}
+  setTimeout(function(){
+    document.querySelectorAll('.icon-btn').forEach(function(b){b.classList.remove('is-active')});
+    document.getElementById('di-'+name).classList.add('is-active');
+    var inEl=document.getElementById('panel-'+name);
+    inEl.classList.add('active');
+    if(outEl)setTimeout(function(){outEl.classList.remove('leaving')},300);
+    if(name==='settings') loadSettings();
+    if(name==='flipper') flipInit();
+  },120);
+}
+
+// ─── Settings ────────────────────────────────────────────
+async function loadSettings(){
+  try{var r=await fetch('/api/keys'),d=await r.json();
+    var m={'s-vk':'VK_TOKEN','s-gem':'GEMINI_API_KEY','s-ant':'ANTHROPIC_API_KEY','s-oai':'OPENAI_API_KEY'};
+    Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el&&d[m[k]])el.placeholder=d[m[k]]})
+  }catch(e){}
+}
+async function saveSettings(){
+  var data={},m={'s-vk':'VK_TOKEN','s-gem':'GEMINI_API_KEY','s-ant':'ANTHROPIC_API_KEY','s-oai':'OPENAI_API_KEY'};
+  Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el){var v=el.value.trim();if(v)data[m[k]]=v}});
+  try{
+    await fetch('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el)el.value=''});
+    sw('osint');
+  }catch(e){alert('Error: '+e.message)}
+}
+
+// ─── Flipper Zero ────────────────────────────────────────
+var flipCurPath = localStorage.getItem('kiki_flip_path') || '/ext';
+var flipCurPort = localStorage.getItem('kiki_flip_port') || '';
+var flipInited  = false;
+
+function flipSetStatus(state, txt){
+  var dot=document.getElementById('flip-dot');
+  var ctxt=document.getElementById('flip-conn-txt');
+  if(dot){dot.className='flip-dot '+(state||'')}
+  if(ctxt) ctxt.textContent=txt||state||'';
+}
+
+function flipInit(){
+  if(flipInited) return;
+  flipInited=true;
+  flipLoadPorts();
+}
+
+async function flipLoadPorts(){
+  try{
+    var r=await fetch('/api/flipper/ports'),d=await r.json();
+    var sel=document.getElementById('flip-port-sel');
+    if(!sel) return;
+    sel.innerHTML='<option value="">— select COM port —</option>';
+    if(d.ports&&d.ports.length){
+      d.ports.forEach(function(p){
+        var opt=document.createElement('option');
+        opt.value=p.port;
+        opt.textContent=p.port+(p.desc&&p.desc!==p.port?' — '+p.desc:'')+(p.likely?' [flipper]':'');
+        if(p.port===flipCurPort) opt.selected=true;
+        sel.appendChild(opt);
+      });
+    }
+    if(!d.ok && d.error){
+      flipSetStatus('err','pyserial missing');
+      flipShowBody('<div class="flip-warn">'+d.error+'<br>Run: pip install pyserial</div>');
+      return;
+    }
+    if(flipCurPort) flipPortChange();
+  }catch(e){flipSetStatus('err','fetch failed')}
+}
+
+function flipPortChange(){
+  var sel=document.getElementById('flip-port-sel');
+  if(!sel) return;
+  flipCurPort=sel.value;
+  if(flipCurPort) localStorage.setItem('kiki_flip_port',flipCurPort);
+  if(flipCurPort) flipBrowse(flipCurPath);
+  else flipSetStatus('','disconnected');
+}
+
+function flipRefresh(){
+  if(flipCurPort) flipBrowse(flipCurPath);
+}
+
+async function flipBrowse(path){
+  if(!flipCurPort) return;
+  flipCurPath=path;
+  localStorage.setItem('kiki_flip_path',path);
+  flipSetStatus('spin','browsing...');
+  flipRenderBreadcrumb(path);
+    flipShowBody('<div class="flip-empty"><div class="flip-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--a);animation:pulse .8s ease-in-out infinite"><rect x="4" y="2" width="16" height="20" rx="2.5"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="10" x2="13" y2="10"/></svg></div><div class="flip-empty-txt">loading...</div></div>');
+  try{
+    var r=await fetch('/api/flipper/list?port='+encodeURIComponent(flipCurPort)+'&path='+encodeURIComponent(path));
+    var d=await r.json();
+    if(!d.ok){
+      flipSetStatus('err','error');
+      flipShowBody('<div class="flip-err">'+d.error+'</div>');
+      return;
+    }
+    flipSetStatus('ok','connected');
+    flipRenderFiles(d.files, path);
+  }catch(e){
+    flipSetStatus('err','failed');
+    flipShowBody('<div class="flip-err">'+e.message+'</div>');
+  }
+}
+
+function flipRenderBreadcrumb(path){
+  var bc=document.getElementById('flip-bc');
+  if(!bc) return;
+  var parts=path.split('/').filter(Boolean);
+  var html='<span class="flip-bc-seg '+(parts.length===0?'last':'')+'" onclick="flipBrowse(\'/ext\')">/ext</span>';
+  // Only show sub-segments after 'ext'
+  var extIdx=parts.indexOf('ext');
+  var sub=extIdx>=0?parts.slice(extIdx+1):[];
+  sub.forEach(function(seg,i){
+    var pathTo='/ext/'+sub.slice(0,i+1).join('/');
+    html+='<span class="flip-bc-sep">›</span>';
+    html+='<span class="flip-bc-seg '+(i===sub.length-1?'last':'')+'" onclick="flipBrowse(\''+pathTo+'\')">'+seg+'</span>';
+  });
+  bc.innerHTML=html;
+}
+
+function flipRenderFiles(files, curPath){
+  if(!files||files.length===0){
+    flipShowBody('<div class="flip-empty"><div class="flip-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5"><rect x="4" y="2" width="16" height="20" rx="2.5"/></svg></div><div class="flip-empty-txt">empty folder</div></div>');
+    return;
+  }
+  var html='<div class="flip-grid">';
+  files.forEach(function(f){
+    var ext=f.name.split('.').pop().toLowerCase();
+    var extBadge='';
+    if(!f.is_dir){
+      var cls=ext==='pcap'||ext==='pcapng'||ext==='cap'?'flip-ext-pcap':'flip-ext-txt';
+      extBadge='<span class="flip-ext '+cls+'">'+ext+'</span>';
+    }
+var ICON_DIR='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7"><path d="M3 7a2 2 0 0 1 2-2h3.586a1 1 0 0 1 .707.293L10.707 6.7A1 1 0 0 0 11.414 7H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="currentColor" opacity=".12" stroke="currentColor"/></svg>';
+    var ICON_PCAP='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--a);opacity:.8"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="currentColor" opacity=".12"/><polyline points="13 2 13 9 20 9"/><path d="M8 14.5l2-2 2 2 2-3" stroke-width="1.5"/></svg>';
+    var ICON_FILE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.55"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="currentColor" opacity=".1"/><polyline points="13 2 13 9 20 9"/></svg>';
+    var icon=f.is_dir?ICON_DIR:(ext==='pcap'||ext==='pcapng'||ext==='cap'?ICON_PCAP:ICON_FILE);
+    var size='';
+    if(!f.is_dir){
+      if(f.size>1048576) size=(f.size/1048576).toFixed(1)+' MB';
+      else if(f.size>1024) size=Math.round(f.size/1024)+' KB';
+      else size=f.size+' B';
+    }
+    var fullPath=curPath.replace(/\/+$/,'')+'/'+f.name;
+    if(f.is_dir){
+      html+='<div class="flip-item is-dir" onclick="flipBrowse(\''+fullPath+'\')">'+
+        '<span class="flip-item-icon">'+icon+'</span>'+
+        '<div class="flip-item-info"><div class="flip-item-name">'+f.name+'</div></div>'+
+        '<span style="color:var(--t3);font-size:12px;opacity:.5">›</span>'+
+      '</div>';
+    }else{
+      html+='<div class="flip-item is-file">'+
+        '<span class="flip-item-icon">'+icon+'</span>'+
+        '<div class="flip-item-info">'+
+          '<div class="flip-item-name"><span>'+f.name+'</span>'+extBadge+'</div>'+
+          '<div class="flip-item-size">'+size+'</div>'+
+        '</div>'+
+        '<a class="flip-dl" href="/api/flipper/download?port='+encodeURIComponent(flipCurPort)+'&path='+encodeURIComponent(fullPath)+'" download="'+f.name+'" title="Download">↓</a>'+
+      '</div>';
+    }
+  });
+  html+='</div>';
+  flipShowBody(html);
+}
+
+function flipShowBody(html){
+  var body=document.getElementById('flip-body');
+  if(body) body.innerHTML=html;
+}
+</script>
+</body>
+</html>

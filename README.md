@@ -1,9 +1,9 @@
-﻿:gb: English | [:ru: Russian](README_RU.md)
+:gb: English | [:ru: Russian](README_RU.md)
 
-# 🔍 Kiki OSINT — Digital Footprint Discovery Tool
+# Kiki OSINT — Digital Footprint Discovery Tool
 
 An open-source web tool for gathering public data by **username**, **email**, or both at once.  
-Supports search across VK, Telegram, GitHub, 500+ websites via Maigret, email checks via Holehe, HaveIBeenPwned and Gravatar, domain WHOIS analysis, and AI-generated portraits via Claude, ChatGPT, or Gemini.
+Supports VK, Telegram, GitHub, 500+ websites via Maigret, email checks, HaveIBeenPwned, and AI-generated portraits.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey)
@@ -11,116 +11,80 @@ Supports search across VK, Telegram, GitHub, 500+ websites via Maigret, email ch
 
 ---
 
-## 📸 Features
+## Projects in this repo
 
-- 🔎 **Username** — search across VK, Telegram, GitHub and 500+ sites (Maigret)
-- 📧 **Email** — registration check (Holehe) + breach lookup (HaveIBeenPwned) + Gravatar profile + GitHub account
-- 🌐 **Domain Info** — MX records, WHOIS (registrar, registration date), IP, disposable email detection
-- 🔀 **Both mode** — search username + email simultaneously in one interface
-- 🤖 **AI Portrait** — analytical summary via Claude, ChatGPT, or Gemini
-- 📤 **Export results** — Copy JSON / Export TXT / Export JSON after each search
-- 🌍 **Language switcher** — EN/RU interface toggle
-- ⚡ **Real-time streaming** — results appear as they arrive (SSE)
-- 💾 **Persistent API keys** — saved to local `keys.json`, survive server restarts
+### 🔍 Kiki OSINT (`/`)
+Full-featured OSINT portrait builder.
+
+### 🛠️ KikiHub (`/kiki_hub/`)
+Local unified web hub combining OSINT, WiFi cracking, and Flipper Zero file management in one interface with dock navigation.
+→ [See KikiHub README](kiki_hub/README.md)
 
 ---
 
-## 🚀 Installation
+## Kiki OSINT Features
 
-### 1. Clone the repository
+- 🔎 **Username** — VK, Telegram, GitHub, 500+ sites (Maigret)
+- 📧 **Email** — registration check (Holehe) + breach lookup (HaveIBeenPwned) + Gravatar
+- 🔀 **Both mode** — username + email simultaneously
+- 🤖 **AI Portrait** — Claude, ChatGPT, or Gemini
+- 📤 **Export** — JSON / TXT
+- 🌍 **EN/RU** interface
+- ⚡ **Real-time streaming** — SSE
+
+---
+
+## Installation
 
 ```bash
 git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git
 cd Kiki-Osint
-```
-
-### 2. Create a virtual environment
-
-```bash
-python -m venv venv
-
-# Windows:
-venv\Scripts\activate
-
-# Linux / Mac:
-source venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
-
----
-
-## 🔑 API Keys Setup
-
-Click **«Settings»** in the app interface and enter your keys directly in the browser — no config files needed. Keys are saved automatically to a local `keys.json` file.
-
-On first launch, the Settings modal opens automatically if no keys are configured.
-
-### VK Token
-
-1. Open **https://vkhost.github.io/**
-2. Select the **«Kate Mobile»** app
-3. Click **«Allow»**
-4. In the URL bar, find `access_token=` and copy everything up to `&`
-
-> ⚠️ This token is tied to your VK account. Never share it with anyone.
-
-### AI Portrait (optional)
-
-Click **«Settings»** in the app and enter:
-
-- **Provider**: `anthropic`, `openai`, or `google`
-- **API Key**: your key
-
-Where to get API keys:
-- Claude: **https://console.anthropic.com** → API Keys
-- ChatGPT: **https://platform.openai.com** → API Keys
-- Gemini: **https://aistudio.google.com** → Get API key
-
-### HaveIBeenPwned API Key (optional)
-
-Required for email breach lookup. Get it at **https://haveibeenpwned.com/API/Key**
-
-> GitHub search works without any API key.
-
----
-
-## ▶️ Running the app
-
-```bash
 python app.py
 ```
 
-Open in your browser: **http://localhost:5000**
+Open: **http://localhost:5000**
 
 ---
 
-## 📂 Project structure
+## API Keys
+
+Click **Settings** in the app. Keys saved to local `keys.json`.
+
+- **VK Token** — https://vkhost.github.io/ → Kate Mobile → copy `access_token`
+- **Claude** — https://console.anthropic.com
+- **ChatGPT** — https://platform.openai.com
+- **Gemini** — https://aistudio.google.com
+- **HaveIBeenPwned** — https://haveibeenpwned.com/API/Key
+
+---
+
+## Project structure
 
 ```
 Kiki-Osint/
-├── app.py              # Flask server, all search functions
-├── vk_module.py        # VK API search
-├── keys_store.py       # Persistent key storage (keys.json)
+├── app.py              # Flask backend (port 5000)
+├── vk_module.py        # VK API
+├── keys_store.py       # Key storage
 ├── frontend/
-│   ├── index.html      # UI (EN/RU, CSS and JS included)
-│   └── kiki_logo.png   # Logo
+│   └── index.html      # UI
+├── kiki_hub/           # KikiHub unified interface
+│   ├── app.py          # Flask backend (port 7777)
+│   ├── index.html      # Hub UI with dock
+│   └── wifi_cracker/
+│       └── wifi_cracker.py
 ├── requirements.txt
 └── .gitignore
 ```
 
 ---
 
-## ⚠️ Disclaimer
+## Disclaimer
 
-This tool is intended **for legal purposes only**: checking your own digital footprint, OSINT education, and security testing with the subject's consent. Do not use it for stalking, surveillance, or violating anyone's privacy.
+For legal purposes only: checking your own footprint, OSINT education, security testing with consent.
 
 ---
 
-## 📝 License
+## License
 
-MIT — free to use with attribution.
+MIT
