@@ -702,6 +702,20 @@ async function chk(){
 }
 chk();
 setTimeout(function(){lg('sys','wificrack ready');lg('dim','mode 22000  WPA-PBKDF2  rockyou attack');lg('dim','\u2500'.repeat(42));},400);
+
+// Auto-analyze pcap sent from Flipper Zero panel via postMessage
+window.addEventListener('message',function(e){
+  if(!e.data||e.data.type!=='autoanalyze'||!e.data.pcap) return;
+  var pcap=e.data.pcap;
+  lg('sys','\u2500'.repeat(42));
+  lg('sys','AUTO: pcap from Flipper Zero');
+  P=pcap;
+  var nm=pcap.split(/[\\\\/]/).pop();
+  document.getElementById('pp').value=pcap;
+  document.getElementById('dzn').textContent=nm;
+  document.getElementById('dz').classList.add('has-file');
+  setTimeout(doA,300);
+});
 </script>
 </body>
 </html>

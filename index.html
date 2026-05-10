@@ -120,6 +120,50 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .flip-ext-txt,.flip-ext-other{background:rgba(255,255,255,.06);color:var(--t3);border:1px solid rgba(255,255,255,.08)}
 .flip-err{font-family:'JetBrains Mono',monospace;font-size:10px;color:#ff6467;background:rgba(255,100,103,.06);border:1px solid rgba(255,100,103,.2);border-radius:8px;padding:8px 12px;margin-bottom:8px}
 .flip-warn{font-family:'JetBrains Mono',monospace;font-size:10px;color:#f5d742;background:rgba(245,215,66,.06);border:1px solid rgba(245,215,66,.2);border-radius:8px;padding:8px 12px;margin-bottom:8px}
+
+/* ─── Download overlay ─── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes stepIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes progressBar{0%{width:0%}100%{width:100%}}
+.flip-overlay{position:absolute;inset:0;z-index:20;background:rgba(7,19,24,.92);backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:center;animation:fadeUp .2s ease}
+.flip-ov-card{width:280px;background:rgba(66,245,239,.04);border:1px solid rgba(66,245,239,.18);
+  border-radius:14px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.flip-ov-file{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a);
+  margin-bottom:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8}
+.flip-ov-steps{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.flip-ov-step{display:flex;align-items:center;gap:10px;animation:stepIn .2s ease}
+.flip-ov-step-dot{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+.flip-ov-step-dot.wait{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.flip-ov-step-dot.run{background:rgba(66,245,239,.12);border:1px solid rgba(66,245,239,.3)}
+.flip-ov-step-dot.run svg{animation:spin .8s linear infinite}
+.flip-ov-step-dot.done{background:rgba(66,245,239,.15);border:1px solid rgba(66,245,239,.4)}
+.flip-ov-step-dot.err{background:rgba(255,100,103,.12);border:1px solid rgba(255,100,103,.3)}
+.flip-ov-step-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;
+  color:rgba(255,255,255,.35);transition:color .25s}
+.flip-ov-step.is-run .flip-ov-step-lbl{color:var(--t1)}
+.flip-ov-step.is-done .flip-ov-step-lbl{color:rgba(66,245,239,.7)}
+.flip-ov-step.is-err .flip-ov-step-lbl{color:#ff6467}
+.flip-ov-bar{height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.flip-ov-bar-fill{height:100%;width:0%;background:var(--a);transition:width .4s ease;
+  box-shadow:0 0 8px var(--a)}
+.flip-ov-err{font-family:'JetBrains Mono',monospace;font-size:9px;color:#ff6467;
+  margin-top:10px;line-height:1.6;display:none}
+.flip-ov-close{margin-top:12px;width:100%;padding:7px;border-radius:7px;
+  border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--t3);
+  font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;display:none;transition:all .2s}
+.flip-ov-close:hover{border-color:rgba(255,255,255,.3);color:var(--t1)}
+.flip-dl-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border-radius:6px;border:1px solid rgba(66,245,239,.2);background:rgba(66,245,239,.06);
+  cursor:pointer;color:var(--a);transition:all .18s;flex-shrink:0;font-size:13px}
+.flip-dl-btn:hover{border-color:var(--a);background:rgba(66,245,239,.18)}
+.flip-wc-btn{display:flex;align-items:center;justify-content:center;height:26px;
+  padding:0 8px;border-radius:6px;gap:4px;
+  border:1px solid rgba(66,245,239,.35);background:rgba(66,245,239,.1);
+  cursor:pointer;color:var(--a);transition:all .18s;flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;white-space:nowrap}
+.flip-wc-btn:hover{border-color:var(--a);background:rgba(66,245,239,.2);
+  box-shadow:0 0 12px rgba(66,245,239,.15)}
 </style>
 </head>
 <body>
@@ -175,6 +219,16 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--a)"><rect x="4" y="2" width="16" height="20" rx="2.5"/><rect x="6" y="4" width="12" height="7" rx="1.2" fill="currentColor" opacity="0.15" stroke="none"/><circle cx="9" cy="16.5" r="2"/><line x1="9" y1="14.5" x2="9" y2="18.5"/><line x1="7" y1="16.5" x2="11" y2="16.5"/><circle cx="15" cy="15.5" r="1" fill="currentColor" opacity="0.6"/><circle cx="15" cy="17.5" r="1" fill="currentColor" opacity="0.6"/></svg>
         </div>
         <div class="flip-empty-txt">Select COM port to browse<br>Flipper Zero SD card<br><br>Close qFlipper before connecting</div>
+      </div>
+    </div>
+    <!-- Download overlay (hidden by default) -->
+    <div class="flip-overlay" id="flip-overlay" style="display:none">
+      <div class="flip-ov-card">
+        <div class="flip-ov-file" id="ov-file"></div>
+        <div class="flip-ov-steps" id="ov-steps"></div>
+        <div class="flip-ov-bar"><div class="flip-ov-bar-fill" id="ov-bar"></div></div>
+        <div class="flip-ov-err" id="ov-err"></div>
+        <button class="flip-ov-close" id="ov-close" onclick="flipHideOverlay()">close</button>
       </div>
     </div>
   </div>
@@ -395,13 +449,16 @@ var ICON_DIR='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke
         '<span style="color:var(--t3);font-size:12px;opacity:.5">›</span>'+
       '</div>';
     }else{
+      var isCap=(ext==='pcap'||ext==='pcapng'||ext==='cap');
+      var btns='<a class="flip-dl-btn" onclick="flipDownloadFile(\''+fullPath+'\',\''+f.name+'\',\''+ext+'\')" title="Download">↓</a>';
+      if(isCap) btns+='<button class="flip-wc-btn" onclick="flipSendToWC(\''+fullPath+'\',\''+f.name+'\')">→ WC</button>';
       html+='<div class="flip-item is-file">'+
         '<span class="flip-item-icon">'+icon+'</span>'+
         '<div class="flip-item-info">'+
           '<div class="flip-item-name"><span>'+f.name+'</span>'+extBadge+'</div>'+
           '<div class="flip-item-size">'+size+'</div>'+
         '</div>'+
-        '<a class="flip-dl" href="/api/flipper/download?port='+encodeURIComponent(flipCurPort)+'&path='+encodeURIComponent(fullPath)+'" download="'+f.name+'" title="Download">↓</a>'+
+        btns+
       '</div>';
     }
   });
@@ -413,6 +470,185 @@ function flipShowBody(html){
   var body=document.getElementById('flip-body');
   if(body) body.innerHTML=html;
 }
+
+// ─── Download overlay ─────────────────────────────────────
+var OV_STEPS = [
+  {id:'s1', label:'connecting to flipper'},
+  {id:'s2', label:'downloading file'},
+  {id:'s3', label:'saving to disk'},
+  {id:'s4', label:'sending to wifi cracker'}
+];
+var SPIN_SVG='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 2a10 10 0 0 1 10 10"/></svg>';
+var CHECK_SVG='<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+var X_SVG='<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+function flipShowOverlay(filename, isCapture){
+  var ov=document.getElementById('flip-overlay');
+  var stepsEl=document.getElementById('ov-steps');
+  document.getElementById('ov-file').textContent=filename;
+  document.getElementById('ov-bar').style.width='0%';
+  document.getElementById('ov-err').style.display='none';
+  document.getElementById('ov-close').style.display='none';
+  var html='';
+  var steps=isCapture?OV_STEPS:OV_STEPS.slice(0,3);
+  steps.forEach(function(s){
+    html+='<div class="flip-ov-step" id="'+s.id+'">'+
+      '<div class="flip-ov-step-dot wait"><div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.2)"></div></div>'+
+      '<div class="flip-ov-step-lbl">'+s.label+'</div></div>';
+  });
+  stepsEl.innerHTML=html;
+  ov.style.display='flex';
+}
+
+function flipSetStep(stepId, state){
+  var el=document.getElementById(stepId);
+  if(!el) return;
+  el.className='flip-ov-step is-'+state;
+  var dot=el.querySelector('.flip-ov-step-dot');
+  dot.className='flip-ov-step-dot '+state;
+  if(state==='run') dot.innerHTML=SPIN_SVG;
+  else if(state==='done') dot.innerHTML=CHECK_SVG;
+  else if(state==='err') dot.innerHTML=X_SVG;
+  else dot.innerHTML='<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.2)"></div>';
+}
+
+function flipSetBar(pct){ document.getElementById('ov-bar').style.width=pct+'%'; }
+function flipHideOverlay(){ document.getElementById('flip-overlay').style.display='none'; }
+function flipShowOvErr(msg){
+  var e=document.getElementById('ov-err');
+  e.style.display='block'; e.textContent=msg;
+  document.getElementById('ov-close').style.display='block';
+}
+
+async function flipDownloadFile(path, filename, ext){
+  var isCapture=['pcap','pcapng','cap'].includes(ext.toLowerCase());
+  flipShowOverlay(filename, isCapture);
+  flipSetStep('s1','run'); flipSetBar(5);
+
+  try{
+    // Step 1+2: connect + download (save to server)
+    flipSetStep('s1','run'); flipSetBar(10);
+    await new Promise(function(r){setTimeout(r,200)});
+    flipSetStep('s1','done'); flipSetStep('s2','run'); flipSetBar(30);
+
+    var r=await fetch('/api/flipper/save?port='+encodeURIComponent(flipCurPort)+'&path='+encodeURIComponent(path));
+    var d=await r.json();
+
+    if(!d.ok){
+      flipSetStep('s2','err');
+      flipShowOvErr(d.error||'download failed');
+      return;
+    }
+
+    // Step 3: saved to disk
+    flipSetStep('s2','done'); flipSetStep('s3','run'); flipSetBar(70);
+    await new Promise(function(r){setTimeout(r,300)});
+    flipSetStep('s3','done'); flipSetBar(85);
+
+    if(isCapture){
+      // Step 4: send to WiFi Cracker
+      flipSetStep('s4','run'); flipSetBar(95);
+      await new Promise(function(r){setTimeout(r,400)});
+      flipSetStep('s4','done'); flipSetBar(100);
+      await new Promise(function(r){setTimeout(r,500)});
+      flipHideOverlay();
+      // Switch to WiFi Cracker tab
+      sw('hc');
+      // Wait for panel to be visible, then postMessage to iframe
+      setTimeout(function(){
+        var iframe=document.getElementById('wc-frame');
+        if(iframe && iframe.contentWindow){
+          iframe.contentWindow.postMessage({type:'autoanalyze', pcap:d.local_path},'*');
+        }
+      }, 600);
+    } else {
+      // Non-pcap: trigger browser download from saved file
+      flipSetBar(100);
+      await new Promise(function(r){setTimeout(r,300)});
+      var a=document.createElement('a');
+      a.href='/api/flipper/download?port='+encodeURIComponent(flipCurPort)+'&path='+encodeURIComponent(path);
+      a.download=filename; a.click();
+      await new Promise(function(r){setTimeout(r,500)});
+      flipHideOverlay();
+    }
+  } catch(e){
+    flipSetStep('s2','err');
+    flipShowOvErr(e.message);
+  }
+}
+// ─── Send to WiFi Cracker with validation ─────────────────
+var WC_OV_STEPS = [
+  {id:'w1', label:'saving to disk'},
+  {id:'w2', label:'checking eapol frames'},
+  {id:'w3', label:'opening wifi cracker'}
+];
+
+async function flipSendToWC(path, filename){
+  // Show 3-step overlay
+  var ov=document.getElementById('flip-overlay');
+  var stepsEl=document.getElementById('ov-steps');
+  document.getElementById('ov-file').textContent=filename;
+  document.getElementById('ov-bar').style.width='0%';
+  document.getElementById('ov-err').style.display='none';
+  document.getElementById('ov-close').style.display='none';
+  var html='';
+  WC_OV_STEPS.forEach(function(s){
+    html+='<div class="flip-ov-step" id="'+s.id+'">'+
+      '<div class="flip-ov-step-dot wait"><div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.2)"></div></div>'+
+      '<div class="flip-ov-step-lbl">'+s.label+'</div></div>';
+  });
+  stepsEl.innerHTML=html;
+  ov.style.display='flex';
+
+  try{
+    // Step 1: save
+    flipSetStep('w1','run'); flipSetBar(15);
+    var r=await fetch('/api/flipper/save?port='+encodeURIComponent(flipCurPort)+'&path='+encodeURIComponent(path));
+    var d=await r.json();
+    if(!d.ok){ flipSetStep('w1','err'); flipShowOvErr(d.error||'download failed'); return; }
+    flipSetStep('w1','done'); flipSetBar(40);
+
+    // Step 2: validate — quick analyze to count EAPOL
+    flipSetStep('w2','run'); flipSetBar(60);
+    var r2=await fetch('/api/hc/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pcap:d.local_path})});
+    var a=await r2.json();
+    var eapol=a.eapol||0;
+    var valid=eapol>=2;
+
+    // Update step label with result
+    var w2=document.getElementById('w2');
+    if(w2){
+      var lbl=w2.querySelector('.flip-ov-step-lbl');
+      if(valid) lbl.textContent=eapol+' EAPOL — valid for cracking';
+      else      lbl.textContent=eapol+' EAPOL — no handshakes captured';
+    }
+    flipSetStep('w2', valid?'done':'err'); flipSetBar(80);
+
+    if(!valid){
+      document.getElementById('ov-close').style.display='block';
+      var errEl=document.getElementById('ov-err');
+      errEl.style.display='block';
+      errEl.textContent='Need at least 2 EAPOL frames. Try capturing with deauth.';
+      return;
+    }
+
+    // Step 3: open in WiFi Cracker
+    flipSetStep('w3','run'); flipSetBar(95);
+    await new Promise(function(r){setTimeout(r,400)});
+    flipSetStep('w3','done'); flipSetBar(100);
+    await new Promise(function(r){setTimeout(r,500)});
+    flipHideOverlay();
+    sw('hc');
+    setTimeout(function(){
+      var iframe=document.getElementById('wc-frame');
+      if(iframe&&iframe.contentWindow)
+        iframe.contentWindow.postMessage({type:'autoanalyze',pcap:d.local_path},'*');
+    },600);
+
+  }catch(e){
+    flipSetStep('w1','err');
+    flipShowOvErr(e.message);
+  }
+}
 </script>
-</body>
 </html>
