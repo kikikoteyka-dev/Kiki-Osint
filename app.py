@@ -22,8 +22,11 @@ HASHCAT_EXE = os.path.join(BASE, "hashcat.exe")
 WORDLIST    = os.path.join(BASE, "rockyou.txt")
 HCXTOOL     = os.path.join(BASE, "hcxpcapngtool.exe")
 TSHARK      = r"C:\Program Files\Wireshark\tshark.exe"
-HASHES_DIR  = os.path.join(BASE, "hashes")
+HASHES_DIR    = os.path.join(BASE, "hashes")
+DOWNLOADS_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
+TEMP_DIR      = os.path.join(BASE_DIR, "temp")
 os.makedirs(HASHES_DIR, exist_ok=True)
+os.makedirs(TEMP_DIR,   exist_ok=True)
 
 app  = Flask(__name__)
 CORS(app)
@@ -86,6 +89,10 @@ def hub_index():
 @app.route("/hashcat_logo.png")
 def hc_logo():
     return send_from_directory(HUB_DIR, "hashcat_logo.png")
+
+@app.route("/open-padlock.png")
+def padlock_icon():
+    return send_from_directory(HUB_DIR, "open-padlock.png")
 
 @app.route("/flipper_logo.png")
 def flipper_logo():
@@ -254,7 +261,7 @@ def hc_analyze():
         log("dim",f"wrote {len(pcap_bytes)//1024} KB to /tmp/wc_in.pcap")
         # Convert — output stays in /tmp
         r=subprocess.run(["wsl","sh","-c",
-            "hcxpcapngtool --all -o /tmp/wc_out.hc22000 /tmp/wc_in.pcap 2>&1"],
+            "rm -f /tmp/wc_out.hc22000 && hcxpcapngtool --all -o /tmp/wc_out.hc22000 /tmp/wc_in.pcap 2>&1"],
             capture_output=True, text=True, timeout=120)
         out_all=(r.stdout+r.stderr).strip()
         # Log filtered hcxpcapngtool output
@@ -487,10 +494,59 @@ def _flip_serial_recv(s):
         elif _tm.time()>t: raise TimeoutError("timeout body")
     return data
 
+def _flipper_read_binary(port, path):
+    """Read binary file from Flipper via serial CLI with exact byte count."""
+    def open_and_flush(port):
+        """Open serial, wait for banner, flush it."""
+        s = serial.Serial(port, 115200, timeout=3)
+        _tm.sleep(0.8)       # wait for Flipper to send banner
+        s.reset_input_buffer()  # discard banner completely
+        return s
+
+    # 1. Get file size via storage stat
+    with open_and_flush(port) as s:
+        s.write(f"storage stat {path}\r\n".encode())
+        _tm.sleep(1.0)
+        raw = s.read_all().decode('utf-8', errors='replace')
+
+    size = None
+    for line in raw.splitlines():
+        if 'size' in line.lower() and ':' in line:
+            digits = ''.join(c for c in line.split(':')[-1] if c.isdigit())
+            if digits: size = int(digits); break
+    if not size:
+        raise RuntimeError(f"could not get file size. stat output: {raw[-300:]}")
+
+    # 2. Read file content — open fresh port, flush banner, send command
+    with open_and_flush(port) as s:
+        s.write(f"storage read {path}\r\n".encode())
+        # Skip 2 header lines: 1) command echo, 2) "Size: N"
+        for _ in range(2):
+            t = _tm.time() + 4
+            line = b""
+            while _tm.time() < t:
+                b = s.read(1)
+                if b:
+                    line += b
+                    if line.endswith(b'\n'): break
+        # Now read exactly `size` bytes of raw binary content
+        s.timeout = 30
+        data = b""
+        deadline = _tm.time() + 120
+        while len(data) < size and _tm.time() < deadline:
+            chunk = s.read(min(size - len(data), 4096))
+            if chunk: data += chunk
+        if len(data) < size:
+            raise RuntimeError(f"incomplete: got {len(data)}/{size} bytes")
+        return data
+
 def _flip_rpc(port, msg_bytes, timeout=60):
     with serial.Serial(port,115200,timeout=2) as s:
+        # Wake CLI with blank line, then start RPC
         _tm.sleep(0.1); s.reset_input_buffer()
-        s.write(b"start_rpc_session\r\n"); _tm.sleep(0.4); s.reset_input_buffer()
+        s.write(b"\r\n"); _tm.sleep(0.3); s.read_all()
+        s.write(b"start_rpc_session\r"); _tm.sleep(1.5)
+        s.read_all()  # discard echo
         s.write(msg_bytes); s.flush()
         resps=[]; deadline=_tm.time()+timeout
         while _tm.time()<deadline:
@@ -523,7 +579,7 @@ def flipper_list_ep():
     if not port: return jsonify({"ok":False,"error":"no port","files":[]})
     try:
         with serial.Serial(port,115200,timeout=2) as s:
-            _tm.sleep(0.1); s.reset_input_buffer()
+            _tm.sleep(0.8); s.reset_input_buffer()
             s.write(f"storage list {path}\r\n".encode())
             _tm.sleep(2.5); raw=s.read_all().decode("utf-8",errors="replace")
         files=[]; seen=set()
@@ -543,58 +599,72 @@ def flipper_list_ep():
         return jsonify({"ok":True,"files":files,"path":path})
     except Exception as e: return jsonify({"ok":False,"error":str(e),"files":[]})
 
+@app.route("/api/flipper/readtest")
+def flipper_readtest():
+    """Debug: show first 200 bytes after storage read command"""
+    port=request.args.get("port","").strip()
+    path=request.args.get("path","").strip()
+    if not port or not path: return jsonify({"ok":False,"error":"missing params"}),400
+    try:
+        with serial.Serial(port,115200,timeout=3) as s:
+            _tm.sleep(0.8); s.reset_input_buffer()
+            s.write(f"storage read {path}\r\n".encode())
+            _tm.sleep(3.0)
+            raw=s.read_all()
+        return jsonify({
+            "ok":True,
+            "total_bytes":len(raw),
+            "hex_first_100":raw[:100].hex(),
+            "text_first_200":raw[:200].decode('utf-8','replace')
+        })
+    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+
+@app.route("/api/flipper/stat")
+def flipper_stat_ep():
+    """Debug: show raw storage stat output"""
+    port=request.args.get("port","").strip()
+    path=request.args.get("path","").strip()
+    if not port or not path: return jsonify({"ok":False,"error":"missing params"}),400
+    try:
+        with serial.Serial(port,115200,timeout=3) as s:
+            _tm.sleep(0.1); s.reset_input_buffer()
+            s.write(f"storage stat {path}\r\n".encode())
+            _tm.sleep(1.5)
+            raw=s.read_all()
+        text=raw.decode('utf-8',errors='replace')
+        return jsonify({"ok":True,"raw":text,"lines":text.splitlines()})
+    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+
 @app.route("/api/flipper/save")
 def flipper_save_ep():
-    """Download from Flipper and save to HASHES_DIR. Returns local path for WiFi Cracker."""
     if not _SERIAL_OK: return jsonify({"ok":False,"error":"pyserial not installed"}),400
     port=request.args.get("port","").strip()
     path=request.args.get("path","").strip()
     if not port or not path: return jsonify({"ok":False,"error":"missing params"}),400
     try:
         filename=path.split("/")[-1]
-        local_path=os.path.join(HASHES_DIR, filename)
-        # Delete old file first
-        if os.path.exists(local_path):
-            try: os.remove(local_path)
-            except: pass
-        # Try CLI read
-        with serial.Serial(port,115200,timeout=3) as s:
-            _tm.sleep(0.2); s.reset_input_buffer()
-            s.write(f"storage read {path}\r\n".encode())
-            _tm.sleep(5.0)
-            raw=s.read_all()
-        # Strip serial echo and prompt
-        lines=raw.split(b'\n'); data_lines=[]; skip=True
-        for line in lines:
-            if skip and b'storage read' in line: skip=False; continue
-            if skip: continue
-            if line.strip() in [b'>:', b'>', b'']: continue
-            data_lines.append(line)
-        content=b'\n'.join(data_lines)
-        if len(content)>512:
-            with open(local_path,"wb") as f: f.write(content)
-            return jsonify({"ok":True,"local_path":local_path,"filename":filename,"size":len(content)})
-        # CLI gave junk — try RPC
-        resps=_flip_rpc(port,_flip_read_msg(1,path),timeout=60)
-        buf=bytearray()
-        for resp in resps:
-            f=_pb_parse(resp)
-            if 4 in f:
-                rr=_pb_parse(f[4][0])
-                for rfn in range(1,8):
-                    if rfn in rr:
-                        v=rr[rfn][0]
-                        if isinstance(v,bytes) and len(v)>0:
-                            fp=_pb_parse(v)
-                            for dfn in range(1,8):
-                                if dfn in fp and isinstance(fp[dfn][0],bytes) and len(fp[dfn][0])>4:
-                                    buf.extend(fp[dfn][0]); break
-                            if not buf and len(v)>4: buf.extend(v)
-                            break
-        if not buf: return jsonify({"ok":False,"error":"download failed — file may be corrupt or port is busy"}),400
-        with open(local_path,"wb") as f: f.write(bytes(buf))
-        return jsonify({"ok":True,"local_path":local_path,"filename":filename,"size":len(buf)})
+        local_path=os.path.join(TEMP_DIR, filename)
+        data=_flipper_read_binary(port, path)
+        with open(local_path,"wb") as f: f.write(data)
+        return jsonify({"ok":True,"local_path":local_path,"filename":filename,"size":len(data)})
     except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+
+@app.route("/api/flipper/file")
+def flipper_file_ep():
+    """Serve temp file to browser and delete it after."""
+    filename = request.args.get("name","").strip()
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
+        return ("bad request", 400)
+    path = os.path.join(TEMP_DIR, filename)
+    if not os.path.exists(path):
+        return ("not found", 404)
+    from flask import send_file
+    import io
+    with open(path, "rb") as f:
+        data = f.read()
+    try: os.remove(path)
+    except: pass
+    return send_file(io.BytesIO(data), as_attachment=True, download_name=filename, mimetype="application/octet-stream")
 
 @app.route("/api/flipper/download")
 def flipper_download_ep():
@@ -603,64 +673,10 @@ def flipper_download_ep():
     path=request.args.get("path","").strip()
     if not port or not path: return jsonify({"ok":False,"error":"missing params"}),400
     try:
-        import tempfile, threading
+        import io; from flask import send_file
         filename=path.split("/")[-1]
-        tmp=os.path.join(HASHES_DIR, "_flip_dl_"+filename)
-
-        # Use flipper_download.py logic — serial CLI for small files
-        def read_via_cli():
-            with serial.Serial(port,115200,timeout=3) as s:
-                _tm.sleep(0.2); s.reset_input_buffer()
-                # Send storage read command via CLI
-                cmd=f"storage read {path}\r\n".encode()
-                s.write(cmd); _tm.sleep(5.0)
-                raw=s.read_all()
-            return raw
-
-        # Try CLI approach first
-        raw=read_via_cli()
-        # Strip echo and prompt
-        lines=raw.split(b'\n')
-        data_lines=[]
-        skip=True
-        for line in lines:
-            if skip and b'storage read' in line: skip=False; continue
-            if skip: continue
-            if line.strip() in [b'>:', b'>', b'']: continue
-            data_lines.append(line)
-        content=b'\n'.join(data_lines)
-
-        if len(content)>0:
-            from flask import send_file
-            import io
-            return send_file(io.BytesIO(content),as_attachment=True,
-                           download_name=filename,mimetype="application/octet-stream")
-
-        # CLI failed — try raw protobuf with correct field mapping
-        resps=_flip_rpc(port,_flip_read_msg(1,path),timeout=60)
-        buf=bytearray()
-        for resp in resps:
-            f=_pb_parse(resp)
-            if 4 in f:
-                rr=_pb_parse(f[4][0])
-                for rfn in range(1,8):
-                    if rfn in rr:
-                        v=rr[rfn][0]
-                        if isinstance(v,bytes) and len(v)>0:
-                            # Try to parse as File message
-                            fp=_pb_parse(v)
-                            for dfn in range(1,8):
-                                if dfn in fp and isinstance(fp[dfn][0],bytes) and len(fp[dfn][0])>4:
-                                    buf.extend(fp[dfn][0]); break
-                            if not buf and len(v)>4:
-                                buf.extend(v)
-                            break
-
-        if not buf: return jsonify({"ok":False,"error":"download failed — try using qFlipper directly"}),400
-
-        from flask import send_file
-        import io
-        return send_file(io.BytesIO(bytes(buf)),as_attachment=True,
+        data=_flipper_read_binary(port, path)
+        return send_file(io.BytesIO(data),as_attachment=True,
                         download_name=filename,mimetype="application/octet-stream")
     except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
 

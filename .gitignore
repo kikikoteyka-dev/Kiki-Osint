@@ -61,3 +61,14 @@ tmp_test/
 .vscode/
 .idea/
 .claude/
+
+# KikiHub root — sensitive
+keys.json
+*.pcap
+*.hc22000
+*.potfile
+hashes/
+temp/
+_*.py
+sources/
+DISCLAIMER.md
