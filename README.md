@@ -1,6 +1,6 @@
-# KikiHub
+﻿# KikiHub
 
-> A local web hub combining OSINT research, WiFi handshake cracking, and Flipper Zero file management — all in one interface.
+> Локальный веб-хаб для OSINT, взлома WiFi хендшейков и управления файлами Flipper Zero — всё в одном интерфейсе.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey?style=flat-square)
@@ -9,54 +9,103 @@
 
 ---
 
-## What's inside
+## Что внутри
 
-| Tab | Description |
-|-----|-------------|
-| 🔍 **OSINT** | Username / email → full digital portrait via VK, Maigret (500+ sites), HaveIBeenPwned, AI analysis |
-| 📡 **WiFi Cracker** | Drop a `.pcap` → convert → crack with hashcat. Multi-SSID, real-time terminal output |
-| 🐬 **Flipper Zero** | Browse SD card over USB, download `.pcap` files directly to PC |
-
----
-
-## Requirements
-
-**Python packages**
-```
-pip install Flask flask-cors pyserial
-```
-
-**External tools**
-| Tool | Purpose |
-|------|---------|
-| [hashcat 7.x](https://hashcat.net/hashcat/) | GPU WPA cracking (`-m 22000`) |
-| WSL + hcxpcapngtool | Convert `.pcap` → `.hc22000` |
-| [Wireshark](https://wireshark.org) | EAPOL frame analysis (tshark) |
-| CUDA Toolkit | NVIDIA GPU acceleration (optional, ~3× speedup) |
-
-**Wordlists** — place `.txt` files in `C:\HashCat\hashcat-7.1.2\`, KikiHub picks them all up automatically.
-Recommended: [weakpass.com](https://weakpass.com) → `weakpass_4.txt`
+| Вкладка | Описание |
+|---------|----------|
+| 🔍 **OSINT** | Username / email → цифровой портрет через VK, Maigret (500+ сайтов), HaveIBeenPwned, AI-анализ |
+| 📶 **WiFi Cracker** | Бросаешь `.pcap` → конвертация → взлом hashcat. Мульти-SSID, терминал в реальном времени |
+| 🐬 **Flipper Zero** | Браузер SD-карты по USB, скачивание `.pcap` прямо на ПК с проверкой EAPOL |
 
 ---
 
-## Setup
+## Структура директорий
+
+**Это важно — пути жёстко прописаны в `app.py`:**
+
+```
+C:\KikiHub\                        ← сюда клонировать репо
+    app.py
+    index.html
+    keys_store.py
+    flipper_logo.png
+    kiki_logo.png
+    hashcat_logo.png
+    temp\                          ← создаётся автоматически (временные файлы)
+
+C:\HashCat\hashcat-7.1.2\         ← hashcat ИМЕННО здесь
+    hashcat.exe
+    hashes\                        ← .hc22000 файлы (создаётся автоматически)
+    rockyou.txt                    ← вордлисты сюда
+    weakpass_4.latin.txt           ← и другие .txt
+```
+
+> Если хочешь другие пути — измени `BASE_DIR`, `HC_DIR`, `DOWNLOADS_DIR` в начале `app.py`.
+
+---
+
+## Установка
+
+### 1. Клонировать репо
 
 ```bash
-git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub
-cd Kiki-Osint
-pip install Flask flask-cors pyserial
-
-# Edit paths at the top of app.py to match your installation
-python app.py
+git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub C:\KikiHub
+cd C:\KikiHub
 ```
 
-Open **http://localhost:7777**
+### 2. Python зависимости
+
+```bash
+pip install Flask flask-cors pyserial
+```
+
+### 3. Hashcat
+
+Скачать с [hashcat.net](https://hashcat.net/hashcat/) → распаковать в `C:\HashCat\hashcat-7.1.2\`
+
+Проверить что GPU видится:
+```bash
+C:\HashCat\hashcat-7.1.2\hashcat.exe -I
+```
+
+Для NVIDIA — установить [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) (~3× быстрее чем OpenCL).
+
+### 4. WSL + hcxpcapngtool
+
+Нужен WSL (Ubuntu) для конвертации `.pcap` → `.hc22000`:
+
+```bash
+# В PowerShell (от администратора)
+wsl --install
+
+# В WSL
+sudo apt update && sudo apt install hcxtools -y
+
+# Проверка
+hcxpcapngtool --version
+```
+
+### 5. Вордлисты
+
+Положить `.txt` файлы в `C:\HashCat\hashcat-7.1.2\` — KikiHub подберёт все автоматически.
+
+Рекомендованные:
+- `rockyou.txt` — классика, 14M паролей
+- `weakpass_4.latin.txt` — [weakpass.com](https://weakpass.com), 2B+ паролей (22 GB)
+
+### 6. Запуск
+
+```bash
+python C:\KikiHub\app.py
+```
+
+Открыть **http://localhost:7777**
 
 ---
 
-## API Keys
+## API ключи
 
-Create `keys.json` next to `app.py` (never committed):
+Создать `keys.json` рядом с `app.py` (в git не попадает):
 
 ```json
 {
@@ -67,10 +116,10 @@ Create `keys.json` next to `app.py` (never committed):
 }
 ```
 
-Or set them via the **Settings** tab in the UI.
+Или прямо через вкладку **Settings** в UI — там же можно проверить что ключи сохранились.
 
-| Key | Where to get |
-|-----|-------------|
+| Ключ | Где взять |
+|------|-----------|
 | VK Token | [vkhost.github.io](https://vkhost.github.io) → Kate Mobile |
 | Claude | [console.anthropic.com](https://console.anthropic.com) |
 | ChatGPT | [platform.openai.com](https://platform.openai.com) |
@@ -78,38 +127,33 @@ Or set them via the **Settings** tab in the UI.
 
 ---
 
-## File structure
+## Workflow: взлом WiFi
 
 ```
-app.py                  Flask backend — hub routes + hashcat API + Flipper serial
-index.html              Dock UI (OSINT / WiFi / Flipper / Settings panels)
-keys_store.py           Read/write keys.json
-wifi_cracker/
-  wifi_cracker.py       Standalone WiFi Cracker app (also served via hub)
+1. Захват: Flipper Zero + Marauder → sniffpmkid.pcap / sniffpmkid_X.pcap
+2. Вкладка Flipper → выбрать COM-порт → найти файл → нажать ↓
+3. Файл скачивается в браузер, EAPOL фреймы подсчитываются автоматически
+   └─ Оранжевый = меньше 2 фреймов (хендшейк неполный)
+   └─ Зелёный = готово к взлому
+4. Нажать 🔓 → файл уходит в WiFi Cracker
+5. Вкладка WiFi Cracker → Analyze → Run Hashcat
+6. Пароль появится в терминале когда найден
 ```
 
----
-
-## WiFi cracking workflow
-
-```
-1. Capture with Flipper Zero + Marauder → sniffpmkid.pcap
-2. Open WiFi Cracker tab → drag & drop pcap
-3. Analyze → converts via WSL hcxpcapngtool
-4. Run Hashcat → iterates wordlists automatically
-5. Password appears in terminal when found
-```
+> Скорость на RTX 3050: ~117 kH/s (OpenCL) / ~400 kH/s (CUDA)
 
 ---
 
 ## Flipper Zero
 
-Connect Flipper by USB, select COM port in the Flipper tab — browse and download files directly without qFlipper.
-
-> Close qFlipper before connecting, it holds the COM port.
+- Подключить по USB, закрыть qFlipper (держит COM-порт)
+- Выбрать порт в выпадашке (обычно COM4)
+- Браузер показывает файловую систему SD-карты
+- **↓** — скачать файл в браузер (для pcap проверяет EAPOL)
+- **🔓** — отправить pcap напрямую в WiFi Cracker
 
 ---
 
 ## Disclaimer
 
-For educational and authorized testing purposes only.
+Только для образовательных целей и авторизованного тестирования.
