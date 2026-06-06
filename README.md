@@ -139,21 +139,6 @@ python C:\KikiHub\app.py
 
 ---
 
-## Workflow: взлом WiFi
-
-```
-1. Захват: Flipper Zero + Marauder → sniffpmkid.pcap / sniffpmkid_X.pcap
-2. Вкладка Flipper → выбрать COM-порт → найти файл → нажать ↓
-3. Файл скачивается в браузер, EAPOL фреймы подсчитываются автоматически
-   └─ Оранжевый = меньше 2 фреймов (хендшейк неполный)
-   └─ Зелёный = готово к взлому
-4. Нажать 🔓 → файл уходит в WiFi Cracker
-5. Вкладка WiFi Cracker → Analyze → Run Hashcat
-6. Пароль появится в терминале когда найден
-```
-
-> Скорость на RTX 3050: ~117 kH/s (OpenCL) / ~400 kH/s (CUDA)
-
 ---
 
 ## Flipper Zero
@@ -169,4 +154,5 @@ python C:\KikiHub\app.py
 ## Disclaimer
 
 Только для образовательных целей и авторизованного тестирования.
+
 
