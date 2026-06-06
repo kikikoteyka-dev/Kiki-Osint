@@ -5,7 +5,19 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078d7?style=flat-square)
-![GPU](https://img.shields.io/badge/GPU-CUDA%20%2F%20OpenCL-76b900?style=flat-square)
+
+
+> [!WARNING]
+> **LEGAL DISCLAIMER**
+>
+> This tool is provided for **educational purposes and authorized security testing only**.
+>
+> - ✅ Use only on networks and devices **you own** or have **explicit written permission** to test
+> - ❌ Using this tool against networks without authorization is **illegal** in most jurisdictions (including Russia — Article 272-274 of the Criminal Code)
+> - ❌ The author takes **no responsibility** for any misuse, damage, or legal consequences arising from use of this software
+> - ❌ Capturing, cracking, or accessing Wi-Fi networks without consent is a criminal offence
+>
+> By using KikiHub you confirm that you have the legal right to test the target systems.
 
 ---
 
@@ -157,3 +169,4 @@ python C:\KikiHub\app.py
 ## Disclaimer
 
 Только для образовательных целей и авторизованного тестирования.
+
