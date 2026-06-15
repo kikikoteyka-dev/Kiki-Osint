@@ -162,7 +162,15 @@ select.setting-inp{cursor:pointer}
 .geo-ai{margin-top:14px;padding:16px;border-radius:var(--r2);background:rgba(255,255,255,.02);border:1px solid var(--g-bd)}
 .geo-ai-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(92,214,255,.7);margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .geo-ai-label::before{content:'';width:14px;height:1px;background:rgba(92,214,255,.4)}
+.geo-ai-confidence{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:3px 10px;margin-left:auto}
+.geo-ai-confidence[data-level="high"]{color:#7ee8a8;background:rgba(126,232,168,.1);border:1px solid rgba(126,232,168,.22)}
+.geo-ai-confidence[data-level="medium"]{color:#f5d742;background:rgba(245,215,66,.08);border:1px solid rgba(245,215,66,.2)}
+.geo-ai-confidence[data-level="low"]{color:#ff9b9b;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2)}
 .geo-text{font-size:12px;color:var(--t1);line-height:1.7;white-space:pre-wrap}
+.geo-ai-alt{margin-top:10px;font-size:11px;color:var(--t2);font-style:italic;line-height:1.6}
+.geo-ai-map-wrap{margin-top:14px;padding:6px;border-radius:calc(var(--r2) + 6px);background:rgba(255,255,255,.02);border:1px solid var(--g-bd);display:none}
+.geo-ai-map-wrap.show{display:block;animation:fadeUp .3s ease}
+.geo-ai-map-caption{font-size:11px;color:var(--t3);padding:8px 4px 2px;font-family:'JetBrains Mono',monospace;line-height:1.5}
 .geo-ai.geo-ai-error{background:rgba(255,80,80,.05);border-color:rgba(255,80,80,.18)}
 .geo-ai.geo-ai-error .geo-ai-label{color:#ff9b9b}
 .geo-ai.geo-ai-error .geo-ai-label::before{background:rgba(255,80,80,.4)}
@@ -553,8 +561,16 @@ document.addEventListener("pointermove",(e)=>{
         <div class="geo-exif-body"><table class="geo-exif-table" id="geo-exif-table"></table></div>
       </div>
       <div class="geo-ai" id="geo-ai" style="display:none">
-        <div class="geo-ai-label" id="geo-ai-label">AI Analysis</div>
+        <div class="geo-ai-label" id="geo-ai-label">
+          <span id="geo-ai-label-text">AI Analysis</span>
+          <span class="geo-ai-confidence" id="geo-ai-confidence" style="display:none"></span>
+        </div>
         <div class="geo-text" id="geo-ai-text"></div>
+        <div class="geo-ai-alt" id="geo-ai-alt" style="display:none"></div>
+        <div class="geo-ai-map-wrap" id="geo-ai-map-wrap">
+          <iframe class="geo-map" id="geo-ai-map"></iframe>
+          <div class="geo-ai-map-caption" id="geo-ai-map-caption"></div>
+        </div>
         <div class="geo-ai-disclaimer" id="geo-ai-disclaimer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span id="geo-ai-disclaimer-text"></span>
@@ -642,12 +658,16 @@ var TOOL_LABELS = {
        geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error',
        geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
        geoExifLabel:'EXIF data', geoExifEmpty:'No EXIF data found',
+       geoConfHigh:'high confidence', geoConfMedium:'medium confidence', geoConfLow:'low confidence',
+       geoAiMapCaption:'AI guess',
        sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
        geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка',
        geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
        geoExifLabel:'EXIF-данные', geoExifEmpty:'EXIF-данные не найдены',
+       geoConfHigh:'высокая уверенность', geoConfMedium:'средняя уверенность', geoConfLow:'низкая уверенность',
+       geoAiMapCaption:'Гипотеза AI',
        sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса'}
 };
 function setToolLang(lang){
@@ -818,10 +838,15 @@ function geoAnalyze(){
       if(d.error){err.textContent=d.error;return}
       var coordsText=document.getElementById('geo-coords-text'), mapWrap=document.getElementById('geo-map-wrap'), mapEl=document.getElementById('geo-map');
       var addressEl=document.getElementById('geo-address');
-      var aiBox=document.getElementById('geo-ai'), aiLabel=document.getElementById('geo-ai-label'), aiText=document.getElementById('geo-ai-text');
+      var aiBox=document.getElementById('geo-ai'), aiLabelText=document.getElementById('geo-ai-label-text'), aiText=document.getElementById('geo-ai-text');
+      var aiConf=document.getElementById('geo-ai-confidence'), aiAlt=document.getElementById('geo-ai-alt');
+      var aiMapWrap=document.getElementById('geo-ai-map-wrap'), aiMapEl=document.getElementById('geo-ai-map'), aiMapCaption=document.getElementById('geo-ai-map-caption');
       var aiDisclaimer=document.getElementById('geo-ai-disclaimer');
       var exifBox=document.getElementById('geo-exif'), exifTable=document.getElementById('geo-exif-table');
       mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent=''; aiDisclaimer.style.display='none';
+      aiConf.style.display='none'; aiConf.removeAttribute('data-level');
+      aiAlt.style.display='none'; aiAlt.textContent='';
+      aiMapWrap.classList.remove('show'); aiMapEl.src=''; aiMapCaption.textContent='';
       addressEl.classList.remove('show'); addressEl.textContent='';
       exifBox.classList.remove('show','open'); exifTable.innerHTML='';
       if(d.lat!=null && d.lon!=null){
@@ -837,9 +862,27 @@ function geoAnalyze(){
         coordsText.textContent=t.geoNoGps;
       }
       if(d.ai_guess){
-        aiLabel.textContent=t.geoAiTitle; aiText.textContent=d.ai_guess; aiBox.style.display='block'; aiDisclaimer.style.display='flex';
+        var g=d.ai_guess;
+        aiLabelText.textContent=t.geoAiTitle; aiBox.style.display='block'; aiDisclaimer.style.display='flex';
+        var confKey={high:'geoConfHigh',medium:'geoConfMedium',low:'geoConfLow'}[g.confidence];
+        if(confKey){
+          aiConf.textContent=t[confKey]; aiConf.dataset.level=g.confidence; aiConf.style.display='inline-flex';
+        }
+        var parts=[];
+        if(g.location) parts.push(g.location);
+        if(g.reasoning) parts.push(g.reasoning);
+        aiText.textContent=parts.join('\n\n');
+        if(g.alternatives){
+          aiAlt.textContent=g.alternatives; aiAlt.style.display='block';
+        }
+        if(d.ai_location && d.ai_location.lat!=null && d.ai_location.lon!=null){
+          var aLat=d.ai_location.lat, aLon=d.ai_location.lon, aDelta=0.05;
+          aiMapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(aLon-aDelta)+','+(aLat-aDelta)+','+(aLon+aDelta)+','+(aLat+aDelta)+'&marker='+aLat+','+aLon;
+          aiMapCaption.textContent=t.geoAiMapCaption+': '+(d.ai_location.display_name||(aLat.toFixed(4)+', '+aLon.toFixed(4)));
+          aiMapWrap.classList.add('show');
+        }
       }else if(d.ai_error){
-        aiLabel.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
+        aiLabelText.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
       }
       if(d.exif_data && Object.keys(d.exif_data).length){
         var keys=Object.keys(d.exif_data).sort();

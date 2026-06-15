@@ -1440,6 +1440,25 @@ def reverse_geocode(lat, lon, lang="ru"):
     except Exception:
         return None
 
+def geocode_place(query, lang="ru"):
+    """Free forward geocoding via Nominatim — turns a place name into coordinates."""
+    if not query:
+        return None
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": query, "format": "json", "limit": 1, "accept-language": lang},
+            headers={"User-Agent": "KikiHub-GEOINT/1.0"},
+            timeout=8,
+        )
+        results = r.json()
+        if results:
+            item = results[0]
+            return {"lat": float(item["lat"]), "lon": float(item["lon"]), "display_name": item.get("display_name")}
+    except Exception:
+        pass
+    return None
+
 def _exif_full_dict(img):
     """Extract all human-readable EXIF tags (excluding raw GPS IFD)."""
     from PIL.ExifTags import TAGS, GPSTAGS
@@ -1480,6 +1499,24 @@ def _exif_full_dict(img):
         pass
     return data
 
+def _parse_ai_json(text):
+    """Best-effort parse of a JSON object out of an LLM response, stripping ```json fences if present."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text)
+        text = text.strip()
+    try:
+        data = json.loads(text)
+        return {
+            "location": str(data.get("location") or "").strip(),
+            "confidence": str(data.get("confidence") or "").strip(),
+            "reasoning": str(data.get("reasoning") or "").strip(),
+            "alternatives": str(data.get("alternatives") or "").strip(),
+        }
+    except Exception:
+        return {"location": "", "confidence": "", "reasoning": text, "alternatives": ""}
+
 def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
     lang_instruction = {
         "ru": "Отвечай строго на русском языке.",
@@ -1487,10 +1524,20 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
     }.get(ai_lang, "Respond strictly in English.")
     prompt = (
         "You are a GEOINT analyst. Look at this photo and identify the most likely location "
-        "(country, and region/city if possible) based on visible clues: architecture, signage "
-        "and language, vegetation, terrain, vehicles/license plates, road markings, climate. "
-        "Reply with your best-guess location first, then a short bullet list of the visual "
-        "clues that led you there. If you can't tell, say so honestly. "
+        "based on visible clues: architecture, signage and language, vegetation, terrain, "
+        "vehicles/license plates, road markings, climate, and any other geographic indicators. "
+        "Be as specific as you can, but be honest about uncertainty.\n\n"
+        "Respond with ONLY a raw JSON object (no markdown formatting, no code fences, no "
+        "asterisks or bullet points anywhere) with exactly these fields:\n"
+        '- "location": your single best-guess location, as a short geocodable place name '
+        '(e.g. "Belgrade, Serbia"). If you cannot narrow it down to a specific place, use the '
+        'broadest area you are confident about (e.g. "Balkans" or "Southeast Asia"). Empty '
+        "string if you have no guess at all.\n"
+        '- "confidence": one of "high", "medium", "low".\n'
+        '- "reasoning": plain flowing text (no markdown, no lists) explaining which visual '
+        "clues led to this guess.\n"
+        '- "alternatives": plain text naming other plausible locations, phrased like "or '
+        'possibly X" / "or somewhere nearby" — empty string if you have no other candidates.\n\n'
         f"{lang_instruction}"
     )
     if config["provider"] == "anthropic":
@@ -1501,16 +1548,29 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
                 {"type": "text", "text": prompt}]}])
-        return msg.content[0].text
+        return _parse_ai_json(msg.content[0].text)
 
     if config["provider"] == "gemini":
         from google import genai
         from google.genai import types
         try:
             client = genai.Client(api_key=config["api_key"])
-            resp = client.models.generate_content(model="gemini-2.5-flash-lite",
-                contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt])
-            return resp.text
+            resp = client.models.generate_content(model="gemini-2.5-flash",
+                contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "location": types.Schema(type=types.Type.STRING),
+                            "confidence": types.Schema(type=types.Type.STRING),
+                            "reasoning": types.Schema(type=types.Type.STRING),
+                            "alternatives": types.Schema(type=types.Type.STRING),
+                        },
+                        required=["location", "confidence", "reasoning", "alternatives"],
+                    ),
+                ))
+            return _parse_ai_json(resp.text)
         except Exception as e:
             msg = str(e)
             if "getaddrinfo failed" in msg or "11001" in msg:
@@ -1551,7 +1611,10 @@ def geoint_analyze():
 
     if AI_CONFIG.get("provider") and AI_CONFIG.get("api_key"):
         try:
-            result["ai_guess"] = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang)
+            ai_guess = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang)
+            result["ai_guess"] = ai_guess
+            if ai_guess.get("location"):
+                result["ai_location"] = geocode_place(ai_guess["location"], ai_lang)
         except Exception as e:
             result["ai_error"] = str(e)
 
