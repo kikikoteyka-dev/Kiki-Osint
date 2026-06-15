@@ -15,6 +15,7 @@
   --ease-out:cubic-bezier(0.23,1,0.32,1);
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t1);font-family:'Hanken Grotesk',Arial,sans-serif}
+select{accent-color:var(--a);color-scheme:dark}
 .aurora-container{position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%;opacity:.5;mix-blend-mode:screen;overflow:hidden}
 .aurora-container canvas{display:block;width:100%;height:100%}
 .bg-orbs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
@@ -86,6 +87,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .setting-inp::placeholder{color:rgba(255,255,255,.2)}
 .setting-inp option{background:var(--bg)}
 select.setting-inp{cursor:pointer}
+.ui-lang-switch{display:flex;gap:6px;background:var(--g-bg);border:1px solid var(--g-bd2);border-radius:var(--r2);padding:4px}
+.ui-lang-btn{flex:1;padding:10px;border:none;border-radius:calc(var(--r2) - 4px);background:transparent;color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .2s ease,color .2s ease,border-color .2s ease;border:1px solid transparent}
+.ui-lang-btn:hover{color:#fff}
+.ui-lang-btn.active{background:rgba(92,214,255,.12);color:var(--a);border-color:rgba(92,214,255,.2)}
 .setting-btn{width:100%;padding:13px;border-radius:var(--r2);border:1px solid rgba(92,214,255,.18);font-family:'Bricolage Grotesque',Arial,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:rgba(92,214,255,.08);color:var(--a);margin-top:8px;transition:background .2s ease,border-color .2s ease,color .2s ease,transform .15s cubic-bezier(.23,1,.32,1)}
 .setting-btn:hover{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff}
 .setting-btn:active{transform:scale(.98)}
@@ -537,6 +542,12 @@ document.addEventListener("pointermove",(e)=>{
 <div class="panel" id="panel-settings">
   <div class="settings-card">
     <div class="settings-title">Settings</div>
+    <div class="setting-row"><div class="setting-label" id="s-ui-lang-label">Interface Language</div>
+      <div class="ui-lang-switch">
+        <button class="ui-lang-btn" id="ui-lang-ru" onclick="setUiLang('ru')">RU</button>
+        <button class="ui-lang-btn" id="ui-lang-en" onclick="setUiLang('en')">EN</button>
+      </div>
+    </div>
     <div class="setting-row"><div class="setting-label">VK Token</div><input class="setting-inp" id="s-vk" placeholder="vk1.a.xxx..."></div>
     <div class="setting-row"><div class="setting-label">Gemini API (Recommended)</div><input class="setting-inp" id="s-gem" placeholder="AIza..."></div>
     <div class="setting-row"><div class="setting-label">Anthropic API</div><input class="setting-inp" id="s-ant" placeholder="sk-ant-..."></div>
@@ -605,12 +616,12 @@ var TOOL_LABELS = {
        geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF',
        geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error',
        geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
-       sAiLangLabel:'AI Response Language'},
+       sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
        geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка',
        geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
-       sAiLangLabel:'Язык ответов AI'}
+       sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса'}
 };
 function setToolLang(lang){
   var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
@@ -622,8 +633,19 @@ function setToolLang(lang){
   document.getElementById('geo-btn-label').textContent = t.geoBtn;
   document.getElementById('geo-ai-disclaimer-text').textContent = t.geoAiDisclaimer;
   document.getElementById('s-ai-lang-label').textContent = t.sAiLangLabel;
+  document.getElementById('s-ui-lang-label').textContent = t.sUiLangLabel;
+  document.getElementById('ui-lang-ru').classList.toggle('active', lang === 'ru');
+  document.getElementById('ui-lang-en').classList.toggle('active', lang === 'en');
 }
 setToolLang(localStorage.getItem('kiki_lang') || 'en');
+
+// ─── UI (interface) language switcher ─────────────────────
+function setUiLang(lang){
+  localStorage.setItem('kiki_lang', lang);
+  setDockLang(lang); setToolLang(lang);
+  var osintFrame = document.getElementById('osint-frame');
+  if(osintFrame && osintFrame.contentWindow) osintFrame.contentWindow.postMessage({type:'kiki-lang', lang:lang}, '*');
+}
 
 // ─── AI response language (separate from UI language) ────
 function setAiLang(lang){

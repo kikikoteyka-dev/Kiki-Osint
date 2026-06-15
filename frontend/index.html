@@ -46,6 +46,7 @@
 }
 
 html,body{height:100%;overflow:hidden}
+select{accent-color:var(--a);color-scheme:dark}
 body{font-family:'Hanken Grotesk',sans-serif;background:var(--bg);color:var(--t1);font-size:16px}
 
 /* ═══════════════════════════════════
@@ -1025,6 +1026,11 @@ function setLang(lang){
     window.parent.postMessage({type:"kiki-lang", lang}, "*");
   }
 }
+
+// Listen for language changes pushed from the parent dashboard (e.g. Settings tab)
+window.addEventListener("message", (e)=>{
+  if(e.data && e.data.type === "kiki-lang" && e.data.lang !== currentLang) setLang(e.data.lang);
+});
 
 // Apply the globally-saved language (falls back to English) on load
 document.addEventListener("DOMContentLoaded",()=>{
