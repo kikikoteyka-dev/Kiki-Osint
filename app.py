@@ -1426,6 +1426,60 @@ def _gps_to_deg(value, ref):
         deg = -deg
     return deg
 
+def reverse_geocode(lat, lon, lang="ru"):
+    """Free reverse geocoding via Nominatim (OpenStreetMap) — no API key required."""
+    try:
+        r = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"format": "json", "lat": lat, "lon": lon, "zoom": 18, "accept-language": lang},
+            headers={"User-Agent": "KikiHub-GEOINT/1.0"},
+            timeout=8,
+        )
+        data = r.json()
+        return data.get("display_name")
+    except Exception:
+        return None
+
+def _exif_full_dict(img):
+    """Extract all human-readable EXIF tags (excluding raw GPS IFD)."""
+    from PIL.ExifTags import TAGS, GPSTAGS
+    exif = img.getexif()
+    if not exif:
+        return {}
+    data = {}
+    for tag_id, value in exif.items():
+        tag = TAGS.get(tag_id, str(tag_id))
+        if tag in ("GPSInfo",):
+            continue
+        if tag_id in (0x8769, 0x8825):  # ExifOffset / GPSInfo IFD pointers
+            continue
+        if isinstance(value, bytes):
+            try:
+                value = value.decode(errors="replace")
+            except Exception:
+                value = str(value)
+        data[tag] = str(value)
+    try:
+        exif_ifd = exif.get_ifd(0x8769)
+        for tag_id, value in exif_ifd.items():
+            tag = TAGS.get(tag_id, str(tag_id))
+            if isinstance(value, bytes):
+                try:
+                    value = value.decode(errors="replace")
+                except Exception:
+                    value = str(value)
+            data[tag] = str(value)
+    except Exception:
+        pass
+    try:
+        gps_ifd = exif.get_ifd(0x8825)
+        for tag_id, value in gps_ifd.items():
+            tag = GPSTAGS.get(tag_id, str(tag_id))
+            data["GPS" + tag if not tag.startswith("GPS") else tag] = str(value)
+    except Exception:
+        pass
+    return data
+
 def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
     lang_instruction = {
         "ru": "Отвечай строго на русском языке.",
@@ -1476,23 +1530,26 @@ def geoint_analyze():
     image_bytes = request.files["photo"].read()
     result = {}
 
+    ai_lang = request.form.get("ai_lang", "ru")
+
     try:
         from PIL import Image
         from PIL.ExifTags import GPSTAGS
         import io
         img = Image.open(io.BytesIO(image_bytes))
         exif = img.getexif()
+        result["exif_data"] = _exif_full_dict(img)
         gps_ifd = exif.get_ifd(0x8825) if exif else None
         if gps_ifd:
             gps = {GPSTAGS.get(k, k): v for k, v in gps_ifd.items()}
             if "GPSLatitude" in gps and "GPSLongitude" in gps:
                 result["lat"] = _gps_to_deg(gps["GPSLatitude"], gps.get("GPSLatitudeRef", "N"))
                 result["lon"] = _gps_to_deg(gps["GPSLongitude"], gps.get("GPSLongitudeRef", "E"))
+                result["address"] = reverse_geocode(result["lat"], result["lon"], ai_lang)
     except Exception as e:
         result["exif_error"] = str(e)
 
     if AI_CONFIG.get("provider") and AI_CONFIG.get("api_key"):
-        ai_lang = request.form.get("ai_lang", "ru")
         try:
             result["ai_guess"] = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang)
         except Exception as e:

@@ -35,9 +35,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .panel.active{opacity:1;pointer-events:all;transform:scale(1) translateY(0);filter:blur(0px);transition:opacity .45s cubic-bezier(.23,1,.32,1),transform .45s cubic-bezier(.23,1,.32,1),filter .3s cubic-bezier(.23,1,.32,1)}
 .panel.leaving{opacity:0;pointer-events:none;transform:scale(.94) translateY(12px);filter:blur(6px);transition:opacity .28s cubic-bezier(.4,0,1,1),transform .28s cubic-bezier(.4,0,1,1),filter .2s ease}
 #panel-osint,#panel-hc{overflow:hidden}
-#panel-dl,#panel-geoint{align-items:center;justify-content:center;overflow:auto;padding:40px 20px 120px}
-#panel-settings{display:block;overflow:auto;padding:40px 20px 120px}
-#panel-settings .settings-card{margin:0 auto}
+#panel-dl{align-items:center;justify-content:center;overflow:auto;padding:40px 20px 120px}
+#panel-settings,#panel-geoint{display:block;overflow:auto;padding:40px 20px 120px}
+#panel-settings .settings-card,#panel-geoint .tool-card{margin:0 auto}
 .osint-frame{width:100%;height:100%;border:none}
 
 /* Dock */
@@ -140,6 +140,22 @@ select.setting-inp{cursor:pointer}
 @keyframes toolSpin{to{transform:rotate(360deg)}}
 .geo-coords{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a);background:rgba(92,214,255,.07);border:1px solid rgba(92,214,255,.18);border-radius:999px;padding:6px 13px}
 .geo-coords svg{width:13px;height:13px;flex-shrink:0}
+.geo-address{margin-top:10px;font-size:12px;color:var(--t1);line-height:1.6;display:none}
+.geo-address.show{display:block;animation:fadeUp .3s ease}
+.geo-exif{margin-top:14px;border-radius:var(--r2);background:rgba(255,255,255,.02);border:1px solid var(--g-bd);overflow:hidden;display:none}
+.geo-exif.show{display:block;animation:fadeUp .3s ease}
+.geo-exif-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;background:none;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:rgba(92,214,255,.7);transition:color .2s ease}
+.geo-exif-toggle:hover{color:var(--a)}
+.geo-exif-toggle svg{width:13px;height:13px;flex-shrink:0;transition:transform .3s var(--ease-out)}
+.geo-exif.open .geo-exif-toggle svg{transform:rotate(180deg)}
+.geo-exif-body{display:none;padding:0 16px 16px}
+.geo-exif.open .geo-exif-body{display:block;animation:fadeUp .25s ease}
+.geo-exif-table{width:100%;border-collapse:collapse;font-size:11px;font-family:'JetBrains Mono',monospace}
+.geo-exif-table tr{border-top:1px solid var(--g-bd)}
+.geo-exif-table tr:first-child{border-top:none}
+.geo-exif-table td{padding:7px 0;vertical-align:top;word-break:break-all}
+.geo-exif-table td:first-child{color:var(--t2);padding-right:14px;white-space:nowrap;width:1%}
+.geo-exif-table td:last-child{color:var(--t1)}
 .geo-map-wrap{margin-top:14px;padding:6px;border-radius:calc(var(--r2) + 6px);background:rgba(255,255,255,.02);border:1px solid var(--g-bd);display:none}
 .geo-map-wrap.show{display:block;animation:fadeUp .3s ease}
 .geo-map{width:100%;height:220px;border:none;border-radius:var(--r2);display:block}
@@ -527,7 +543,15 @@ document.addEventListener("pointermove",(e)=>{
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         <span id="geo-coords-text"></span>
       </div>
+      <div class="geo-address" id="geo-address"></div>
       <div class="geo-map-wrap" id="geo-map-wrap"><iframe class="geo-map" id="geo-map"></iframe></div>
+      <div class="geo-exif" id="geo-exif">
+        <button class="geo-exif-toggle" id="geo-exif-toggle" onclick="document.getElementById('geo-exif').classList.toggle('open')">
+          <span id="geo-exif-label">EXIF data</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="geo-exif-body"><table class="geo-exif-table" id="geo-exif-table"></table></div>
+      </div>
       <div class="geo-ai" id="geo-ai" style="display:none">
         <div class="geo-ai-label" id="geo-ai-label">AI Analysis</div>
         <div class="geo-text" id="geo-ai-text"></div>
@@ -617,11 +641,13 @@ var TOOL_LABELS = {
        geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF',
        geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error',
        geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
+       geoExifLabel:'EXIF data', geoExifEmpty:'No EXIF data found',
        sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
        geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка',
        geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
+       geoExifLabel:'EXIF-данные', geoExifEmpty:'EXIF-данные не найдены',
        sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса'}
 };
 function setToolLang(lang){
@@ -633,6 +659,7 @@ function setToolLang(lang){
   document.getElementById('geo-title-lbl').textContent = t.geoTitle;
   document.getElementById('geo-btn-label').textContent = t.geoBtn;
   document.getElementById('geo-ai-disclaimer-text').textContent = t.geoAiDisclaimer;
+  document.getElementById('geo-exif-label').textContent = t.geoExifLabel;
   document.getElementById('s-ai-lang-label').textContent = t.sAiLangLabel;
   document.getElementById('s-ui-lang-label').textContent = t.sUiLangLabel;
   document.getElementById('ui-lang-ru').classList.toggle('active', lang === 'ru');
@@ -790,14 +817,22 @@ function geoAnalyze(){
       loading.style.display='none';
       if(d.error){err.textContent=d.error;return}
       var coordsText=document.getElementById('geo-coords-text'), mapWrap=document.getElementById('geo-map-wrap'), mapEl=document.getElementById('geo-map');
+      var addressEl=document.getElementById('geo-address');
       var aiBox=document.getElementById('geo-ai'), aiLabel=document.getElementById('geo-ai-label'), aiText=document.getElementById('geo-ai-text');
       var aiDisclaimer=document.getElementById('geo-ai-disclaimer');
+      var exifBox=document.getElementById('geo-exif'), exifTable=document.getElementById('geo-exif-table');
       mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent=''; aiDisclaimer.style.display='none';
+      addressEl.classList.remove('show'); addressEl.textContent='';
+      exifBox.classList.remove('show','open'); exifTable.innerHTML='';
       if(d.lat!=null && d.lon!=null){
         coordsText.textContent=t.geoCoords+': '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
         var delta=0.01;
         mapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(d.lon-delta)+','+(d.lat-delta)+','+(d.lon+delta)+','+(d.lat+delta)+'&marker='+d.lat+','+d.lon;
         mapWrap.classList.add('show');
+        if(d.address){
+          addressEl.textContent=d.address;
+          addressEl.classList.add('show');
+        }
       }else{
         coordsText.textContent=t.geoNoGps;
       }
@@ -805,6 +840,17 @@ function geoAnalyze(){
         aiLabel.textContent=t.geoAiTitle; aiText.textContent=d.ai_guess; aiBox.style.display='block'; aiDisclaimer.style.display='flex';
       }else if(d.ai_error){
         aiLabel.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
+      }
+      if(d.exif_data && Object.keys(d.exif_data).length){
+        var keys=Object.keys(d.exif_data).sort();
+        for(var i=0;i<keys.length;i++){
+          var tr=document.createElement('tr');
+          var tdK=document.createElement('td'), tdV=document.createElement('td');
+          tdK.textContent=keys[i]; tdV.textContent=d.exif_data[keys[i]];
+          tr.appendChild(tdK); tr.appendChild(tdV);
+          exifTable.appendChild(tr);
+        }
+        exifBox.classList.add('show');
       }
       result.classList.add('show');
     }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
