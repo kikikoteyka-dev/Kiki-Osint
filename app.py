@@ -818,7 +818,7 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
             return {"error": "google-genai not installed. Run: py -m pip install google-genai"}
         try:
             client = genai.Client(api_key=config["api_key"])
-            resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            resp = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             return {"portrait": resp.text}
         except Exception as e:
             msg = str(e)
@@ -1469,7 +1469,7 @@ def geoint_ai_guess(image_bytes, config):
         from google.genai import types
         try:
             client = genai.Client(api_key=config["api_key"])
-            resp = client.models.generate_content(model="gemini-2.5-flash",
+            resp = client.models.generate_content(model="gemini-2.5-flash-lite",
                 contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt])
             return resp.text
         except Exception as e:
