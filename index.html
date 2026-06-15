@@ -54,7 +54,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .icon-btn:active{transform:scale(.88)}
 .icon-btn__back,.icon-btn__front,.icon-btn__label{transition:opacity .3s cubic-bezier(.83,0,.17,1),transform .3s cubic-bezier(.83,0,.17,1)}
 .icon-btn__back,.icon-btn__front{border-radius:1.25em;position:absolute;top:0;left:0;width:100%;height:100%}
-.icon-btn__back{box-shadow:.5em -.5em .75em hsla(223,10%,10%,.15);display:block;transform:rotate(15deg);transform-origin:100% 100%;will-change:transform;background:linear-gradient(hsl(215,18%,42%),hsl(222,20%,26%))}
+.icon-btn__back{box-shadow:.5em -.5em .75em hsla(223,10%,10%,.15);display:block;transform:rotate(15deg);transform-origin:100% 100%;will-change:transform;background:linear-gradient(hsl(190,40%,34%),hsl(195,45%,18%))}
 .icon-btn__front{background-color:hsla(0,0%,100%,.15);box-shadow:0 0 0 .1em hsla(0,0%,100%,.3) inset;backdrop-filter:blur(.75em);display:flex;align-items:center;justify-content:center;transform-origin:80% 50%;will-change:transform}
 .icon-btn__icon{margin:auto;width:1.5em;height:1.5em;display:flex;align-items:center;justify-content:center;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .icon-btn__icon svg{width:100%;height:100%}
@@ -100,6 +100,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .tool-row{display:flex;gap:10px;margin-bottom:14px}
 .tool-row .setting-inp{flex:1}
 .tool-row .setting-inp[type="file"]{padding-top:10px;padding-bottom:10px;color:var(--t2);cursor:pointer}
+.tool-row .setting-inp[type="file"]::file-selector-button,.tool-row .setting-inp[type="file"]::-webkit-file-upload-button{
+  margin-right:12px;padding:7px 14px;border-radius:999px;border:1px solid rgba(92,214,255,.18);
+  background:rgba(92,214,255,.08);color:var(--a);font-family:'JetBrains Mono',monospace;font-size:11px;
+  cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;
+}
+.tool-row .setting-inp[type="file"]:hover::file-selector-button,.tool-row .setting-inp[type="file"]:hover::-webkit-file-upload-button{
+  background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff;
+}
 .tool-result{margin-top:22px;display:none}
 .tool-result.show{display:block;animation:fadeUp .3s ease}
 .tool-media{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
