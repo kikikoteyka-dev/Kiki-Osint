@@ -54,7 +54,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .icon-btn:active{transform:scale(.88)}
 .icon-btn__back,.icon-btn__front,.icon-btn__label{transition:opacity .3s cubic-bezier(.83,0,.17,1),transform .3s cubic-bezier(.83,0,.17,1)}
 .icon-btn__back,.icon-btn__front{border-radius:1.25em;position:absolute;top:0;left:0;width:100%;height:100%}
-.icon-btn__back{box-shadow:.5em -.5em .75em hsla(223,10%,10%,.15);display:block;transform:rotate(15deg);transform-origin:100% 100%;will-change:transform}
+.icon-btn__back{box-shadow:.5em -.5em .75em hsla(223,10%,10%,.15);display:block;transform:rotate(15deg);transform-origin:100% 100%;will-change:transform;background:linear-gradient(hsl(215,18%,42%),hsl(222,20%,26%))}
 .icon-btn__front{background-color:hsla(0,0%,100%,.15);box-shadow:0 0 0 .1em hsla(0,0%,100%,.3) inset;backdrop-filter:blur(.75em);display:flex;align-items:center;justify-content:center;transform-origin:80% 50%;will-change:transform}
 .icon-btn__icon{margin:auto;width:1.5em;height:1.5em;display:flex;align-items:center;justify-content:center;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
 .icon-btn__icon svg{width:100%;height:100%}
@@ -65,14 +65,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .icon-btn.is-active .icon-btn__back{transform:rotate(0deg)!important;background:linear-gradient(hsl(178,88%,44%),hsl(192,88%,34%))!important;box-shadow:0 0 22px hsla(178,88%,44%,.6),.5em -.5em .75em hsla(223,10%,10%,.15)}
 .icon-btn.is-active::after{content:'';position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.8);box-shadow:0 0 8px rgba(255,255,255,.5)}
 .icon-btn-sep{width:1px;height:36px;align-self:center;flex-shrink:0;background:linear-gradient(180deg,transparent,rgba(255,255,255,.2) 30%,rgba(255,255,255,.2) 70%,transparent)}
-.c-teal  .icon-btn__back{background:transparent}
-.c-wifi  .icon-btn__back{background:linear-gradient(hsl(200,52%,28%),hsl(212,58%,16%))}
 .c-flipper .icon-btn__front{background-image:none}
-.c-flipper .icon-btn__back{background:linear-gradient(hsl(185,85%,26%),hsl(198,88%,16%))}
 .c-flipper .icon-btn__front::after{content:'';position:absolute;inset:-3%;background:url('/flipper_logo.png') center/contain no-repeat;filter:brightness(0) invert(1);opacity:.9;transform:translate(-4%,-4%)}
-.c-slate .icon-btn__back{background:linear-gradient(hsl(215,18%,42%),hsl(222,20%,26%))}
-.c-dl .icon-btn__back{background:linear-gradient(hsl(35,90%,48%),hsl(20,85%,32%))}
-.c-geo .icon-btn__back{background:linear-gradient(hsl(142,60%,40%),hsl(160,55%,24%))}
 
 /* Settings */
 .settings-card{background:var(--g-bg);border:1px solid var(--g-bd);border-radius:var(--r);padding:36px;width:460px;max-width:92vw;animation:fadeUp .4s cubic-bezier(.23,1,.32,1);position:relative;overflow:hidden}
@@ -95,21 +89,48 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .setting-btn:active{transform:scale(.98)}
 
 /* Downloader & GEOINT */
-.tool-card{background:var(--g-bg);border:1px solid var(--g-bd);border-radius:var(--r);padding:36px;width:520px;max-width:92vw;animation:fadeUp .4s cubic-bezier(.23,1,.32,1)}
+.tool-card{background:var(--g-bg);border:1px solid var(--g-bd);border-radius:var(--r);padding:36px;width:520px;max-width:92vw;animation:fadeUp .4s cubic-bezier(.23,1,.32,1);position:relative;overflow:hidden}
+.tool-card::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%),rgba(92,214,255,.08),transparent 70%);
+  opacity:0;transition:opacity .35s var(--ease-out);z-index:0;
+}
+.tool-card:hover::before{opacity:1}
+.tool-card>*{position:relative;z-index:1}
 .tool-row{display:flex;gap:10px;margin-bottom:14px}
 .tool-row .setting-inp{flex:1}
-.tool-result{margin-top:20px;display:none}
+.tool-row .setting-inp[type="file"]{padding-top:10px;padding-bottom:10px;color:var(--t2);cursor:pointer}
+.tool-result{margin-top:22px;display:none}
 .tool-result.show{display:block;animation:fadeUp .3s ease}
-.tool-thumb{width:100%;border-radius:var(--r2);margin-bottom:12px;display:block}
-.tool-title{font-weight:600;color:#fff;margin-bottom:4px;font-size:14px}
-.tool-meta{font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:14px}
+.tool-media{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
+.tool-thumb-wrap{flex-shrink:0;width:148px;border-radius:calc(var(--r2) + 4px);overflow:hidden;border:1px solid var(--g-bd2);background:rgba(255,255,255,.02);box-shadow:0 10px 28px -8px rgba(0,0,0,.5)}
+.tool-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.tool-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.tool-title{font-weight:600;color:#fff;margin-bottom:6px;font-size:14px;line-height:1.4}
+.tool-meta{font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace;display:flex;flex-wrap:wrap;gap:6px}
+.tool-meta span{background:rgba(255,255,255,.04);border:1px solid var(--g-bd);border-radius:999px;padding:3px 9px}
 .tool-btns{display:flex;gap:10px}
 .tool-btns .setting-btn{margin-top:0;flex:1}
+.setting-btn{display:flex;align-items:center;justify-content:center;gap:8px}
+.setting-btn svg{width:15px;height:15px;flex-shrink:0;opacity:.85}
 .tool-err{color:#ff8080;font-size:12px;margin-top:10px;font-family:'JetBrains Mono',monospace}
-.tool-loading{font-size:12px;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-top:10px}
-.geo-map{width:100%;height:240px;border:none;border-radius:var(--r2);margin-top:12px;display:none}
-.geo-text{font-size:12px;color:var(--t1);line-height:1.6;white-space:pre-wrap;margin-top:12px}
-.geo-coords{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a)}
+.tool-err:empty{display:none}
+.tool-loading{font-size:12px;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-top:12px;display:flex;align-items:center;gap:10px}
+.tool-spinner{width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.12);border-top-color:var(--a);animation:toolSpin .7s linear infinite;flex-shrink:0}
+@keyframes toolSpin{to{transform:rotate(360deg)}}
+.geo-coords{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a);background:rgba(92,214,255,.07);border:1px solid rgba(92,214,255,.18);border-radius:999px;padding:6px 13px}
+.geo-coords svg{width:13px;height:13px;flex-shrink:0}
+.geo-map-wrap{margin-top:14px;padding:6px;border-radius:calc(var(--r2) + 6px);background:rgba(255,255,255,.02);border:1px solid var(--g-bd);display:none}
+.geo-map-wrap.show{display:block;animation:fadeUp .3s ease}
+.geo-map{width:100%;height:220px;border:none;border-radius:var(--r2);display:block}
+.geo-ai{margin-top:14px;padding:16px;border-radius:var(--r2);background:rgba(255,255,255,.02);border:1px solid var(--g-bd)}
+.geo-ai-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(92,214,255,.7);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.geo-ai-label::before{content:'';width:14px;height:1px;background:rgba(92,214,255,.4)}
+.geo-text{font-size:12px;color:var(--t1);line-height:1.7;white-space:pre-wrap}
+.geo-ai.geo-ai-error{background:rgba(255,80,80,.05);border-color:rgba(255,80,80,.18)}
+.geo-ai.geo-ai-error .geo-ai-label{color:#ff9b9b}
+.geo-ai.geo-ai-error .geo-ai-label::before{background:rgba(255,80,80,.4)}
+.geo-ai.geo-ai-error .geo-text{color:#ffb3b3}
 
 /* Flipper panel */
 #panel-flipper{overflow:hidden}
@@ -349,7 +370,7 @@ void main(){
 </script>
 <script>
 document.addEventListener("pointermove",(e)=>{
-  const el=e.target.closest(".settings-card");
+  const el=e.target.closest(".settings-card, .tool-card");
   if(!el)return;
   const r=el.getBoundingClientRect();
   el.style.setProperty("--mx",(e.clientX-r.left)+"px");
@@ -433,18 +454,31 @@ document.addEventListener("pointermove",(e)=>{
     <div class="tool-row">
       <input class="setting-inp" id="dl-url" placeholder="Paste a video/audio URL (YouTube, TikTok, Instagram, X...)">
     </div>
-    <button class="setting-btn" id="dl-fetch-btn" onclick="dlFetchInfo()">Fetch</button>
-    <div class="tool-loading" id="dl-loading" style="display:none">Fetching info…</div>
+    <button class="setting-btn" id="dl-fetch-btn" onclick="dlFetchInfo()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l1.93-1.93a5 5 0 0 0-7.07-7.07L10.5 5.5"/><path d="M14 11a5 5 0 0 0-7.07 0L5 12.93a5 5 0 0 0 7.07 7.07L13.5 18.5"/></svg>
+      <span id="dl-fetch-label">Fetch</span>
+    </button>
+    <div class="tool-loading" id="dl-loading" style="display:none"><span class="tool-spinner"></span><span>Fetching info…</span></div>
     <div class="tool-err" id="dl-err"></div>
     <div class="tool-result" id="dl-result">
-      <img class="tool-thumb" id="dl-thumb" alt="" style="display:none">
-      <div class="tool-title" id="dl-info-title"></div>
-      <div class="tool-meta" id="dl-meta"></div>
-      <div class="tool-btns">
-        <button class="setting-btn" id="dl-btn-video" onclick="dlDownload('video')">Download video</button>
-        <button class="setting-btn" id="dl-btn-audio" onclick="dlDownload('audio')">Download MP3</button>
+      <div class="tool-media">
+        <div class="tool-thumb-wrap" id="dl-thumb-wrap" style="display:none"><img class="tool-thumb" id="dl-thumb" alt=""></div>
+        <div class="tool-info">
+          <div class="tool-title" id="dl-info-title"></div>
+          <div class="tool-meta" id="dl-meta"></div>
+        </div>
       </div>
-      <div class="tool-loading" id="dl-dl-loading" style="display:none"></div>
+      <div class="tool-btns">
+        <button class="setting-btn" id="dl-btn-video" onclick="dlDownload('video')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          <span id="dl-video-label">Download video</span>
+        </button>
+        <button class="setting-btn" id="dl-btn-audio" onclick="dlDownload('audio')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <span id="dl-audio-label">Download MP3</span>
+        </button>
+      </div>
+      <div class="tool-loading" id="dl-dl-loading" style="display:none"><span class="tool-spinner"></span><span id="dl-dl-loading-text"></span></div>
     </div>
   </div>
 </div>
@@ -456,13 +490,22 @@ document.addEventListener("pointermove",(e)=>{
     <div class="tool-row">
       <input type="file" accept="image/*" class="setting-inp" id="geo-file">
     </div>
-    <button class="setting-btn" id="geo-btn" onclick="geoAnalyze()">Analyze</button>
-    <div class="tool-loading" id="geo-loading" style="display:none">Analyzing…</div>
+    <button class="setting-btn" id="geo-btn" onclick="geoAnalyze()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+      <span id="geo-btn-label">Analyze</span>
+    </button>
+    <div class="tool-loading" id="geo-loading" style="display:none"><span class="tool-spinner"></span><span id="geo-loading-text">Analyzing…</span></div>
     <div class="tool-err" id="geo-err"></div>
     <div class="tool-result" id="geo-result">
-      <div class="geo-coords" id="geo-coords"></div>
-      <iframe class="geo-map" id="geo-map"></iframe>
-      <div class="geo-text" id="geo-ai-text"></div>
+      <div class="geo-coords" id="geo-coords">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span id="geo-coords-text"></span>
+      </div>
+      <div class="geo-map-wrap" id="geo-map-wrap"><iframe class="geo-map" id="geo-map"></iframe></div>
+      <div class="geo-ai" id="geo-ai" style="display:none">
+        <div class="geo-ai-label" id="geo-ai-label">AI Analysis</div>
+        <div class="geo-text" id="geo-ai-text"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -530,18 +573,20 @@ var DOCK_LABELS = {
 };
 var TOOL_LABELS = {
   en: {dlTitle:'Downloader', dlFetch:'Fetch', dlVideo:'Download video', dlAudio:'Download MP3',
-       geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF'},
+       geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF',
+       geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
-       geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS'}
+       geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
+       geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка'}
 };
 function setToolLang(lang){
   var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
   document.getElementById('dl-title-lbl').textContent = t.dlTitle;
-  document.getElementById('dl-fetch-btn').textContent = t.dlFetch;
-  document.getElementById('dl-btn-video').textContent = t.dlVideo;
-  document.getElementById('dl-btn-audio').textContent = t.dlAudio;
+  document.getElementById('dl-fetch-label').textContent = t.dlFetch;
+  document.getElementById('dl-video-label').textContent = t.dlVideo;
+  document.getElementById('dl-audio-label').textContent = t.dlAudio;
   document.getElementById('geo-title-lbl').textContent = t.geoTitle;
-  document.getElementById('geo-btn').textContent = t.geoBtn;
+  document.getElementById('geo-btn-label').textContent = t.geoBtn;
 }
 setToolLang(localStorage.getItem('kiki_lang') || 'en');
 function setDockLang(lang){
@@ -629,19 +674,19 @@ function dlFetchInfo(){
   var err=document.getElementById('dl-err'), loading=document.getElementById('dl-loading'), result=document.getElementById('dl-result');
   err.textContent=''; result.classList.remove('show');
   if(!url){err.textContent='Enter a URL';return}
-  loading.style.display='block';
+  loading.style.display='flex';
   fetch('/api/dl/info',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
     .then(function(r){return r.json()}).then(function(d){
       loading.style.display='none';
       if(d.error){err.textContent=d.error;return}
-      var thumb=document.getElementById('dl-thumb');
-      if(d.thumbnail){thumb.src=d.thumbnail;thumb.style.display='block'}else{thumb.style.display='none'}
+      var thumb=document.getElementById('dl-thumb'), thumbWrap=document.getElementById('dl-thumb-wrap');
+      if(d.thumbnail){thumb.src=d.thumbnail;thumbWrap.style.display='block'}else{thumbWrap.style.display='none'}
       document.getElementById('dl-info-title').textContent=d.title||'';
       var meta=[];
       if(d.uploader) meta.push(d.uploader);
       if(d.duration) meta.push(Math.floor(d.duration/60)+':'+String(Math.floor(d.duration%60)).padStart(2,'0'));
       if(d.extractor) meta.push(d.extractor);
-      document.getElementById('dl-meta').textContent=meta.join(' · ');
+      document.getElementById('dl-meta').innerHTML=meta.map(function(m){return '<span>'+m+'</span>'}).join('');
       result.dataset.url=url;
       result.classList.add('show');
     }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
@@ -650,8 +695,8 @@ function dlFetchInfo(){
 function dlDownload(mode){
   var url=document.getElementById('dl-result').dataset.url;
   var err=document.getElementById('dl-err'), loading=document.getElementById('dl-dl-loading');
-  err.textContent=''; loading.style.display='block';
-  loading.textContent=mode==='audio'?'Downloading & extracting audio…':'Downloading video…';
+  err.textContent=''; loading.style.display='flex';
+  document.getElementById('dl-dl-loading-text').textContent=mode==='audio'?'Downloading & extracting audio…':'Downloading video…';
   fetch('/api/dl/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,mode:mode})})
     .then(function(r){return r.json()}).then(function(d){
       loading.style.display='none';
@@ -671,23 +716,27 @@ function geoAnalyze(){
   err.textContent=''; result.classList.remove('show');
   if(!fileInp.files.length){err.textContent='Choose a photo';return}
   var fd=new FormData(); fd.append('photo',fileInp.files[0]);
-  loading.textContent=t.geoLoading; loading.style.display='block';
+  document.getElementById('geo-loading-text').textContent=t.geoLoading; loading.style.display='flex';
   fetch('/api/geoint/analyze',{method:'POST',body:fd})
     .then(function(r){return r.json()}).then(function(d){
       loading.style.display='none';
       if(d.error){err.textContent=d.error;return}
-      var coordsEl=document.getElementById('geo-coords'), mapEl=document.getElementById('geo-map'), textEl=document.getElementById('geo-ai-text');
-      coordsEl.textContent=''; mapEl.style.display='none'; mapEl.src=''; textEl.textContent='';
+      var coordsText=document.getElementById('geo-coords-text'), mapWrap=document.getElementById('geo-map-wrap'), mapEl=document.getElementById('geo-map');
+      var aiBox=document.getElementById('geo-ai'), aiLabel=document.getElementById('geo-ai-label'), aiText=document.getElementById('geo-ai-text');
+      mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent='';
       if(d.lat!=null && d.lon!=null){
-        coordsEl.textContent='EXIF GPS: '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
+        coordsText.textContent=t.geoCoords+': '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
         var delta=0.01;
         mapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(d.lon-delta)+','+(d.lat-delta)+','+(d.lon+delta)+','+(d.lat+delta)+'&marker='+d.lat+','+d.lon;
-        mapEl.style.display='block';
+        mapWrap.classList.add('show');
       }else{
-        coordsEl.textContent=t.geoNoGps;
+        coordsText.textContent=t.geoNoGps;
       }
-      if(d.ai_guess) textEl.textContent=d.ai_guess;
-      else if(d.ai_error) textEl.textContent='AI: '+d.ai_error;
+      if(d.ai_guess){
+        aiLabel.textContent=t.geoAiTitle; aiText.textContent=d.ai_guess; aiBox.style.display='block';
+      }else if(d.ai_error){
+        aiLabel.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
+      }
       result.classList.add('show');
     }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
 }

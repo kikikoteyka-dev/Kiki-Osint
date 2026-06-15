@@ -1439,10 +1439,18 @@ def geoint_ai_guess(image_bytes, config):
     if config["provider"] == "gemini":
         from google import genai
         from google.genai import types
-        client = genai.Client(api_key=config["api_key"])
-        resp = client.models.generate_content(model="gemini-2.5-flash",
-            contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt])
-        return resp.text
+        try:
+            client = genai.Client(api_key=config["api_key"])
+            resp = client.models.generate_content(model="gemini-2.5-flash",
+                contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt])
+            return resp.text
+        except Exception as e:
+            msg = str(e)
+            if "getaddrinfo failed" in msg or "11001" in msg:
+                raise RuntimeError("Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN.")
+            if "User location is not supported" in msg or "FAILED_PRECONDITION" in msg:
+                raise RuntimeError("Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ.")
+            raise
 
     raise RuntimeError("No AI provider configured — set an API key in Settings")
 
