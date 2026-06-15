@@ -24,7 +24,6 @@
 
 ## Table of Contents
 
-- [What's new in v3.0](#whats-new-in-v30)
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
@@ -33,23 +32,6 @@
 - [Flipper Zero](#flipper-zero)
 - [Known Issues](#known-issues)
 - [Disclaimer](#disclaimer)
-
----
-
-## What's new in v3.0
-
-- **Fully portable** — `app.py` now auto-detects its own folder, so the repo can be cloned anywhere
-  without editing paths (previously required setting `OSINT_DIR`)
-- **OSINT panel and VK module are now part of the repo** — `frontend/` and `vk_module.py` are
-  versioned alongside the project, no separate external folder needed
-- **Collapsible bottom dock** — a chevron above the dock hides/shows the tab bar
-  (OSINT / WiFi Cracker / Flipper / Settings) with smooth slide/fade animations; state persists
-  between sessions
-- **OSINT results close button** repositioned to the top-left corner, no longer overlaps other
-  UI elements
-- **Gemini API** — SNI-based DNS workaround for `generativelanguage.googleapis.com`, plus clear
-  error messages for DNS/geo-block issues
-- Settings: **Gemini API marked as Recommended** as the default free option
 
 ---
 
@@ -71,50 +53,26 @@ For people who already know what they're doing — short checklist (details in [
 2. `pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial`
 3. Hashcat → `C:\HashCat\hashcat-7.1.2\` + WSL with `hcxtools` (for pcap conversion)
 4. Copy `wifi_cracker/wifi_cracker.py` from the repo to `C:\HashCat\hashcat-7.1.2\wifi_cracker.py`
-5. Create `keys.json` next to `app.py`, or enter keys via the Settings tab
+5. Enter your API keys via the **Settings** tab (creates `keys.json` automatically)
 6. `python app.py` → open **http://localhost:7777**
 
 ---
 
 ## Project Structure
 
-**The repo is fully portable** — `app.py` detects its own folder automatically
-(`BASE_DIR = os.path.dirname(os.path.abspath(__file__))`), so it can be cloned anywhere with no
-path edits needed.
-
-The only hardcoded path is **hashcat** (constant `BASE`, app.py line 42), which lives outside
-the repo:
+`app.py` detects its own folder automatically, so the repo can be cloned anywhere with no path edits needed.
 
 ```
-<repo>\                            ← clone anywhere
-    app.py
-    index.html                     ← hub shell (header + 3 tabs)
-    keys_store.py                  ← reads keys.json (created separately, not in git)
-    vk_module.py                   ← VK OSINT module
-    flipper_logo.png
-    kiki_logo.png
-    hashcat_logo.png
-    DISCLAIMER.md
-    frontend\
-        index.html                 ← OSINT panel (served at /osint/)
-        kiki_logo.png
-    wifi_cracker\
-        wifi_cracker.py            ← versioned copy — the LIVE copy must live at
-                                       C:\HashCat\hashcat-7.1.2\wifi_cracker.py (see below)
-    temp\                          ← created automatically (temp files)
-
-C:\HashCat\hashcat-7.1.2\         ← hashcat must be HERE (constant BASE, app.py line 42)
-    hashcat.exe
-    wifi_cracker.py                ← copy from wifi_cracker\wifi_cracker.py in the repo —
-                                       app.py reads the panel's embedded HTML from this file
-                                       (line 814) and launches it as a process (line ~1068)
-    hashes\                        ← .hc22000 / .pcap files (created automatically)
-    rockyou.txt                    ← wordlists go here
-    weakpass_4.latin.txt           ← and other .txt files
+osint-portrait\
+    app.py              ← main app, entry point (python app.py)
+    index.html          ← hub shell (header + tabs)
+    keys_store.py       ← reads/writes keys.json
+    vk_module.py        ← VK OSINT module
+    frontend\           ← OSINT panel (served at /osint/)
+    wifi_cracker\        ← WiFi Cracker panel (versioned copy)
 ```
 
-> If your hashcat path differs — change `BASE` (line 42), `wc_path` (line ~814) and the path to
-> `wifi_cracker.py` in `start_wificrack()` (line ~1068) in `app.py`.
+Hashcat itself lives outside the repo at `C:\HashCat\hashcat-7.1.2\` — see [Installation](#installation).
 
 ---
 
@@ -198,18 +156,8 @@ Open **http://localhost:7777**
 
 ## API Keys
 
-Create `keys.json` next to `app.py` (not tracked by git):
-
-```json
-{
-  "VK_TOKEN": "vk1.a.xxx",
-  "GEMINI_API_KEY": "AIza...",
-  "ANTHROPIC_API_KEY": "sk-ant-...",
-  "OPENAI_API_KEY": "sk-..."
-}
-```
-
-Or set them directly from the **Settings** tab in the UI — it also lets you verify the keys were saved.
+Open the **Settings** tab in the UI and paste your keys there — `keys.json` is created
+automatically next to `app.py` (it's gitignored, so it stays local and is never committed).
 
 | Key | Where to get it |
 |-----|------------------|

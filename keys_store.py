@@ -20,3 +20,7 @@ def load():
 
 def get(name: str) -> str:
     return load().get(name) or ""
+
+def save(data: dict) -> None:
+    with open(KEYS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
