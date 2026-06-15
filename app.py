@@ -1435,13 +1435,18 @@ def _gps_to_deg(value, ref):
         deg = -deg
     return deg
 
-def geoint_ai_guess(image_bytes, config):
+def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
+    lang_instruction = {
+        "ru": "Отвечай строго на русском языке.",
+        "en": "Respond strictly in English.",
+    }.get(ai_lang, "Respond strictly in English.")
     prompt = (
         "You are a GEOINT analyst. Look at this photo and identify the most likely location "
         "(country, and region/city if possible) based on visible clues: architecture, signage "
         "and language, vegetation, terrain, vehicles/license plates, road markings, climate. "
         "Reply with your best-guess location first, then a short bullet list of the visual "
-        "clues that led you there. If you can't tell, say so honestly."
+        "clues that led you there. If you can't tell, say so honestly. "
+        f"{lang_instruction}"
     )
     if config["provider"] == "anthropic":
         import anthropic, base64
@@ -1507,8 +1512,9 @@ def geoint_analyze():
         result["exif_error"] = str(e)
 
     if AI_CONFIG.get("provider") and AI_CONFIG.get("api_key"):
+        ai_lang = request.form.get("ai_lang", "ru")
         try:
-            result["ai_guess"] = geoint_ai_guess(image_bytes, AI_CONFIG)
+            result["ai_guess"] = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang)
         except Exception as e:
             result["ai_error"] = str(e)
 

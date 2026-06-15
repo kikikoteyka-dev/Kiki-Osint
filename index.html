@@ -84,6 +84,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .setting-inp{width:100%;background:var(--g-bg);border:1px solid var(--g-bd2);border-radius:var(--r2);padding:12px 14px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s ease,background .2s ease}
 .setting-inp:focus{border-color:rgba(92,214,255,.35);background:rgba(92,214,255,.05)}
 .setting-inp::placeholder{color:rgba(255,255,255,.2)}
+.setting-inp option{background:var(--bg)}
+select.setting-inp{cursor:pointer}
 .setting-btn{width:100%;padding:13px;border-radius:var(--r2);border:1px solid rgba(92,214,255,.18);font-family:'Bricolage Grotesque',Arial,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:rgba(92,214,255,.08);color:var(--a);margin-top:8px;transition:background .2s ease,border-color .2s ease,color .2s ease,transform .15s cubic-bezier(.23,1,.32,1)}
 .setting-btn:hover{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff}
 .setting-btn:active{transform:scale(.98)}
@@ -100,6 +102,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .tool-row{display:flex;gap:10px;margin-bottom:14px}
 .tool-row .setting-inp{flex:1}
 .tool-row .setting-inp[type="file"]{padding-top:10px;padding-bottom:10px;color:var(--t2);cursor:pointer}
+.tool-row select.setting-inp{flex:initial;cursor:pointer}
+.tool-row select.geo-lang-sel{flex:0 0 90px;width:90px}
+.tool-row select.setting-inp option{background:var(--bg)}
 .tool-row .setting-inp[type="file"]::file-selector-button,.tool-row .setting-inp[type="file"]::-webkit-file-upload-button{
   margin-right:12px;padding:7px 14px;border-radius:999px;border:1px solid rgba(92,214,255,.18);
   background:rgba(92,214,255,.08);color:var(--a);font-family:'JetBrains Mono',monospace;font-size:11px;
@@ -139,6 +144,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .geo-ai.geo-ai-error .geo-ai-label{color:#ff9b9b}
 .geo-ai.geo-ai-error .geo-ai-label::before{background:rgba(255,80,80,.4)}
 .geo-ai.geo-ai-error .geo-text{color:#ffb3b3}
+.geo-ai-disclaimer{margin-top:12px;padding-top:12px;border-top:1px solid var(--g-bd);display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.6;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.geo-ai-disclaimer svg{width:14px;height:14px;flex-shrink:0;margin-top:1px;opacity:.6;color:#f5d742}
 
 /* Flipper panel */
 #panel-flipper{overflow:hidden}
@@ -497,6 +504,10 @@ document.addEventListener("pointermove",(e)=>{
     <div class="settings-title" id="geo-title-lbl">GEOINT</div>
     <div class="tool-row">
       <input type="file" accept="image/*" class="setting-inp" id="geo-file">
+      <select class="setting-inp geo-lang-sel" id="geo-ai-lang" onchange="setAiLang(this.value)">
+        <option value="ru">RU</option>
+        <option value="en">EN</option>
+      </select>
     </div>
     <button class="setting-btn" id="geo-btn" onclick="geoAnalyze()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
@@ -513,6 +524,10 @@ document.addEventListener("pointermove",(e)=>{
       <div class="geo-ai" id="geo-ai" style="display:none">
         <div class="geo-ai-label" id="geo-ai-label">AI Analysis</div>
         <div class="geo-text" id="geo-ai-text"></div>
+        <div class="geo-ai-disclaimer" id="geo-ai-disclaimer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span id="geo-ai-disclaimer-text"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -526,6 +541,12 @@ document.addEventListener("pointermove",(e)=>{
     <div class="setting-row"><div class="setting-label">Gemini API (Recommended)</div><input class="setting-inp" id="s-gem" placeholder="AIza..."></div>
     <div class="setting-row"><div class="setting-label">Anthropic API</div><input class="setting-inp" id="s-ant" placeholder="sk-ant-..."></div>
     <div class="setting-row"><div class="setting-label">OpenAI API</div><input class="setting-inp" id="s-oai" placeholder="sk-..."></div>
+    <div class="setting-row"><div class="setting-label" id="s-ai-lang-label">AI Response Language</div>
+      <select class="setting-inp" id="s-ai-lang" onchange="setAiLang(this.value)">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+      </select>
+    </div>
     <button class="setting-btn" onclick="saveSettings()">Save</button>
   </div>
 </div>
@@ -582,10 +603,14 @@ var DOCK_LABELS = {
 var TOOL_LABELS = {
   en: {dlTitle:'Downloader', dlFetch:'Fetch', dlVideo:'Download video', dlAudio:'Download MP3',
        geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF',
-       geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error'},
+       geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error',
+       geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
+       sAiLangLabel:'AI Response Language'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
-       geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка'}
+       geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка',
+       geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
+       sAiLangLabel:'Язык ответов AI'}
 };
 function setToolLang(lang){
   var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
@@ -595,8 +620,19 @@ function setToolLang(lang){
   document.getElementById('dl-audio-label').textContent = t.dlAudio;
   document.getElementById('geo-title-lbl').textContent = t.geoTitle;
   document.getElementById('geo-btn-label').textContent = t.geoBtn;
+  document.getElementById('geo-ai-disclaimer-text').textContent = t.geoAiDisclaimer;
+  document.getElementById('s-ai-lang-label').textContent = t.sAiLangLabel;
 }
 setToolLang(localStorage.getItem('kiki_lang') || 'en');
+
+// ─── AI response language (separate from UI language) ────
+function setAiLang(lang){
+  localStorage.setItem('kiki_ai_lang', lang);
+  var geoSel=document.getElementById('geo-ai-lang'), sSel=document.getElementById('s-ai-lang');
+  if(geoSel) geoSel.value = lang;
+  if(sSel) sSel.value = lang;
+}
+setAiLang(localStorage.getItem('kiki_ai_lang') || 'ru');
 function setDockLang(lang){
   var t = DOCK_LABELS[lang] || DOCK_LABELS.en;
   Object.keys(t).forEach(function(k){
@@ -724,6 +760,7 @@ function geoAnalyze(){
   err.textContent=''; result.classList.remove('show');
   if(!fileInp.files.length){err.textContent='Choose a photo';return}
   var fd=new FormData(); fd.append('photo',fileInp.files[0]);
+  fd.append('ai_lang', localStorage.getItem('kiki_ai_lang') || 'ru');
   document.getElementById('geo-loading-text').textContent=t.geoLoading; loading.style.display='flex';
   fetch('/api/geoint/analyze',{method:'POST',body:fd})
     .then(function(r){return r.json()}).then(function(d){
@@ -731,7 +768,8 @@ function geoAnalyze(){
       if(d.error){err.textContent=d.error;return}
       var coordsText=document.getElementById('geo-coords-text'), mapWrap=document.getElementById('geo-map-wrap'), mapEl=document.getElementById('geo-map');
       var aiBox=document.getElementById('geo-ai'), aiLabel=document.getElementById('geo-ai-label'), aiText=document.getElementById('geo-ai-text');
-      mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent='';
+      var aiDisclaimer=document.getElementById('geo-ai-disclaimer');
+      mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent=''; aiDisclaimer.style.display='none';
       if(d.lat!=null && d.lon!=null){
         coordsText.textContent=t.geoCoords+': '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
         var delta=0.01;
@@ -741,7 +779,7 @@ function geoAnalyze(){
         coordsText.textContent=t.geoNoGps;
       }
       if(d.ai_guess){
-        aiLabel.textContent=t.geoAiTitle; aiText.textContent=d.ai_guess; aiBox.style.display='block';
+        aiLabel.textContent=t.geoAiTitle; aiText.textContent=d.ai_guess; aiBox.style.display='block'; aiDisclaimer.style.display='flex';
       }else if(d.ai_error){
         aiLabel.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
       }
