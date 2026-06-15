@@ -190,13 +190,15 @@ automatically next to `app.py` (it's gitignored, so it stays local and is never 
 as default with `wsl --set-default <name>` (see [WSL + hcxpcapngtool](#installation)).
 
 **Gemini API: "DNS error" / `generativelanguage.googleapis.com` doesn't resolve**
-→ A known DNS resolution issue on some networks. KikiHub works around it automatically via an
-SNI trick (resolves `www.googleapis.com` but connects with the correct SNI). If the error
-persists, check your internet connection.
+→ A known DNS resolution issue on some networks. KikiHub works around it automatically by
+resolving the host via xbox-dns.ru's DoH service and connecting to that IP with the correct
+SNI. If the error persists, check your internet connection.
 
 **Gemini API: "User location is not supported"**
-→ Google's regional geo-block (e.g. for IPs from Russia). You need a VPN exiting outside the
-blocked region — this is a restriction on Google's side and can't be fixed in code.
+→ Google's regional geo-block (e.g. for IPs from Russia). KikiHub works around this
+automatically the same way as the DNS issue above — by routing Gemini requests through an
+xbox-dns.ru-resolved IP that isn't geo-blocked. If you still see this error, restart the app
+(the workaround resolves once at startup and can occasionally fail on a flaky connection).
 
 **Flipper not detected / port won't open**
 → Close qFlipper and any other program holding the COM port. Check that `pip install pyserial` ran.
