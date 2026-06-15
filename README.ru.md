@@ -42,6 +42,8 @@
 | 🔍 **OSINT** | Username / email → цифровой портрет через VK, Maigret (500+ сайтов), HaveIBeenPwned, AI-анализ |
 | 📶 **WiFi Cracker** | Бросаешь `.pcap` → конвертация → взлом hashcat. Мульти-SSID, терминал в реальном времени |
 | 🐬 **Flipper Zero** | Браузер SD-карты по USB, скачивание `.pcap` прямо на ПК с проверкой EAPOL |
+| ⬇️ **Загрузчик** | Вставь ссылку на видео (YouTube, TikTok и т.д.) → получи метаданные → скачай как MP4 или извлеки MP3 (на базе yt-dlp) |
+| 📍 **GEOINT** | Загрузи фото → извлечение GPS-координат из EXIF, опционально AI-анализ изображения для определения локации |
 
 ---
 
@@ -50,7 +52,7 @@
 Для тех, кто уже знает что делает — короткий чек-лист (подробности в [Установке](#установка)):
 
 1. `git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub` (куда угодно)
-2. `pip install Flask flask-cors flask_cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial`
+2. `pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial yt-dlp Pillow`
 3. Hashcat → `C:\HashCat\hashcat-7.1.2\` + WSL с `hcxtools` (для конвертации pcap)
 4. Скопировать `wifi_cracker/wifi_cracker.py` из репо в `C:\HashCat\hashcat-7.1.2\wifi_cracker.py`
 5. Ввести API-ключи через вкладку **Settings** (создаст `keys.json` автоматически)
@@ -90,7 +92,7 @@ cd C:\Users\<you>\osint-portrait
 ### 2. Python зависимости
 
 ```bash
-pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial
+pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial yt-dlp Pillow
 ```
 
 Для AI-анализа в OSINT (опционально, можно установить только то, что планируешь использовать):

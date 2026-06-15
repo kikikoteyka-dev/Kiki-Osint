@@ -1323,6 +1323,159 @@ def flipper_download_ep():
                         download_name=filename,mimetype="application/octet-stream")
     except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
 
+# ════ DOWNLOADER API (yt-dlp) ════════════════════════════════
+
+@app.route("/api/dl/info", methods=["POST"])
+def dl_info():
+    data = request.json or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "URL required"}), 400
+    try:
+        import yt_dlp
+        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+        return jsonify({
+            "title": info.get("title"),
+            "thumbnail": info.get("thumbnail"),
+            "duration": info.get("duration"),
+            "uploader": info.get("uploader") or info.get("channel"),
+            "extractor": info.get("extractor_key"),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/dl/download", methods=["POST"])
+def dl_download():
+    data = request.json or {}
+    url  = (data.get("url") or "").strip()
+    mode = data.get("mode", "video")
+    if not url:
+        return jsonify({"error": "URL required"}), 400
+    import yt_dlp, uuid
+    out_id = uuid.uuid4().hex
+    opts = {
+        "quiet": True, "no_warnings": True, "noplaylist": True,
+        "outtmpl": os.path.join(TEMP_DIR, out_id + ".%(ext)s"),
+    }
+    if mode == "audio":
+        opts["format"] = "bestaudio/best"
+        opts["postprocessors"] = [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}]
+    else:
+        opts["format"] = "bv*+ba/b"
+        opts["merge_output_format"] = "mp4"
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+        if mode == "audio":
+            filename = os.path.splitext(filename)[0] + ".mp3"
+        if not os.path.exists(filename):
+            base = os.path.splitext(filename)[0]
+            for ext in ("mp4", "mkv", "webm", "mp3", "m4a"):
+                cand = base + "." + ext
+                if os.path.exists(cand):
+                    filename = cand
+                    break
+        return jsonify({"ok": True, "file": os.path.basename(filename), "title": info.get("title")})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/dl/file")
+def dl_file_ep():
+    """Serve a downloaded file from TEMP_DIR and delete it after."""
+    filename = request.args.get("name", "").strip()
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
+        return ("bad request", 400)
+    path = os.path.join(TEMP_DIR, filename)
+    if not os.path.exists(path):
+        return ("not found", 404)
+    import io
+    from flask import send_file
+    with open(path, "rb") as f:
+        data = f.read()
+    try: os.remove(path)
+    except: pass
+    return send_file(io.BytesIO(data), as_attachment=True, download_name=filename, mimetype="application/octet-stream")
+
+# ════ GEOINT API ═════════════════════════════════════════════
+
+def _gps_to_deg(value, ref):
+    d, m, s = [float(x) for x in value]
+    deg = d + m / 60.0 + s / 3600.0
+    if ref in ("S", "W"):
+        deg = -deg
+    return deg
+
+def geoint_ai_guess(image_bytes, config):
+    prompt = (
+        "You are a GEOINT analyst. Look at this photo and identify the most likely location "
+        "(country, and region/city if possible) based on visible clues: architecture, signage "
+        "and language, vegetation, terrain, vehicles/license plates, road markings, climate. "
+        "Reply with your best-guess location first, then a short bullet list of the visual "
+        "clues that led you there. If you can't tell, say so honestly."
+    )
+    if config["provider"] == "anthropic":
+        import anthropic, base64
+        client = anthropic.Anthropic(api_key=config["api_key"])
+        b64 = base64.b64encode(image_bytes).decode()
+        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=700,
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+                {"type": "text", "text": prompt}]}])
+        return msg.content[0].text
+
+    if config["provider"] == "openai":
+        from openai import OpenAI
+        import base64
+        client = OpenAI(api_key=config["api_key"])
+        b64 = base64.b64encode(image_bytes).decode()
+        resp = client.chat.completions.create(model="gpt-4o-mini", max_tokens=700,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}])
+        return resp.choices[0].message.content
+
+    if config["provider"] == "gemini":
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=config["api_key"])
+        resp = client.models.generate_content(model="gemini-2.5-flash",
+            contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt])
+        return resp.text
+
+    raise RuntimeError("No AI provider configured — set an API key in Settings")
+
+@app.route("/api/geoint/analyze", methods=["POST"])
+def geoint_analyze():
+    if "photo" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    image_bytes = request.files["photo"].read()
+    result = {}
+
+    try:
+        from PIL import Image
+        from PIL.ExifTags import GPSTAGS
+        import io
+        img = Image.open(io.BytesIO(image_bytes))
+        exif = img.getexif()
+        gps_ifd = exif.get_ifd(0x8825) if exif else None
+        if gps_ifd:
+            gps = {GPSTAGS.get(k, k): v for k, v in gps_ifd.items()}
+            if "GPSLatitude" in gps and "GPSLongitude" in gps:
+                result["lat"] = _gps_to_deg(gps["GPSLatitude"], gps.get("GPSLatitudeRef", "N"))
+                result["lon"] = _gps_to_deg(gps["GPSLongitude"], gps.get("GPSLongitudeRef", "E"))
+    except Exception as e:
+        result["exif_error"] = str(e)
+
+    if AI_CONFIG.get("provider") and AI_CONFIG.get("api_key"):
+        try:
+            result["ai_guess"] = geoint_ai_guess(image_bytes, AI_CONFIG)
+        except Exception as e:
+            result["ai_error"] = str(e)
+
+    return jsonify(result)
+
 if __name__=="__main__":
     print("\n  KikiHub  ->  http://localhost:7777\n")
     # Try to start OSINT backend

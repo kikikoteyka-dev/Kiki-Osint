@@ -34,7 +34,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .panel.active{opacity:1;pointer-events:all;transform:scale(1) translateY(0);filter:blur(0px);transition:opacity .45s cubic-bezier(.23,1,.32,1),transform .45s cubic-bezier(.23,1,.32,1),filter .3s cubic-bezier(.23,1,.32,1)}
 .panel.leaving{opacity:0;pointer-events:none;transform:scale(.94) translateY(12px);filter:blur(6px);transition:opacity .28s cubic-bezier(.4,0,1,1),transform .28s cubic-bezier(.4,0,1,1),filter .2s ease}
 #panel-osint,#panel-hc{overflow:hidden}
-#panel-settings{align-items:center;justify-content:center}
+#panel-settings,#panel-dl,#panel-geoint{align-items:center;justify-content:center;overflow:auto;padding:40px 20px}
 .osint-frame{width:100%;height:100%;border:none}
 
 /* Dock */
@@ -71,6 +71,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .c-flipper .icon-btn__back{background:linear-gradient(hsl(185,85%,26%),hsl(198,88%,16%))}
 .c-flipper .icon-btn__front::after{content:'';position:absolute;inset:-3%;background:url('/flipper_logo.png') center/contain no-repeat;filter:brightness(0) invert(1);opacity:.9;transform:translate(-4%,-4%)}
 .c-slate .icon-btn__back{background:linear-gradient(hsl(215,18%,42%),hsl(222,20%,26%))}
+.c-dl .icon-btn__back{background:linear-gradient(hsl(35,90%,48%),hsl(20,85%,32%))}
+.c-geo .icon-btn__back{background:linear-gradient(hsl(142,60%,40%),hsl(160,55%,24%))}
 
 /* Settings */
 .settings-card{background:var(--g-bg);border:1px solid var(--g-bd);border-radius:var(--r);padding:36px;width:460px;max-width:92vw;animation:fadeUp .4s cubic-bezier(.23,1,.32,1);position:relative;overflow:hidden}
@@ -91,6 +93,23 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .setting-btn{width:100%;padding:13px;border-radius:var(--r2);border:1px solid rgba(92,214,255,.18);font-family:'Bricolage Grotesque',Arial,sans-serif;font-size:14px;font-weight:600;cursor:pointer;background:rgba(92,214,255,.08);color:var(--a);margin-top:8px;transition:background .2s ease,border-color .2s ease,color .2s ease,transform .15s cubic-bezier(.23,1,.32,1)}
 .setting-btn:hover{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff}
 .setting-btn:active{transform:scale(.98)}
+
+/* Downloader & GEOINT */
+.tool-card{background:var(--g-bg);border:1px solid var(--g-bd);border-radius:var(--r);padding:36px;width:520px;max-width:92vw;animation:fadeUp .4s cubic-bezier(.23,1,.32,1)}
+.tool-row{display:flex;gap:10px;margin-bottom:14px}
+.tool-row .setting-inp{flex:1}
+.tool-result{margin-top:20px;display:none}
+.tool-result.show{display:block;animation:fadeUp .3s ease}
+.tool-thumb{width:100%;border-radius:var(--r2);margin-bottom:12px;display:block}
+.tool-title{font-weight:600;color:#fff;margin-bottom:4px;font-size:14px}
+.tool-meta{font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:14px}
+.tool-btns{display:flex;gap:10px}
+.tool-btns .setting-btn{margin-top:0;flex:1}
+.tool-err{color:#ff8080;font-size:12px;margin-top:10px;font-family:'JetBrains Mono',monospace}
+.tool-loading{font-size:12px;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-top:10px}
+.geo-map{width:100%;height:240px;border:none;border-radius:var(--r2);margin-top:12px;display:none}
+.geo-text{font-size:12px;color:var(--t1);line-height:1.6;white-space:pre-wrap;margin-top:12px}
+.geo-coords{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a)}
 
 /* Flipper panel */
 #panel-flipper{overflow:hidden}
@@ -407,6 +426,47 @@ document.addEventListener("pointermove",(e)=>{
   </div>
 </div>
 
+<!-- Downloader -->
+<div class="panel" id="panel-dl">
+  <div class="tool-card">
+    <div class="settings-title" id="dl-title-lbl">Downloader</div>
+    <div class="tool-row">
+      <input class="setting-inp" id="dl-url" placeholder="Paste a video/audio URL (YouTube, TikTok, Instagram, X...)">
+    </div>
+    <button class="setting-btn" id="dl-fetch-btn" onclick="dlFetchInfo()">Fetch</button>
+    <div class="tool-loading" id="dl-loading" style="display:none">Fetching info…</div>
+    <div class="tool-err" id="dl-err"></div>
+    <div class="tool-result" id="dl-result">
+      <img class="tool-thumb" id="dl-thumb" alt="" style="display:none">
+      <div class="tool-title" id="dl-info-title"></div>
+      <div class="tool-meta" id="dl-meta"></div>
+      <div class="tool-btns">
+        <button class="setting-btn" id="dl-btn-video" onclick="dlDownload('video')">Download video</button>
+        <button class="setting-btn" id="dl-btn-audio" onclick="dlDownload('audio')">Download MP3</button>
+      </div>
+      <div class="tool-loading" id="dl-dl-loading" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GEOINT -->
+<div class="panel" id="panel-geoint">
+  <div class="tool-card">
+    <div class="settings-title" id="geo-title-lbl">GEOINT</div>
+    <div class="tool-row">
+      <input type="file" accept="image/*" class="setting-inp" id="geo-file">
+    </div>
+    <button class="setting-btn" id="geo-btn" onclick="geoAnalyze()">Analyze</button>
+    <div class="tool-loading" id="geo-loading" style="display:none">Analyzing…</div>
+    <div class="tool-err" id="geo-err"></div>
+    <div class="tool-result" id="geo-result">
+      <div class="geo-coords" id="geo-coords"></div>
+      <iframe class="geo-map" id="geo-map"></iframe>
+      <div class="geo-text" id="geo-ai-text"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Settings -->
 <div class="panel" id="panel-settings">
   <div class="settings-card">
@@ -439,6 +499,18 @@ document.addEventListener("pointermove",(e)=>{
     <span class="icon-btn__label">Flipper Zero</span>
   </button>
   <div class="icon-btn-sep"></div>
+  <button class="icon-btn c-dl" id="di-dl" onclick="sw('dl')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span></span>
+    <span class="icon-btn__label">Downloader</span>
+  </button>
+  <div class="icon-btn-sep"></div>
+  <button class="icon-btn c-geo" id="di-geoint" onclick="sw('geoint')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span></span>
+    <span class="icon-btn__label">GEOINT</span>
+  </button>
+  <div class="icon-btn-sep"></div>
   <button class="icon-btn c-slate" id="di-settings" onclick="sw('settings')">
     <span class="icon-btn__back"></span>
     <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></span>
@@ -453,9 +525,25 @@ document.addEventListener("pointermove",(e)=>{
 <script>
 // ─── Dock label i18n ───────────────────────────────────────
 var DOCK_LABELS = {
-  en: {osint:'Kiki OSINT', hc:'WiFi Cracker', flipper:'Flipper Zero', settings:'Settings'},
-  ru: {osint:'Kiki OSINT', hc:'WiFi Крекер', flipper:'Flipper Zero', settings:'Настройки'}
+  en: {osint:'Kiki OSINT', hc:'WiFi Cracker', flipper:'Flipper Zero', dl:'Downloader', geoint:'GEOINT', settings:'Settings'},
+  ru: {osint:'Kiki OSINT', hc:'WiFi Крекер', flipper:'Flipper Zero', dl:'Загрузчик', geoint:'GEOINT', settings:'Настройки'}
 };
+var TOOL_LABELS = {
+  en: {dlTitle:'Downloader', dlFetch:'Fetch', dlVideo:'Download video', dlAudio:'Download MP3',
+       geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF'},
+  ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
+       geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS'}
+};
+function setToolLang(lang){
+  var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
+  document.getElementById('dl-title-lbl').textContent = t.dlTitle;
+  document.getElementById('dl-fetch-btn').textContent = t.dlFetch;
+  document.getElementById('dl-btn-video').textContent = t.dlVideo;
+  document.getElementById('dl-btn-audio').textContent = t.dlAudio;
+  document.getElementById('geo-title-lbl').textContent = t.geoTitle;
+  document.getElementById('geo-btn').textContent = t.geoBtn;
+}
+setToolLang(localStorage.getItem('kiki_lang') || 'en');
 function setDockLang(lang){
   var t = DOCK_LABELS[lang] || DOCK_LABELS.en;
   Object.keys(t).forEach(function(k){
@@ -466,10 +554,10 @@ function setDockLang(lang){
 setDockLang(localStorage.getItem('kiki_lang') || 'en');
 // Propagate language changes coming from the OSINT/WiFi-Cracker iframes (same-origin localStorage)
 window.addEventListener('storage', function(e){
-  if(e.key === 'kiki_lang') setDockLang(e.newValue || 'en');
+  if(e.key === 'kiki_lang'){ setDockLang(e.newValue || 'en'); setToolLang(e.newValue || 'en'); }
 });
 window.addEventListener('message', function(e){
-  if(e.data && e.data.type === 'kiki-lang') setDockLang(e.data.lang);
+  if(e.data && e.data.type === 'kiki-lang'){ setDockLang(e.data.lang); setToolLang(e.data.lang); }
 });
 
 // ─── Dock hide/show toggle ─────────────────────────────────
@@ -533,6 +621,75 @@ async function saveSettings(){
     Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el)el.value=''});
     sw('osint');
   }catch(e){alert('Error: '+e.message)}
+}
+
+// ─── Downloader ──────────────────────────────────────────
+function dlFetchInfo(){
+  var url=document.getElementById('dl-url').value.trim();
+  var err=document.getElementById('dl-err'), loading=document.getElementById('dl-loading'), result=document.getElementById('dl-result');
+  err.textContent=''; result.classList.remove('show');
+  if(!url){err.textContent='Enter a URL';return}
+  loading.style.display='block';
+  fetch('/api/dl/info',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
+    .then(function(r){return r.json()}).then(function(d){
+      loading.style.display='none';
+      if(d.error){err.textContent=d.error;return}
+      var thumb=document.getElementById('dl-thumb');
+      if(d.thumbnail){thumb.src=d.thumbnail;thumb.style.display='block'}else{thumb.style.display='none'}
+      document.getElementById('dl-info-title').textContent=d.title||'';
+      var meta=[];
+      if(d.uploader) meta.push(d.uploader);
+      if(d.duration) meta.push(Math.floor(d.duration/60)+':'+String(Math.floor(d.duration%60)).padStart(2,'0'));
+      if(d.extractor) meta.push(d.extractor);
+      document.getElementById('dl-meta').textContent=meta.join(' · ');
+      result.dataset.url=url;
+      result.classList.add('show');
+    }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
+}
+
+function dlDownload(mode){
+  var url=document.getElementById('dl-result').dataset.url;
+  var err=document.getElementById('dl-err'), loading=document.getElementById('dl-dl-loading');
+  err.textContent=''; loading.style.display='block';
+  loading.textContent=mode==='audio'?'Downloading & extracting audio…':'Downloading video…';
+  fetch('/api/dl/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,mode:mode})})
+    .then(function(r){return r.json()}).then(function(d){
+      loading.style.display='none';
+      if(!d.ok){err.textContent=d.error||'Download failed';return}
+      var a=document.createElement('a');
+      a.href='/api/dl/file?name='+encodeURIComponent(d.file);
+      a.download=d.file;
+      document.body.appendChild(a); a.click(); a.remove();
+    }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
+}
+
+// ─── GEOINT ──────────────────────────────────────────────
+function geoAnalyze(){
+  var fileInp=document.getElementById('geo-file');
+  var err=document.getElementById('geo-err'), loading=document.getElementById('geo-loading'), result=document.getElementById('geo-result');
+  var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
+  err.textContent=''; result.classList.remove('show');
+  if(!fileInp.files.length){err.textContent='Choose a photo';return}
+  var fd=new FormData(); fd.append('photo',fileInp.files[0]);
+  loading.textContent=t.geoLoading; loading.style.display='block';
+  fetch('/api/geoint/analyze',{method:'POST',body:fd})
+    .then(function(r){return r.json()}).then(function(d){
+      loading.style.display='none';
+      if(d.error){err.textContent=d.error;return}
+      var coordsEl=document.getElementById('geo-coords'), mapEl=document.getElementById('geo-map'), textEl=document.getElementById('geo-ai-text');
+      coordsEl.textContent=''; mapEl.style.display='none'; mapEl.src=''; textEl.textContent='';
+      if(d.lat!=null && d.lon!=null){
+        coordsEl.textContent='EXIF GPS: '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
+        var delta=0.01;
+        mapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(d.lon-delta)+','+(d.lat-delta)+','+(d.lon+delta)+','+(d.lat+delta)+'&marker='+d.lat+','+d.lon;
+        mapEl.style.display='block';
+      }else{
+        coordsEl.textContent=t.geoNoGps;
+      }
+      if(d.ai_guess) textEl.textContent=d.ai_guess;
+      else if(d.ai_error) textEl.textContent='AI: '+d.ai_error;
+      result.classList.add('show');
+    }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
 }
 
 // ─── Flipper Zero ────────────────────────────────────────

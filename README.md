@@ -42,6 +42,8 @@
 | 🔍 **OSINT** | Username / email → digital portrait via VK, Maigret (500+ sites), HaveIBeenPwned, AI analysis |
 | 📶 **WiFi Cracker** | Drop a `.pcap` → convert → crack with hashcat. Multi-SSID, real-time terminal output |
 | 🐬 **Flipper Zero** | Browse the SD card over USB, download `.pcap` files straight to your PC with EAPOL check |
+| ⬇️ **Downloader** | Paste a video URL (YouTube, TikTok, etc.) → fetch metadata → download as MP4 or extract as MP3 (powered by yt-dlp) |
+| 📍 **GEOINT** | Upload a photo → extract GPS coordinates from EXIF, with optional AI visual analysis to guess the location |
 
 ---
 
@@ -50,7 +52,7 @@
 For people who already know what they're doing — short checklist (details in [Installation](#installation)):
 
 1. `git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub` (anywhere)
-2. `pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial`
+2. `pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial yt-dlp Pillow`
 3. Hashcat → `C:\HashCat\hashcat-7.1.2\` + WSL with `hcxtools` (for pcap conversion)
 4. Copy `wifi_cracker/wifi_cracker.py` from the repo to `C:\HashCat\hashcat-7.1.2\wifi_cracker.py`
 5. Enter your API keys via the **Settings** tab (creates `keys.json` automatically)
@@ -90,7 +92,7 @@ The path can be anything — `app.py` detects its own folder.
 ### 2. Python dependencies
 
 ```bash
-pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial
+pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial yt-dlp Pillow
 ```
 
 For AI analysis in OSINT (optional, install only what you plan to use):
