@@ -1,27 +1,42 @@
-﻿# KikiHub
+# KikiHub
 
-> Локальный веб-хаб для OSINT, взлома WiFi хендшейков и управления файлами Flipper Zero — всё в одном интерфейсе.
+🇷🇺 **Русский** | [🇬🇧 English](README.en.md)
+
+> Локальный веб-хаб для OSINT, взлома Wi-Fi хендшейков и управления файлами Flipper Zero — всё в одном интерфейсе.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078d7?style=flat-square)
 
-
 > [!WARNING]
-> **LEGAL DISCLAIMER**
+> **ЮРИДИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ**
 >
-> This tool is provided for **educational purposes and authorized security testing only**.
+> Этот инструмент предназначен **только для образовательных целей и авторизованного тестирования безопасности**.
 >
-> - ✅ Use only on networks and devices **you own** or have **explicit written permission** to test
-> - ❌ Using this tool against networks without authorization is **illegal** in most jurisdictions (including Russia — Article 272-274 of the Criminal Code)
-> - ❌ The author takes **no responsibility** for any misuse, damage, or legal consequences arising from use of this software
-> - ❌ Capturing, cracking, or accessing Wi-Fi networks without consent is a criminal offence
+> - ✅ Используй только на сетях и устройствах, которые **принадлежат тебе**, или на которые есть **письменное разрешение** владельца
+> - ❌ Использование без авторизации — **уголовное преступление** в большинстве стран, включая Россию (статьи 272–274 УК РФ)
+> - ❌ Автор **не несёт ответственности** за любой ущерб и юридические последствия использования
+> - ❌ Перехват, взлом или доступ к Wi-Fi сетям без согласия владельца — уголовное преступление
 >
-> By using KikiHub you confirm that you have the legal right to test the target systems.
+> Используя KikiHub, ты подтверждаешь, что имеешь законное право тестировать целевые системы.
 
 ---
 
-## Что нового в v2.0
+## Содержание
+
+- [Что нового в v3.0](#что-нового-в-v30)
+- [Возможности](#возможности)
+- [Быстрый старт](#быстрый-старт)
+- [Структура проекта](#структура-проекта)
+- [Установка](#установка)
+- [API ключи](#api-ключи)
+- [Flipper Zero](#flipper-zero)
+- [Известные проблемы](#известные-проблемы)
+- [Disclaimer](#disclaimer)
+
+---
+
+## Что нового в v3.0
 
 - **Полная переносимость** — `app.py` сам определяет свою папку, репозиторий можно клонировать
   куда угодно без правки путей (раньше требовалось менять `OSINT_DIR`)
@@ -37,7 +52,7 @@
 
 ---
 
-## Что внутри
+## Возможности
 
 | Вкладка | Описание |
 |---------|----------|
@@ -47,9 +62,22 @@
 
 ---
 
-## Структура директорий
+## Быстрый старт
 
-**Репозиторий теперь полностью переносимый** — `app.py` определяет свою папку автоматически
+Для тех, кто уже знает что делает — короткий чек-лист (подробности в [Установке](#установка)):
+
+1. `git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub` (куда угодно)
+2. `pip install Flask flask-cors flask_cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial`
+3. Hashcat → `C:\HashCat\hashcat-7.1.2\` + WSL с `hcxtools` (для конвертации pcap)
+4. Скопировать `wifi_cracker/wifi_cracker.py` из репо в `C:\HashCat\hashcat-7.1.2\wifi_cracker.py`
+5. Создать `keys.json` рядом с `app.py` или ввести ключи через вкладку Settings
+6. `python app.py` → открыть **http://localhost:7777**
+
+---
+
+## Структура проекта
+
+**Репозиторий полностью переносимый** — `app.py` определяет свою папку автоматически
 (`BASE_DIR = os.path.dirname(os.path.abspath(__file__))`), так что клонировать можно куда угодно,
 никаких путей внутри репо менять не нужно.
 
@@ -103,7 +131,13 @@ cd C:\Users\<you>\osint-portrait
 ### 2. Python зависимости
 
 ```bash
-pip install Flask flask-cors pyserial
+pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenumbers dnspython maigret holehe pyserial
+```
+
+Для AI-анализа в OSINT (опционально, можно установить только то, что планируешь использовать):
+
+```bash
+pip install google-genai anthropic openai
 ```
 
 ### 3. Hashcat
@@ -179,9 +213,12 @@ python app.py
 | Ключ | Где взять |
 |------|-----------|
 | VK Token | [vkhost.github.io](https://vkhost.github.io) → Kate Mobile |
+| Gemini | [aistudio.google.com](https://aistudio.google.com) |
 | Claude | [console.anthropic.com](https://console.anthropic.com) |
 | ChatGPT | [platform.openai.com](https://platform.openai.com) |
-| Gemini | [aistudio.google.com](https://aistudio.google.com) |
+| HaveIBeenPwned | [haveibeenpwned.com/API/Key](https://haveibeenpwned.com/API/Key) |
+
+> 💡 **Gemini рекомендуется** для AI-анализа в OSINT — у него самый щедрый бесплатный лимит.
 
 ---
 
@@ -195,8 +232,26 @@ python app.py
 
 ---
 
+## Известные проблемы
+
+**`hcxpcapngtool: command not found`, EAPOL/PMKID всегда 0**
+→ `hcxtools` установлен не в дефолтном дистрибутиве WSL. Проверь `wsl -l -v` и поставь нужный
+дистрибутив дефолтным через `wsl --set-default <имя>` (см. [WSL + hcxpcapngtool](#установка)).
+
+**Gemini API: "ошибка DNS" / `generativelanguage.googleapis.com` не резолвится**
+→ Это известная проблема резолва DNS в некоторых сетях. KikiHub автоматически обходит её через
+SNI-трюк (резолвит `www.googleapis.com`, но подключается с правильным SNI). Если ошибка
+сохраняется — проверь интернет-соединение.
+
+**Gemini API: "User location is not supported"**
+→ Геоблокировка Google по региону (например, для IP из РФ). Нужен VPN с выходом за пределы
+заблокированного региона — это ограничение на стороне Google, не исправляется в коде.
+
+**Flipper не виден / порт не открывается**
+→ Закрой qFlipper и любые другие программы, держащие COM-порт. Проверь `pip install pyserial`.
+
+---
+
 ## Disclaimer
 
 Только для образовательных целей и авторизованного тестирования.
-
-
