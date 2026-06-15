@@ -174,17 +174,16 @@ def get_keys():
     return jsonify({
         "VK_TOKEN":          mask(k.get("VK_TOKEN","")),
         "GEMINI_API_KEY":    mask(k.get("GEMINI_API_KEY","")),
-        "OPENAI_API_KEY":    mask(k.get("OPENAI_API_KEY","")),
         "ANTHROPIC_API_KEY": mask(k.get("ANTHROPIC_API_KEY","")),
         "HIBP_API_KEY":      mask(k.get("HIBP_API_KEY","")),
-        "configured":        bool(k.get("VK_TOKEN") or k.get("GEMINI_API_KEY") or k.get("OPENAI_API_KEY") or k.get("ANTHROPIC_API_KEY"))
+        "configured":        bool(k.get("VK_TOKEN") or k.get("GEMINI_API_KEY") or k.get("ANTHROPIC_API_KEY"))
     })
 
 @app.route("/api/keys", methods=["POST"])
 def save_keys_route():
     data = request.json or {}
     k = keys_store.load()
-    for field in ["VK_TOKEN","GEMINI_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"]:
+    for field in ["VK_TOKEN","GEMINI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"]:
         if field in data and data[field] and "•" not in data[field]:
             k[field] = data[field]
     keys_store.save(k)
@@ -252,7 +251,6 @@ def osint_search_stream():
         if req_ai_provider:
             key_map = {
                 "gemini":    "GEMINI_API_KEY",
-                "openai":    "OPENAI_API_KEY",
                 "anthropic": "ANTHROPIC_API_KEY",
             }
             ai_key = keys_store.get(key_map.get(req_ai_provider, ""))
@@ -803,13 +801,6 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
         msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=1000,
             messages=[{"role": "user", "content": prompt}])
         return {"portrait": msg.content[0].text}
-
-    elif config["provider"] == "openai":
-        from openai import OpenAI
-        client = OpenAI(api_key=config["api_key"])
-        resp = client.chat.completions.create(model="gpt-4o-mini", max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}])
-        return {"portrait": resp.choices[0].message.content}
 
     elif config["provider"] == "gemini":
         try:
@@ -1457,17 +1448,6 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
                 {"type": "text", "text": prompt}]}])
         return msg.content[0].text
-
-    if config["provider"] == "openai":
-        from openai import OpenAI
-        import base64
-        client = OpenAI(api_key=config["api_key"])
-        b64 = base64.b64encode(image_bytes).decode()
-        resp = client.chat.completions.create(model="gpt-4o-mini", max_tokens=700,
-            messages=[{"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}])
-        return resp.choices[0].message.content
 
     if config["provider"] == "gemini":
         from google import genai

@@ -13,7 +13,6 @@ def load():
         return {
             "VK_TOKEN":          os.getenv("VK_TOKEN", ""),
             "GEMINI_API_KEY":    os.getenv("GEMINI_API_KEY", ""),
-            "OPENAI_API_KEY":    os.getenv("OPENAI_API_KEY", ""),
             "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
             "HIBP_API_KEY":      os.getenv("HIBP_API_KEY", ""),
         }

@@ -98,7 +98,7 @@ pip install Flask flask-cors requests httpx beautifulsoup4 python-dotenv phonenu
 For AI analysis in OSINT (optional, install only what you plan to use):
 
 ```bash
-pip install google-genai anthropic openai
+pip install google-genai anthropic
 ```
 
 ### 3. Hashcat
@@ -166,7 +166,6 @@ automatically next to `app.py` (it's gitignored, so it stays local and is never 
 | VK Token | [vkhost.github.io](https://vkhost.github.io) → Kate Mobile |
 | Gemini | [aistudio.google.com](https://aistudio.google.com) |
 | Claude | [console.anthropic.com](https://console.anthropic.com) |
-| ChatGPT | [platform.openai.com](https://platform.openai.com) |
 | HaveIBeenPwned | [haveibeenpwned.com/API/Key](https://haveibeenpwned.com/API/Key) |
 
 > 💡 **Gemini is recommended** for AI analysis in OSINT — it has the most generous free tier.

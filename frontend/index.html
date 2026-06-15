@@ -889,7 +889,6 @@ void main(){
           <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
             <option value="" data-i18n="ai_disabled">— disabled —</option>
             <option value="anthropic">Claude (Anthropic)</option>
-            <option value="openai">GPT-4 (OpenAI)</option>
             <option value="gemini">Gemini (Google)</option>
           </select>
           <div id="aiKeyHint" style="display:none;font-size:12px;color:rgba(255,200,80,.8);font-family:'JetBrains Mono',monospace;margin-top:5px">
@@ -1231,7 +1230,7 @@ function toggleAiKey(){
   const hint = document.getElementById("aiKeyHint");
   if(!provider || !hint) return;
   // Check if key is saved for this provider
-  const keyMap = {gemini:"GEMINI_API_KEY", openai:"OPENAI_API_KEY", anthropic:"ANTHROPIC_API_KEY"};
+  const keyMap = {gemini:"GEMINI_API_KEY", anthropic:"ANTHROPIC_API_KEY"};
   const field = keyMap[provider];
   // We know key status from last loadSavedKeys call
   const el = document.getElementById("status-ai");
@@ -1933,7 +1932,7 @@ async function initSettings(){
   if(!keys) return;
   // Populate fields with masked values
   const fields=["VK_TOKEN",
-                 "GEMINI_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"];
+                 "GEMINI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"];
   fields.forEach(f=>{
     const el=document.getElementById("sk_"+f);
     if(el && keys[f]) el.placeholder=keys[f]; // show masked value as placeholder
@@ -1946,7 +1945,6 @@ async function initSettings(){
     const prev=aiSel.value;
     if(!prev){
       if(keys.GEMINI_API_KEY && keys.GEMINI_API_KEY.length>5) aiSel.value="gemini";
-      else if(keys.OPENAI_API_KEY && keys.OPENAI_API_KEY.length>5) aiSel.value="openai";
       else if(keys.ANTHROPIC_API_KEY && keys.ANTHROPIC_API_KEY.length>5) aiSel.value="anthropic";
     }
     toggleAiKey(); // show/hide hint based on current provider + key status
@@ -1960,7 +1958,7 @@ async function initSettings(){
 function updateKeyStatuses(keys){
   const checks={
     "status-vk":  keys.VK_TOKEN,
-    "status-ai":  keys.GEMINI_API_KEY||keys.OPENAI_API_KEY||keys.ANTHROPIC_API_KEY,
+    "status-ai":  keys.GEMINI_API_KEY||keys.ANTHROPIC_API_KEY,
     "status-hibp":keys.HIBP_API_KEY
   };
   Object.entries(checks).forEach(([id,val])=>{
@@ -1977,7 +1975,7 @@ function updateKeyStatuses(keys){
 async function onSaveSettings(){
   const obj={};
   ["VK_TOKEN",
-   "GEMINI_API_KEY","OPENAI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"].forEach(f=>{
+   "GEMINI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"].forEach(f=>{
     const el=document.getElementById("sk_"+f);
     if(el && el.value.trim()) obj[f]=el.value.trim();
   });
@@ -1992,7 +1990,7 @@ async function onSaveSettings(){
     if(aiSel && aiSel.value){
       // Reload page AI config silently
       let newKey="";
-      const keyMap={gemini:"GEMINI_API_KEY",openai:"OPENAI_API_KEY",anthropic:"ANTHROPIC_API_KEY"};
+      const keyMap={gemini:"GEMINI_API_KEY",anthropic:"ANTHROPIC_API_KEY"};
       const field=keyMap[aiSel.value];
       if(field && obj[field]) newKey=obj[field];
       if(newKey && aiKeyEl) aiKeyEl.value=newKey;
@@ -2061,10 +2059,6 @@ window.addEventListener("pageshow", function(){
       <div class="modal-field">
         <label>Gemini API Key — <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com ↗</a> (free) (Recommended)</label>
         <input class="modal-inp" id="sk_GEMINI_API_KEY" type="password" placeholder="AIzaSy...">
-      </div>
-      <div class="modal-field">
-        <label>OpenAI API Key — <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com ↗</a></label>
-        <input class="modal-inp" id="sk_OPENAI_API_KEY" type="password" placeholder="sk-...">
       </div>
       <div class="modal-field">
         <label>Anthropic (Claude) Key — <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com ↗</a></label>
