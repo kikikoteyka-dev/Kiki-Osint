@@ -10,14 +10,40 @@ from flask_cors import CORS
 import requests
 import keys_store
 
-# generativelanguage.googleapis.com doesn't resolve via the system DNS here.
-# www.googleapis.com does and shares Google's Front-End with a multi-SAN cert,
-# so route via its IP while keeping the original SNI/Host for correct routing.
+# generativelanguage.googleapis.com doesn't resolve via the system DNS here, and even when
+# it does, Gemini geo-blocks RU IPs with "User location is not supported" (FAILED_PRECONDITION).
+# xbox-dns.ru is a public DoH "smart DNS" that resolves it to an edge IP that isn't geo-blocked;
+# we connect to that IP while keeping the original Host/SNI for correct TLS routing.
+# Resolved once at startup, BEFORE patching socket.getaddrinfo below — dnspython's DoH query
+# itself breaks if it runs through the patched resolver.
+# www.googleapis.com is kept as a secondary fallback (shares Google's Front-End / multi-SAN cert).
 import socket as _socket
 _orig_getaddrinfo = _socket.getaddrinfo
-_DNS_FALLBACK = {"generativelanguage.googleapis.com": "www.googleapis.com"}
+_GEMINI_HOST = "generativelanguage.googleapis.com"
+_DNS_FALLBACK = {_GEMINI_HOST: "www.googleapis.com"}
+
+def _doh_resolve(host, attempts=3):
+    import dns.message, dns.query, dns.rdatatype
+    for _ in range(attempts):
+        try:
+            q = dns.message.make_query(host, dns.rdatatype.A)
+            r = dns.query.https(q, "https://xbox-dns.ru/dns-query", timeout=8)
+            for ans in r.answer:
+                for item in ans.items:
+                    if item.rdtype == dns.rdatatype.A:
+                        return item.address
+        except Exception:
+            continue
+    return None
+
+_GEMINI_IP = _doh_resolve(_GEMINI_HOST)
 
 def _patched_getaddrinfo(host, *args, **kwargs):
+    if host == _GEMINI_HOST and _GEMINI_IP:
+        try:
+            return _orig_getaddrinfo(_GEMINI_IP, *args, **kwargs)
+        except _socket.gaierror:
+            pass
     try:
         return _orig_getaddrinfo(host, *args, **kwargs)
     except _socket.gaierror:
@@ -800,6 +826,8 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
                 raise RuntimeError("Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN.")
             if "User location is not supported" in msg or "FAILED_PRECONDITION" in msg:
                 raise RuntimeError("Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ.")
+            if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
+                raise RuntimeError("Gemini API: превышен лимит запросов (бесплатный тариф). Подожди немного и попробуй снова.")
             raise
 
     return {"error": "Unknown provider"}
@@ -1450,6 +1478,8 @@ def geoint_ai_guess(image_bytes, config):
                 raise RuntimeError("Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN.")
             if "User location is not supported" in msg or "FAILED_PRECONDITION" in msg:
                 raise RuntimeError("Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ.")
+            if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
+                raise RuntimeError("Gemini API: превышен лимит запросов (бесплатный тариф). Подожди немного и попробуй снова.")
             raise
 
     raise RuntimeError("No AI provider configured — set an API key in Settings")
