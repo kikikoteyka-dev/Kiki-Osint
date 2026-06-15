@@ -5,17 +5,39 @@ import os, sys, shutil, subprocess, threading, re, json
 from pathlib import Path
 from datetime import datetime
 
-OSINT_DIR = r"C:\Users\newin\osint-portrait"
-sys.path.insert(0, OSINT_DIR)
-
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
+import requests
 import keys_store
+
+# generativelanguage.googleapis.com doesn't resolve via the system DNS here.
+# www.googleapis.com does and shares Google's Front-End with a multi-SAN cert,
+# so route via its IP while keeping the original SNI/Host for correct routing.
+import socket as _socket
+_orig_getaddrinfo = _socket.getaddrinfo
+_DNS_FALLBACK = {"generativelanguage.googleapis.com": "www.googleapis.com"}
+
+def _patched_getaddrinfo(host, *args, **kwargs):
+    try:
+        return _orig_getaddrinfo(host, *args, **kwargs)
+    except _socket.gaierror:
+        alt = _DNS_FALLBACK.get(host)
+        if alt:
+            return _orig_getaddrinfo(alt, *args, **kwargs)
+        raise
+
+_socket.getaddrinfo = _patched_getaddrinfo
+
+# AI runtime config (updated via /api/keys and /api/config)
+AI_CONFIG = {
+    "provider": "gemini" if keys_store.get("GEMINI_API_KEY") else None,
+    "api_key":  keys_store.get("GEMINI_API_KEY") or None,
+}
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 HUB_DIR    = BASE_DIR
-OSINT_FE   = os.path.join(OSINT_DIR, "frontend")
-OSINT_SRC  = os.path.join(OSINT_DIR, "sources")
+OSINT_FE   = os.path.join(BASE_DIR, "frontend")
+OSINT_SRC  = os.path.join(BASE_DIR, "sources")
 
 BASE        = r"C:\HashCat\hashcat-7.1.2"
 HASHCAT_EXE = os.path.join(BASE, "hashcat.exe")
@@ -34,6 +56,7 @@ _proc = None
 _log  = []
 _password = None
 _running  = False   # True while crack thread is alive
+_stop_requested = False  # set by /api/hc/stop to break the wordlist loop
 
 def ts():   return datetime.now().strftime("%H:%M:%S")
 def log(tag, msg):
@@ -141,35 +164,645 @@ def save_keys_route():
     keys_store.save(k)
     return jsonify({"ok":True})
 
-# Forward all OSINT API calls
-def _forward_to_osint(path):
-    """Forward request to osint app running on port 5050"""
-    import requests as req_lib
+@app.route("/api/config", methods=["POST"])
+def osint_set_config():
+    data = request.json or {}
+    AI_CONFIG["provider"] = data.get("provider")
+    AI_CONFIG["api_key"]  = data.get("api_key")
+    return jsonify({"status": "ok"})
+
+@app.route("/api/search/stream", methods=["POST"])
+def osint_search_stream():
+    data = request.json or {}
+    query = (data.get("query") or "").strip()
+    if query.startswith("@"):
+        query = query[1:]
+    sources = data.get("sources", ["vk", "maigret"])
+    if not isinstance(sources, list):
+        sources = list(sources) if sources else ["vk", "maigret"]
+    sources = [s for s in sources if isinstance(s, str)]
+    maigret_limit = data.get("maigret_limit", 100)
+    maigret_limit = int(maigret_limit) if maigret_limit is not None else 100
+    ai_lang = data.get("ai_lang", "ru")
+
+    req_query_type = data.get("query_type")
+    if req_query_type in ("username", "email", "phone", "both"):
+        query_type = req_query_type
+    elif "@" in query and "." in query.split("@")[-1]:
+        query_type = "email"
+    else:
+        query_type = "username"
+
+    def generate():
+        def send(event, payload):
+            return f"data: {json.dumps({'event': event, 'data': payload}, ensure_ascii=False)}\n\n"
+
+        collected = {}
+        yield send("start", {"query": query, "type": query_type})
+
+        if query_type == "username":
+            if "vk" in sources:
+                yield from search_vk_username(query, send, collected)
+            if "maigret" in sources:
+                yield from search_maigret(query, maigret_limit, send, collected)
+            yield from search_telegram(query, send, collected)
+            yield from search_github(query, send, collected)
+
+        elif query_type == "email":
+            yield from search_email_holehe(query, send, collected)
+            yield from search_email_hibp(query, send, collected)
+            yield from search_gravatar(query, send, collected)
+            yield from search_github_by_email(query, send, collected)
+            yield from search_email_domain(query, send, collected)
+
+        elif query_type == "phone":
+            yield from search_phone(query, send, collected)
+            if "vk" in sources:
+                yield from search_vk_phone(query, send, collected)
+
+        req_ai_provider = data.get("ai_provider", "")
+        if not isinstance(req_ai_provider, str):
+            req_ai_provider = ""
+        if req_ai_provider:
+            key_map = {
+                "gemini":    "GEMINI_API_KEY",
+                "openai":    "OPENAI_API_KEY",
+                "anthropic": "ANTHROPIC_API_KEY",
+            }
+            ai_key = keys_store.get(key_map.get(req_ai_provider, ""))
+            if ai_key:
+                ai_cfg = {"provider": req_ai_provider, "api_key": ai_key}
+                yield send("progress", {"source": "ai", "status": "searching", "msg": "Generating AI portrait..."})
+                try:
+                    portrait = generate_portrait(query, query_type, ai_cfg, collected, ai_lang)
+                    yield send("result", {"source": "ai", "data": portrait})
+                    yield send("progress", {"source": "ai", "status": "done", "msg": "Done"})
+                except Exception as e:
+                    yield send("result", {"source": "ai", "data": {"error": str(e)}})
+                    yield send("progress", {"source": "ai", "status": "error", "msg": str(e)})
+            else:
+                yield send("progress", {"source": "ai", "status": "error", "msg": f"No API key for {req_ai_provider}. Open Settings."})
+
+        yield send("done", {})
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def fetch_telegram_profile(url):
+    """Fetch Telegram public profile from t.me page"""
     try:
-        url = f"http://127.0.0.1:5050/api/{path}"
-        if request.method=="GET":
-            r = req_lib.get(url, params=request.args, timeout=60, stream=True)
-        else:
-            r = req_lib.request(request.method, url, json=request.json, timeout=60, stream=True)
-        return Response(r.iter_content(chunk_size=None), status=r.status_code,
-                       content_type=r.headers.get("content-type","application/json"))
+        import httpx
+        from bs4 import BeautifulSoup
+        r = httpx.get(url, timeout=10, follow_redirects=True,
+                      headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200:
+            return None
+        html = r.content.decode("utf-8", errors="replace")
+        soup = BeautifulSoup(html, "html.parser")
+        name  = soup.select_one(".tgme_page_title span")
+        bio   = soup.select_one(".tgme_page_description")
+        photo = soup.select_one(".tgme_page_photo_image")
+        username = url.rstrip("/").split("/")[-1]
+        return {
+            "name":     name.get_text(strip=True) if name else username,
+            "bio":      bio.get_text(strip=True) if bio else "",
+            "photo":    photo["src"] if photo and photo.get("src") else "",
+            "url":      url,
+            "username": username,
+        }
+    except Exception:
+        return None
+
+
+def search_telegram(query, send, collected=None):
+    if not re.match(r'^[a-zA-Z0-9_]{5,32}$', query):
+        yield send("progress", {"source": "telegram", "status": "done", "msg": "Skipped (invalid TG username)"})
+        return
+    yield send("progress", {"source": "telegram", "status": "searching", "msg": "Fetching Telegram profile..."})
+    try:
+        import httpx
+        from bs4 import BeautifulSoup
+        url = f"https://t.me/{query}"
+        r = httpx.get(url, timeout=10, follow_redirects=True,
+                      headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200:
+            yield send("result", {"source": "telegram", "data": {"error": f"Not found (HTTP {r.status_code})"}})
+            yield send("progress", {"source": "telegram", "status": "error", "msg": "Not found"})
+            return
+        html = r.content.decode("utf-8", errors="replace")
+        soup = BeautifulSoup(html, "html.parser")
+        name  = soup.select_one(".tgme_page_title span")
+        bio   = soup.select_one(".tgme_page_description")
+        photo = soup.select_one(".tgme_page_photo_image")
+        photo_url = ""
+        if photo:
+            photo_url = photo.get("src") or photo.get("data-src") or ""
+        subs  = soup.select_one(".tgme_page_extra")
+        result = {
+            "name":        name.get_text(strip=True) if name else query,
+            "bio":         bio.get_text(strip=True) if bio else "",
+            "photo":       photo_url,
+            "subscribers": subs.get_text(strip=True) if subs else "",
+            "url":         url,
+            "username":    query,
+        }
+        if collected is not None:
+            collected["telegram"] = result
+        yield send("result", {"source": "telegram", "data": result})
+        yield send("progress", {"source": "telegram", "status": "done",
+                                "msg": result["name"] or "Found"})
     except Exception as e:
-        return jsonify({"error":str(e)}), 500
+        yield send("result", {"source": "telegram", "data": {"error": str(e)}})
+        yield send("progress", {"source": "telegram", "status": "error", "msg": str(e)})
 
-@app.route("/api/search",  methods=["POST"])
-def osint_search():  return _forward_to_osint("search")
 
-@app.route("/api/stream",  methods=["POST","GET"])
-def osint_stream():  return _forward_to_osint("stream")
+def search_vk_username(query, send, collected=None):
+    yield send("progress", {"source": "vk", "status": "searching", "msg": "Searching VK..."})
+    try:
+        from vk_module import get_vk_profile
+        result = get_vk_profile(query)
+        if collected is not None:
+            collected["vk"] = result
+        yield send("result", {"source": "vk", "data": result})
+        if "error" not in result:
+            yield send("progress", {"source": "vk", "status": "done", "msg": result.get("name", "found")})
+        else:
+            yield send("progress", {"source": "vk", "status": "error", "msg": result["error"]})
+    except Exception as e:
+        yield send("result", {"source": "vk", "data": {"error": str(e)}})
+        yield send("progress", {"source": "vk", "status": "error", "msg": str(e)})
 
-@app.route("/api/vk/<path:p>")
-def osint_vk(p):     return _forward_to_osint(f"vk/{p}")
 
-@app.route("/api/ai",  methods=["POST"])
-def osint_ai():      return _forward_to_osint("ai")
+def search_vk_phone(query, send, collected=None):
+    yield send("progress", {"source": "vk", "status": "searching", "msg": "Searching VK by phone..."})
+    try:
+        from vk_module import get_vk_profile
+        result = get_vk_profile(query)
+        if collected is not None:
+            collected["vk"] = result
+        yield send("result", {"source": "vk", "data": result})
+        if "error" not in result:
+            yield send("progress", {"source": "vk", "status": "done", "msg": result.get("name", "found")})
+        else:
+            yield send("progress", {"source": "vk", "status": "error", "msg": result["error"]})
+    except Exception as e:
+        yield send("result", {"source": "vk", "data": {"error": str(e)}})
+        yield send("progress", {"source": "vk", "status": "error", "msg": str(e)})
 
-@app.route("/api/export",  methods=["POST"])
-def osint_export():  return _forward_to_osint("export")
+
+def search_maigret(query, limit, send, collected=None):
+    label = "all sites" if not limit else f"{limit} sites"
+    yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Starting scan ({label})..."})
+    try:
+        found_sites = []
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        cmd = [sys.executable, "-u", "-m", "maigret", query, "--no-color", "--timeout", "10"]
+        if limit and limit > 0:
+            cmd += [f"--top-sites={limit}"]
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1, text=True, encoding="utf-8", errors="replace", env=env
+        )
+        checked = 0
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            checked += 1
+            if "[+]" in line:
+                parts = line.split("[+]", 1)[-1].strip()
+                site_name, url = (parts.split(": ", 1) if ": " in parts else (parts, ""))
+                site_name = site_name.strip()
+                url = url.strip()
+                MAIGRET_BLACKLIST_PREFIXES = ("OP.GG",)
+                if any(site_name.startswith(p) for p in MAIGRET_BLACKLIST_PREFIXES):
+                    continue
+                found_sites.append({"site": site_name, "url": url})
+                yield send("maigret_hit", {"site": site_name, "url": url, "count": len(found_sites)})
+                yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Found {len(found_sites)} so far..."})
+                if "Telegram" in site_name and "t.me/" in url:
+                    tg = fetch_telegram_profile(url)
+                    if tg:
+                        yield send("result", {"source": "telegram", "data": tg})
+            elif checked % 20 == 0:
+                yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Scanning... ({len(found_sites)} found)"})
+        try:
+            proc.wait(timeout=300)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        if collected is not None:
+            collected["maigret"] = {"found": found_sites, "total": len(found_sites)}
+        yield send("result", {"source": "maigret", "data": {"found": found_sites, "total": len(found_sites)}})
+        yield send("progress", {"source": "maigret", "status": "done", "msg": f"Done — {len(found_sites)} accounts found"})
+    except Exception as e:
+        yield send("result", {"source": "maigret", "data": {"error": str(e)}})
+        yield send("progress", {"source": "maigret", "status": "error", "msg": str(e)})
+
+
+def search_phone(query, send, collected=None):
+    yield send("progress", {"source": "phone", "status": "searching", "msg": "Analyzing phone number..."})
+    try:
+        import phonenumbers
+        from phonenumbers import geocoder, carrier, timezone
+        raw = query.strip().replace(" ", "").replace("-", "")
+        if not raw.startswith("+"):
+            raw = "+" + raw
+        pn = phonenumbers.parse(raw, None)
+        result = {
+            "number": phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.INTERNATIONAL),
+            "country": geocoder.description_for_number(pn, "en"),
+            "carrier": carrier.name_for_number(pn, "en"),
+            "timezones": list(timezone.time_zones_for_number(pn)),
+            "valid": phonenumbers.is_valid_number(pn),
+            "type": str(phonenumbers.number_type(pn)).split(".")[-1],
+            "national": phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.NATIONAL),
+            "country_code": pn.country_code,
+        }
+        if collected is not None:
+            collected["phone"] = result
+        yield send("result", {"source": "phone", "data": result})
+        yield send("progress", {"source": "phone", "status": "done",
+                                "msg": f"{result['country']} · {result['carrier'] or 'unknown'}"})
+    except Exception as e:
+        yield send("result", {"source": "phone", "data": {"error": str(e)}})
+        yield send("progress", {"source": "phone", "status": "error", "msg": str(e)})
+
+
+def search_github(query, send, collected=None):
+    yield send("progress", {"source": "github", "status": "searching", "msg": "Searching GitHub..."})
+    try:
+        r = requests.get(f"https://api.github.com/users/{query}",
+                         headers={"Accept": "application/vnd.github+json"}, timeout=8)
+        if r.status_code == 404:
+            yield send("progress", {"source": "github", "status": "done", "msg": "Not found"})
+            return
+        if r.status_code != 200:
+            yield send("progress", {"source": "github", "status": "error", "msg": f"GitHub API error {r.status_code}"})
+            return
+        u = r.json()
+        repos_r = requests.get(f"https://api.github.com/users/{query}/repos?per_page=5&sort=pushed",
+                                headers={"Accept": "application/vnd.github+json"}, timeout=8)
+        repos = []
+        if repos_r.status_code == 200:
+            repos = [{"name": x["name"], "url": x["html_url"],
+                      "stars": x["stargazers_count"], "lang": x["language"]} for x in repos_r.json()]
+        data2 = {
+            "source": "github",
+            "name":       u.get("name") or u.get("login"),
+            "username":   u.get("login"),
+            "avatar":     u.get("avatar_url"),
+            "bio":        u.get("bio") or "",
+            "location":   u.get("location") or "",
+            "company":    u.get("company") or "",
+            "blog":       u.get("blog") or "",
+            "email":      u.get("email") or "",
+            "followers":  u.get("followers", 0),
+            "following":  u.get("following", 0),
+            "public_repos": u.get("public_repos", 0),
+            "created_at": (u.get("created_at") or "")[:10],
+            "url":        u.get("html_url"),
+            "repos":      repos,
+        }
+        if collected is not None:
+            collected["github"] = data2
+        yield send("result", {"source": "github", "data": data2})
+        yield send("progress", {"source": "github", "status": "done", "msg": "Done"})
+    except Exception as e:
+        yield send("progress", {"source": "github", "status": "error", "msg": str(e)})
+
+
+def search_gravatar(query, send, collected=None):
+    yield send("progress", {"source": "gravatar", "status": "searching", "msg": "Checking Gravatar..."})
+    try:
+        import hashlib
+        h = hashlib.md5(query.strip().lower().encode()).hexdigest()
+        r = requests.get(f"https://www.gravatar.com/{h}.json", timeout=8)
+        if r.status_code == 404:
+            yield send("progress", {"source": "gravatar", "status": "done", "msg": "No Gravatar profile"})
+            return
+        if r.status_code != 200:
+            yield send("progress", {"source": "gravatar", "status": "error", "msg": f"Error {r.status_code}"})
+            return
+        entry = r.json().get("entry", [{}])[0]
+        data2 = {
+            "source":      "gravatar",
+            "name":        (entry.get("displayName") or entry.get("preferredUsername") or ""),
+            "username":    entry.get("preferredUsername") or "",
+            "avatar":      f"https://www.gravatar.com/avatar/{h}?s=200",
+            "bio":         entry.get("aboutMe") or "",
+            "location":    (entry.get("currentLocation") or ""),
+            "urls":        [u.get("value") for u in entry.get("urls", []) if u.get("value")],
+            "accounts":    [{"title": a.get("shortname",""), "url": a.get("url","")}
+                            for a in entry.get("accounts", [])],
+            "profile_url": f"https://gravatar.com/{entry.get('preferredUsername',h)}",
+            "hash":        h,
+        }
+        if collected is not None:
+            collected["gravatar"] = data2
+        yield send("result", {"source": "gravatar", "data": data2})
+        yield send("progress", {"source": "gravatar", "status": "done", "msg": "Done"})
+    except Exception as e:
+        yield send("progress", {"source": "gravatar", "status": "error", "msg": str(e)})
+
+
+def search_github_by_email(query, send, collected=None):
+    yield send("progress", {"source": "github_email", "status": "searching", "msg": "Searching GitHub by email..."})
+    try:
+        r = requests.get(
+            f"https://api.github.com/search/users?q={query}+in:email",
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=8
+        )
+        if r.status_code != 200:
+            yield send("progress", {"source": "github_email", "status": "done", "msg": "No results"})
+            return
+        items = r.json().get("items", [])
+        if not items:
+            yield send("progress", {"source": "github_email", "status": "done", "msg": "Not found on GitHub"})
+            return
+        user = items[0]
+        profile_r = requests.get(f"https://api.github.com/users/{user['login']}",
+                                  headers={"Accept": "application/vnd.github+json"}, timeout=8)
+        if profile_r.status_code == 200:
+            u = profile_r.json()
+            data2 = {
+                "source":       "github_email",
+                "name":         u.get("name") or u.get("login"),
+                "username":     u.get("login"),
+                "avatar":       u.get("avatar_url"),
+                "bio":          u.get("bio") or "",
+                "location":     u.get("location") or "",
+                "company":      u.get("company") or "",
+                "blog":         u.get("blog") or "",
+                "followers":    u.get("followers", 0),
+                "public_repos": u.get("public_repos", 0),
+                "created_at":   (u.get("created_at") or "")[:10],
+                "url":          u.get("html_url"),
+                "total_found":  len(items),
+            }
+            if collected is not None:
+                collected["github_email"] = data2
+            yield send("result", {"source": "github_email", "data": data2})
+            yield send("progress", {"source": "github_email", "status": "done", "msg": f"Found: @{data2['username']}"})
+    except Exception as e:
+        yield send("progress", {"source": "github_email", "status": "error", "msg": str(e)})
+
+
+DISPOSABLE_DOMAINS = {
+    "mailinator.com","guerrillamail.com","10minutemail.com","tempmail.com",
+    "throwaway.email","yopmail.com","sharklasers.com","guerrillamailblock.com",
+    "grr.la","guerrillamail.info","guerrillamail.biz","guerrillamail.de",
+    "guerrillamail.net","guerrillamail.org","spam4.me","trashmail.com",
+    "trashmail.me","trashmail.net","dispostable.com","mailnull.com",
+    "spamgourmet.com","spamgourmet.net","spamgourmet.org","maildrop.cc",
+}
+
+def search_email_domain(query, send, collected=None):
+    yield send("progress", {"source": "email_domain", "status": "searching", "msg": "Analysing email domain..."})
+    try:
+        import dns.resolver
+        domain = query.split("@")[-1].lower()
+        result = {"source": "email_domain", "domain": domain}
+        result["disposable"] = domain in DISPOSABLE_DOMAINS
+
+        try:
+            mx = dns.resolver.resolve(domain, "MX")
+            mx_list = sorted([(r.preference, str(r.exchange).rstrip(".")) for r in mx])
+            result["mx"] = mx_list
+            mx_str = " ".join(h for _, h in mx_list).lower()
+            if "google" in mx_str or "gmail" in mx_str:
+                result["mail_provider"] = "Google Workspace / Gmail"
+            elif "outlook" in mx_str or "microsoft" in mx_str or "hotmail" in mx_str:
+                result["mail_provider"] = "Microsoft / Outlook"
+            elif "protonmail" in mx_str or "proton.ch" in mx_str:
+                result["mail_provider"] = "ProtonMail"
+            elif "yandex" in mx_str:
+                result["mail_provider"] = "Yandex Mail"
+            elif "mail.ru" in mx_str:
+                result["mail_provider"] = "Mail.ru"
+            elif "zoho" in mx_str:
+                result["mail_provider"] = "Zoho Mail"
+            else:
+                result["mail_provider"] = mx_list[0][1] if mx_list else "Unknown"
+        except Exception:
+            result["mx"] = []
+            result["mail_provider"] = "No MX (invalid domain?)"
+
+        try:
+            a = dns.resolver.resolve(domain, "A")
+            result["ip"] = str(list(a)[0])
+        except Exception:
+            result["ip"] = None
+
+        try:
+            rdap = requests.get(f"https://rdap.org/domain/{domain}", timeout=6)
+            if rdap.status_code == 200:
+                j = rdap.json()
+                events = {e["eventAction"]: e["eventDate"][:10]
+                          for e in j.get("events", []) if "eventDate" in e}
+                result["registered"] = events.get("registration", "")
+                result["updated"]    = events.get("last changed", "")
+                result["expiry"]     = events.get("expiration", "")
+                entities = j.get("entities", [])
+                registrar = next((e.get("vcardArray") for e in entities
+                                  if "registrar" in e.get("roles", [])), None)
+                if registrar:
+                    for field in registrar[1]:
+                        if field[0] == "fn":
+                            result["registrar"] = field[3]
+                            break
+        except Exception:
+            pass
+
+        FREE_DOMAINS = {"gmail.com","yahoo.com","hotmail.com","outlook.com","mail.ru",
+                        "yandex.ru","protonmail.com","icloud.com","me.com","live.com",
+                        "inbox.ru","bk.ru","list.ru","proton.me","tutanota.com"}
+        result["account_type"] = "personal/free" if domain in FREE_DOMAINS else "corporate/custom"
+
+        if collected is not None:
+            collected["email_domain"] = result
+        yield send("result", {"source": "email_domain", "data": result})
+        yield send("progress", {"source": "email_domain", "status": "done",
+                                 "msg": result.get("mail_provider", domain)})
+    except Exception as e:
+        yield send("progress", {"source": "email_domain", "status": "error", "msg": str(e)})
+
+
+def search_email_holehe(query, send, collected=None):
+    yield send("progress", {"source": "holehe", "status": "searching", "msg": "Running Holehe scan..."})
+    try:
+        found_sites = []
+        rate_limited = []
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        if sys.platform == "win32":
+            holehe_exe = os.path.join(os.path.dirname(sys.executable), "Scripts", "holehe.exe")
+        else:
+            holehe_exe = os.path.join(os.path.dirname(sys.executable), "holehe")
+        proc = subprocess.Popen(
+            [holehe_exe, query, "--no-color"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1, text=True, encoding="utf-8", errors="replace", env=env
+        )
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("[+]"):
+                m = re.search(r'\[\+\]\s+(\S+)', line)
+                site = m.group(1) if m else line.split()[-1]
+                found_sites.append({"site": site, "url": "", "confirmed": True})
+                yield send("holehe_hit", {"site": site, "count": len(found_sites)})
+                yield send("progress", {"source": "holehe", "status": "searching", "msg": f"Found {len(found_sites)} confirmed..."})
+            elif line.startswith("[x]"):
+                m = re.search(r'\[x\]\s+(\S+)', line)
+                site = m.group(1) if m else line.split()[-1]
+                rate_limited.append({"site": site, "url": "", "confirmed": False})
+        try:
+            proc.wait(timeout=180)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        all_sites = found_sites + rate_limited
+        if collected is not None:
+            collected["holehe"] = {"found": found_sites, "rate_limited": rate_limited, "total": len(all_sites)}
+        yield send("result", {"source": "holehe", "data": {"found": found_sites, "rate_limited": rate_limited, "total": len(all_sites)}})
+        yield send("progress", {"source": "holehe", "status": "done", "msg": f"Done — {len(found_sites)} confirmed, {len(rate_limited)} rate-limited"})
+    except Exception as e:
+        yield send("result", {"source": "holehe", "data": {"error": str(e)}})
+        yield send("progress", {"source": "holehe", "status": "error", "msg": str(e)})
+
+
+def search_email_hibp(query, send, collected=None):
+    yield send("progress", {"source": "hibp", "status": "searching", "msg": "Checking HaveIBeenPwned..."})
+    try:
+        import httpx
+        hibp_key = keys_store.get("HIBP_API_KEY")
+        headers = {"User-Agent": "OSINT-Portrait/1.0"}
+        if hibp_key:
+            headers["hibp-api-key"] = hibp_key
+        url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{query}?truncateResponse=false"
+        r = httpx.get(url, headers=headers, follow_redirects=True, timeout=10)
+        if r.status_code == 200:
+            breaches = r.json()
+            result = {"breaches": [{"name": b["Name"], "date": b.get("BreachDate","?"),
+                                    "pwn_count": b.get("PwnCount",0),
+                                    "data_classes": b.get("DataClasses",[])} for b in breaches], "total": len(breaches)}
+            if collected is not None:
+                collected["hibp"] = result
+            yield send("result", {"source": "hibp", "data": result})
+            yield send("progress", {"source": "hibp", "status": "done", "msg": f"Found in {len(breaches)} breaches"})
+        elif r.status_code == 404:
+            yield send("result", {"source": "hibp", "data": {"breaches": [], "total": 0}})
+            yield send("progress", {"source": "hibp", "status": "done", "msg": "No breaches found"})
+        elif r.status_code == 401:
+            yield send("result", {"source": "hibp", "data": {"error": "API key required — get it at haveibeenpwned.com/API/Key"}})
+            yield send("progress", {"source": "hibp", "status": "error", "msg": "API key required"})
+        else:
+            yield send("result", {"source": "hibp", "data": {"error": f"HTTP {r.status_code}"}})
+            yield send("progress", {"source": "hibp", "status": "error", "msg": f"HTTP {r.status_code}"})
+    except Exception as e:
+        yield send("result", {"source": "hibp", "data": {"error": str(e)}})
+        yield send("progress", {"source": "hibp", "status": "error", "msg": str(e)})
+
+
+def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
+    context_parts = []
+
+    if collected:
+        if "vk" in collected and "error" not in collected["vk"]:
+            vk = collected["vk"]
+            context_parts.append(f"VK profile: name={vk.get('name')}, city={vk.get('city')}, country={vk.get('country')}, "
+                                  f"followers={vk.get('followers')}, bdate={vk.get('bdate')}, sex={vk.get('sex')}, "
+                                  f"last_seen={vk.get('last_seen')}, education={vk.get('education')}, "
+                                  f"groups={vk.get('groups', [])[:10]}, posts={vk.get('posts', [])[:3]}, closed={vk.get('closed')}")
+
+        if "telegram" in collected and "error" not in collected["telegram"]:
+            tg = collected["telegram"]
+            context_parts.append(f"Telegram profile: name={tg.get('name')}, username=@{tg.get('username')}, "
+                                  f"bio={tg.get('bio')}, subscribers={tg.get('subscribers')}")
+
+        if "maigret" in collected:
+            sites = [s["site"] for s in collected["maigret"].get("found", [])]
+            context_parts.append(f"Accounts found on {len(sites)} sites: {', '.join(sites[:30])}")
+
+        if "phone" in collected and "error" not in collected["phone"]:
+            ph = collected["phone"]
+            context_parts.append(f"Phone info: number={ph.get('number')}, country={ph.get('country')}, "
+                                  f"carrier={ph.get('carrier')}, type={ph.get('type')}, timezones={ph.get('timezones')}")
+
+        if "holehe" in collected:
+            confirmed = [s["site"] for s in collected["holehe"].get("found", [])]
+            context_parts.append(f"Email registered on: {', '.join(confirmed) if confirmed else 'none confirmed'}")
+
+        if "hibp" in collected:
+            breaches = [b["name"] for b in collected["hibp"].get("breaches", [])]
+            context_parts.append(f"Found in data breaches: {', '.join(breaches) if breaches else 'none'}")
+
+    type_label = {"username": f"username '{query}'", "phone": f"phone '{query}'", "email": f"email '{query}'"}.get(query_type, f"'{query}'")
+
+    lang_instruction = {
+        "ru": "Отвечай строго на русском языке.",
+        "en": "Respond strictly in English.",
+    }.get(ai_lang, "Respond strictly in English.")
+
+    caveat = (
+        "ВАЖНО: В конце анализа обязательно добавь раздел '⚠ Важная оговорка' где укажи, что "
+        "не все найденные аккаунты могут принадлежать одному человеку — на разных платформах "
+        "один и тот же никнейм мог быть занят разными людьми. Указывай уверенность только для "
+        "тех платформ, где есть прямые совпадения (аватар, биография, стиль). Это ОБЯЗАТЕЛЬНАЯ часть анализа."
+        if ai_lang == "ru" else
+        "IMPORTANT: At the end of your analysis, add a section '⚠ Important Disclaimer' stating that "
+        "not all found accounts may belong to the same person — the same username could be registered "
+        "by different people on different platforms. Only express high confidence for platforms with "
+        "direct cross-references (avatar, bio, writing style). This section is MANDATORY."
+    )
+    if context_parts:
+        data_section = "\n".join(f"- {p}" for p in context_parts)
+        prompt = (f"You are an OSINT analyst. Based on the following gathered data about {type_label}, "
+                  f"write a concise analytical portrait: personality traits, online behavior, geographic hints, "
+                  f"risk assessment, and interesting patterns.\n\nGathered data:\n{data_section}\n\n"
+                  f"{lang_instruction} {caveat}")
+    else:
+        prompt = (f"You are an OSINT analyst. Write a brief analytical portrait for {type_label}. "
+                  f"Include likely platforms, geographic hints, behavioral patterns, and risk assessment. "
+                  f"{lang_instruction} {caveat}")
+
+    if config["provider"] == "anthropic":
+        import anthropic
+        client = anthropic.Anthropic(api_key=config["api_key"])
+        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}])
+        return {"portrait": msg.content[0].text}
+
+    elif config["provider"] == "openai":
+        from openai import OpenAI
+        client = OpenAI(api_key=config["api_key"])
+        resp = client.chat.completions.create(model="gpt-4o-mini", max_tokens=1000,
+            messages=[{"role": "user", "content": prompt}])
+        return {"portrait": resp.choices[0].message.content}
+
+    elif config["provider"] == "gemini":
+        try:
+            from google import genai
+        except ImportError:
+            return {"error": "google-genai not installed. Run: py -m pip install google-genai"}
+        try:
+            client = genai.Client(api_key=config["api_key"])
+            resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            return {"portrait": resp.text}
+        except Exception as e:
+            msg = str(e)
+            if "getaddrinfo failed" in msg or "11001" in msg:
+                raise RuntimeError("Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN.")
+            if "User location is not supported" in msg or "FAILED_PRECONDITION" in msg:
+                raise RuntimeError("Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ.")
+            raise
+
+    return {"error": "Unknown provider"}
 
 # ════ HASHCAT API ════════════════════════════════════════════
 
@@ -255,7 +888,8 @@ def hc_analyze():
     log("sys","converting via WSL hcxpcapngtool...")
     try:
         with open(pcap,"rb") as fh: pcap_bytes=fh.read()
-        # Write pcap into WSL /tmp via stdin
+        # Write pcap into WSL /tmp via stdin (the default WSL distro's /mnt/c
+        # doesn't map to the real Windows C: drive, so file paths must stay in /tmp)
         subprocess.run(["wsl","sh","-c","cat > /tmp/wc_in.pcap"],
                        input=pcap_bytes, timeout=60)
         log("dim",f"wrote {len(pcap_bytes)//1024} KB to /tmp/wc_in.pcap")
@@ -264,6 +898,13 @@ def hc_analyze():
             "rm -f /tmp/wc_out.hc22000 && hcxpcapngtool --all -o /tmp/wc_out.hc22000 /tmp/wc_in.pcap 2>&1"],
             capture_output=True, text=True, timeout=120)
         out_all=(r.stdout+r.stderr).strip()
+        # Read result back from /tmp
+        r2=subprocess.run(["wsl","cat","/tmp/wc_out.hc22000"],
+                          capture_output=True, text=True, timeout=30)
+        hash_content=r2.stdout.strip()
+        if hash_content:
+            with open(out_file,"w",encoding="utf-8") as fh:
+                fh.write(hash_content+"\n")
         # Log filtered hcxpcapngtool output
         _hcx_keep = ("packets inside","ESSID","BEACON","EAPOL","pairs","written",
                      "Warning","Error","converted","session summary")
@@ -278,15 +919,12 @@ def hc_analyze():
             if any(s.startswith(sk) or sk in s for sk in _hcx_skip): continue
             if any(k.lower() in s.lower() for k in _hcx_keep):
                 log("dim", s)
-        # Read result back
-        r2=subprocess.run(["wsl","cat","/tmp/wc_out.hc22000"],
-                          capture_output=True, text=True, timeout=30)
-        hash_content=r2.stdout.strip()
-        if hash_content:
-            with open(out_file,"w",encoding="utf-8") as fh:
-                fh.write(hash_content+"\n")
-        if hash_content:
-            lines=[l for l in hash_content.splitlines() if l.startswith("WPA*")]
+        # Fallback: parse EAPOL count from hcxpcapngtool's own summary
+        m=re.search(r"(\d+)\s+(?:unique\s+)?EAPOL", out_all, re.I)
+        if m and result["eapol"]==0: result["eapol"]=int(m.group(1))
+        if os.path.exists(out_file) and os.path.getsize(out_file)>0:
+            with open(out_file,encoding="utf-8") as fh:
+                lines=[l.strip() for l in fh if l.startswith("WPA*")]
             if lines:
                 result["hash_file"]=out_file
                 eapol_l=[l for l in lines if l.startswith("WPA*02")]
@@ -330,8 +968,9 @@ def hc_crack():
     cracked=hf.replace(".hc22000","_cracked.txt")
     log("sys","hashcat start"); log("dim",f"wordlists: {len(all_wl)}")
     def run():
-        global _proc, _password, _running
+        global _proc, _password, _running, _stop_requested
         _running = True
+        _stop_requested = False
         try:
             # Check potfile first — log found passwords but DON'T stop
             found_in_pot = []
@@ -353,12 +992,18 @@ def hc_crack():
             # and crack remaining ones
             found=False
             for wl in all_wl:
-                if found: break
+                if found or _stop_requested:
+                    if _stop_requested: log("warn","stopped by user")
+                    break
                 log("sys",f"trying: {Path(wl).name}")
                 cmd=[HASHCAT_EXE,"-m","22000",hf,wl,"--status","--status-timer=4","--force","-o",cracked]
                 try:
                     _proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1,cwd=BASE)
-                    for line in _proc.stdout: log_hc(line.rstrip())
+                    for line in _proc.stdout:
+                        if _stop_requested:
+                            _proc.terminate()
+                            break
+                        log_hc(line.rstrip())
                     _proc.wait()
                     # Wait for lock files to be released
                     import glob, time as _t
@@ -367,6 +1012,9 @@ def hc_crack():
                         if not locks: break
                         _t.sleep(0.3)
                 except Exception as e: log("err",str(e)); break
+                if _stop_requested:
+                    log("warn","stopped by user")
+                    break
                 # Check --show after each wordlist
                 try:
                     show=subprocess.run([HASHCAT_EXE,"-m","22000",hf,"--show"],
@@ -391,7 +1039,8 @@ def hc_crack():
 
 @app.route("/api/hc/stop", methods=["POST"])
 def hc_stop():
-    global _proc
+    global _proc, _stop_requested
+    _stop_requested = True
     if _proc and _proc.poll() is None: _proc.terminate(); log("warn","terminated")
     return jsonify({"ok":True})
 
@@ -495,40 +1144,34 @@ def _flip_serial_recv(s):
     return data
 
 def _flipper_read_binary(port, path):
-    """Read binary file from Flipper via serial CLI with exact byte count."""
-    def open_and_flush(port):
-        """Open serial, wait for banner, flush it."""
-        s = serial.Serial(port, 115200, timeout=3)
-        _tm.sleep(0.8)       # wait for Flipper to send banner
-        s.reset_input_buffer()  # discard banner completely
-        return s
+    """Read binary file from Flipper via serial CLI with exact byte count.
 
-    # 1. Get file size via storage stat
-    with open_and_flush(port) as s:
-        s.write(f"storage stat {path}\r\n".encode())
-        _tm.sleep(1.0)
-        raw = s.read_all().decode('utf-8', errors='replace')
-
-    size = None
-    for line in raw.splitlines():
-        if 'size' in line.lower() and ':' in line:
-            digits = ''.join(c for c in line.split(':')[-1] if c.isdigit())
-            if digits: size = int(digits); break
-    if not size:
-        raise RuntimeError(f"could not get file size. stat output: {raw[-300:]}")
-
-    # 2. Read file content — open fresh port, flush banner, send command
-    with open_and_flush(port) as s:
+    The Flipper re-prints its full CLI banner on every fresh serial connect,
+    and the timing of that banner relative to our flush is not deterministic —
+    so instead of blindly skipping a fixed number of header lines, scan the
+    response text for the authoritative "Size: N" line and start the binary
+    read right after it, however much banner/echo noise precedes it.
+    """
+    with serial.Serial(port, 115200, timeout=3) as s:
+        _tm.sleep(0.8)           # let the banner start arriving
+        s.reset_input_buffer()   # discard whatever banner text arrived so far
         s.write(f"storage read {path}\r\n".encode())
-        # Skip 2 header lines: 1) command echo, 2) "Size: N"
-        for _ in range(2):
-            t = _tm.time() + 4
-            line = b""
-            while _tm.time() < t:
-                b = s.read(1)
-                if b:
-                    line += b
-                    if line.endswith(b'\n'): break
+
+        size = None
+        line = b""
+        deadline = _tm.time() + 10
+        while size is None and _tm.time() < deadline:
+            b = s.read(1)
+            if not b:
+                continue
+            line += b
+            if b == b"\n":
+                m = re.search(r"Size:\s*(\d+)", line.decode("utf-8", errors="replace"), re.I)
+                if m: size = int(m.group(1))
+                line = b""
+        if size is None:
+            raise RuntimeError("could not find 'Size:' line in storage read response")
+
         # Now read exactly `size` bytes of raw binary content
         s.timeout = 30
         data = b""

@@ -21,6 +21,22 @@
 
 ---
 
+## Что нового в v2.0
+
+- **Полная переносимость** — `app.py` сам определяет свою папку, репозиторий можно клонировать
+  куда угодно без правки путей (раньше требовалось менять `OSINT_DIR`)
+- **Панель OSINT и VK-модуль теперь в репозитории** — `frontend/` и `vk_module.py` версионируются,
+  больше не нужна отдельная папка рядом
+- **Свёртываемая нижняя панель** — шеврон над доком прячет/показывает панель вкладок
+  (OSINT / WiFi Cracker / Flipper / Settings) с плавной анимацией, состояние сохраняется
+- **Удобная кнопка закрытия результатов OSINT** — перенесена в левый верхний угол, не пересекается
+  с другими элементами интерфейса
+- **Gemini API** — обход локальных проблем с резолвом `generativelanguage.googleapis.com`
+  через SNI-трюк, понятные русскоязычные сообщения об ошибках (DNS / геоблокировка региона)
+- Метка **Gemini API (Recommended)** в настройках для бесплатного варианта по умолчанию
+
+---
+
 ## Что внутри
 
 | Вкладка | Описание |
@@ -33,26 +49,43 @@
 
 ## Структура директорий
 
-**Это важно — пути жёстко прописаны в `app.py`:**
+**Репозиторий теперь полностью переносимый** — `app.py` определяет свою папку автоматически
+(`BASE_DIR = os.path.dirname(os.path.abspath(__file__))`), так что клонировать можно куда угодно,
+никаких путей внутри репо менять не нужно.
+
+Единственное, что жёстко прописано — путь к **hashcat** (константа `BASE`, app.py строка 42),
+он живёт отдельно от репозитория:
 
 ```
-C:\KikiHub\                        ← сюда клонировать репо
+<репо>\                            ← клонировать куда угодно
     app.py
-    index.html
-    keys_store.py
+    index.html                     ← оболочка хаба (шапка + 3 вкладки)
+    keys_store.py                  ← читает keys.json (создаётся отдельно, в git не попадает)
+    vk_module.py                   ← VK OSINT модуль
     flipper_logo.png
     kiki_logo.png
     hashcat_logo.png
+    DISCLAIMER.md
+    frontend\
+        index.html                 ← панель OSINT (отдаётся на /osint/)
+        kiki_logo.png
+    wifi_cracker\
+        wifi_cracker.py            ← копия для версионирования — ЖИВАЯ копия должна лежать
+                                       в C:\HashCat\hashcat-7.1.2\wifi_cracker.py (см. ниже)
     temp\                          ← создаётся автоматически (временные файлы)
 
-C:\HashCat\hashcat-7.1.2\         ← hashcat ИМЕННО здесь
+C:\HashCat\hashcat-7.1.2\         ← hashcat ИМЕННО здесь (константа BASE, app.py строка 42)
     hashcat.exe
-    hashes\                        ← .hc22000 файлы (создаётся автоматически)
+    wifi_cracker.py                ← скопировать сюда из wifi_cracker\wifi_cracker.py репозитория —
+                                       app.py читает embedded HTML панели именно из этого файла
+                                       (строка 814) и запускает его как процесс (строка ~1068)
+    hashes\                        ← .hc22000 / .pcap файлы (создаётся автоматически)
     rockyou.txt                    ← вордлисты сюда
     weakpass_4.latin.txt           ← и другие .txt
 ```
 
-> Если хочешь другие пути — измени `BASE_DIR`, `HC_DIR`, `DOWNLOADS_DIR` в начале `app.py`.
+> Если путь до hashcat другой — поменяй `BASE` (строка 42), `wc_path` (строка ~814)
+> и путь к `wifi_cracker.py` в `start_wificrack()` (строка ~1068) в `app.py`.
 
 ---
 
@@ -61,9 +94,11 @@ C:\HashCat\hashcat-7.1.2\         ← hashcat ИМЕННО здесь
 ### 1. Клонировать репо
 
 ```bash
-git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub C:\KikiHub
-cd C:\KikiHub
+git clone https://github.com/kikikoteyka-dev/Kiki-Osint.git -b kiki-hub C:\Users\<you>\osint-portrait
+cd C:\Users\<you>\osint-portrait
 ```
+
+Путь может быть любым — `app.py` сам определяет свою папку.
 
 ### 2. Python зависимости
 
@@ -84,17 +119,28 @@ C:\HashCat\hashcat-7.1.2\hashcat.exe -I
 
 ### 4. WSL + hcxpcapngtool
 
-Нужен WSL (Ubuntu) для конвертации `.pcap` → `.hc22000`:
+Нужен WSL для конвертации `.pcap` → `.hc22000`. **Важно:** `app.py` вызывает просто `wsl ...`
+без `-d <дистрибутив>` — значит `hcxpcapngtool` должен быть установлен в **дефолтном** дистрибутиве
+(том, что отмечен `*` в `wsl -l -v`). Конвертация идёт через `/tmp` внутри WSL (stdin/stdout),
+поэтому `/mnt/c` дефолтного дистрибутива даже не используется — но если по умолчанию у тебя
+стоит, например, `docker-desktop`, а `hcxtools` ты ставил в `Ubuntu`, конвертация будет молча
+проваливаться (`hcxpcapngtool: command not found`) и EAPOL/PMKID всегда будет `0`.
 
 ```bash
 # В PowerShell (от администратора)
 wsl --install
 
-# В WSL
+# Проверить, какой дистрибутив дефолтный (со звёздочкой *)
+wsl -l -v
+
+# При необходимости сделать дефолтным:
+wsl --set-default Ubuntu
+
+# В WSL (в ДЕФОЛТНОМ дистрибутиве!)
 sudo apt update && sudo apt install hcxtools -y
 
-# Проверка
-hcxpcapngtool --version
+# Проверка — должно сработать БЕЗ -d
+wsl hcxpcapngtool --version
 ```
 
 ### 5. Вордлисты
@@ -108,7 +154,7 @@ hcxpcapngtool --version
 ### 6. Запуск
 
 ```bash
-python C:\KikiHub\app.py
+python app.py
 ```
 
 Открыть **http://localhost:7777**
@@ -136,8 +182,6 @@ python C:\KikiHub\app.py
 | Claude | [console.anthropic.com](https://console.anthropic.com) |
 | ChatGPT | [platform.openai.com](https://platform.openai.com) |
 | Gemini | [aistudio.google.com](https://aistudio.google.com) |
-
----
 
 ---
 
