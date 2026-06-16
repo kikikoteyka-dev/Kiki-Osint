@@ -1614,7 +1614,14 @@ def geoint_analyze():
             ai_guess = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang)
             result["ai_guess"] = ai_guess
             if ai_guess.get("location"):
-                result["ai_location"] = geocode_place(ai_guess["location"], ai_lang)
+                try:
+                    loc = geocode_place(ai_guess["location"], ai_lang)
+                    if loc:
+                        result["ai_location"] = loc
+                    else:
+                        result["ai_location_error"] = "Nominatim returned no results for: " + ai_guess["location"]
+                except Exception as ge:
+                    result["ai_location_error"] = str(ge)
         except Exception as e:
             result["ai_error"] = str(e)
 

@@ -171,6 +171,8 @@ select.setting-inp{cursor:pointer}
 .geo-ai-map-wrap{margin-top:14px;padding:6px;border-radius:calc(var(--r2) + 6px);background:rgba(255,255,255,.02);border:1px solid var(--g-bd);display:none}
 .geo-ai-map-wrap.show{display:block;animation:fadeUp .3s ease}
 .geo-ai-map-caption{font-size:11px;color:var(--t3);padding:8px 4px 2px;font-family:'JetBrains Mono',monospace;line-height:1.5}
+.geo-ai-map-fallback{display:block;padding:12px 14px;font-size:13px;color:var(--accent);text-decoration:none;font-family:'JetBrains Mono',monospace;border-radius:8px;transition:opacity .2s}
+.geo-ai-map-fallback:hover{opacity:.75}
 .geo-ai.geo-ai-error{background:rgba(255,80,80,.05);border-color:rgba(255,80,80,.18)}
 .geo-ai.geo-ai-error .geo-ai-label{color:#ff9b9b}
 .geo-ai.geo-ai-error .geo-ai-label::before{background:rgba(255,80,80,.4)}
@@ -659,7 +661,7 @@ var TOOL_LABELS = {
        geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
        geoExifLabel:'EXIF data', geoExifEmpty:'No EXIF data found',
        geoConfHigh:'high confidence', geoConfMedium:'medium confidence', geoConfLow:'low confidence',
-       geoAiMapCaption:'AI guess',
+       geoAiMapCaption:'AI guess', geoAiMapFallback:'Search on Google Maps',
        sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
@@ -667,7 +669,7 @@ var TOOL_LABELS = {
        geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
        geoExifLabel:'EXIF-данные', geoExifEmpty:'EXIF-данные не найдены',
        geoConfHigh:'высокая уверенность', geoConfMedium:'средняя уверенность', geoConfLow:'низкая уверенность',
-       geoAiMapCaption:'Гипотеза AI',
+       geoAiMapCaption:'Гипотеза AI', geoAiMapFallback:'Найти на Google Maps',
        sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса'}
 };
 function setToolLang(lang){
@@ -879,6 +881,14 @@ function geoAnalyze(){
           var aLat=d.ai_location.lat, aLon=d.ai_location.lon, aDelta=0.05;
           aiMapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(aLon-aDelta)+','+(aLat-aDelta)+','+(aLon+aDelta)+','+(aLat+aDelta)+'&marker='+aLat+','+aLon;
           aiMapCaption.textContent=t.geoAiMapCaption+': '+(d.ai_location.display_name||(aLat.toFixed(4)+', '+aLon.toFixed(4)));
+          aiMapWrap.classList.add('show');
+        } else if(g.location){
+          var fallbackLink=document.createElement('a');
+          fallbackLink.href='https://www.google.com/maps/search/'+encodeURIComponent(g.location);
+          fallbackLink.target='_blank'; fallbackLink.rel='noopener noreferrer';
+          fallbackLink.className='geo-ai-map-fallback';
+          fallbackLink.textContent=t.geoAiMapFallback+': '+g.location;
+          aiMapWrap.innerHTML=''; aiMapWrap.appendChild(fallbackLink);
           aiMapWrap.classList.add('show');
         }
       }else if(d.ai_error){
