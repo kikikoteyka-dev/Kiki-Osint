@@ -458,7 +458,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
       <div class="flip-conn">
         <div class="flip-dot" id="flip-dot"></div>
-        <span class="flip-conn-txt" id="flip-conn-txt">disconnected</span>
+        <span class="flip-conn-txt" id="flip-conn-txt" data-key="flipConnTxt">disconnected</span>
       </div>
     </div>
     <div class="flip-toolbar">
@@ -474,8 +474,8 @@ document.addEventListener("pointermove",(e)=>{
         <div class="flip-empty-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2.5"/><rect x="6" y="4" width="12" height="7" rx="1.2" fill="currentColor" opacity="0.15" stroke="none"/><circle cx="9" cy="16.5" r="2"/><line x1="9" y1="14.5" x2="9" y2="18.5"/><line x1="7" y1="16.5" x2="11" y2="16.5"/><circle cx="15" cy="15.5" r="1" fill="currentColor" opacity="0.6"/><circle cx="15" cy="17.5" r="1" fill="currentColor" opacity="0.6"/></svg>
         </div>
-        <div class="flip-empty-txt">Select a COM port to browse<br>the Flipper Zero SD card</div>
-        <div class="flip-empty-hint">Close qFlipper before connecting</div>
+        <div class="flip-empty-txt" id="flip-empty-txt">Select a COM port to browse<br>the Flipper Zero SD card</div>
+        <div class="flip-empty-hint" id="flip-empty-hint">Close qFlipper before connecting</div>
       </div>
     </div>
     <!-- Download overlay -->
@@ -490,7 +490,7 @@ document.addEventListener("pointermove",(e)=>{
         <div class="flip-ov-bar"><div class="flip-ov-bar-fill" id="ov-bar"></div></div>
       </div>
       <div class="flip-ov-err" id="ov-err"></div>
-      <button class="flip-ov-close" id="ov-close" onclick="flipHideOverlay()">close</button>
+      <button class="flip-ov-close" id="ov-close" onclick="flipHideOverlay()"><span id="ov-close-text">close</span></button>
     </div>
   </div>
 </div>
@@ -500,13 +500,13 @@ document.addEventListener("pointermove",(e)=>{
   <div class="tool-card">
     <div class="settings-title" id="dl-title-lbl">Downloader</div>
     <div class="tool-row">
-      <input class="setting-inp" id="dl-url" placeholder="Paste a video/audio URL (YouTube, TikTok, Instagram, X...)">
+      <input class="setting-inp" id="dl-url" placeholder="Paste a video/audio URL (YouTube, TikTok, Instagram, X…)">
     </div>
     <button class="setting-btn" id="dl-fetch-btn" onclick="dlFetchInfo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l1.93-1.93a5 5 0 0 0-7.07-7.07L10.5 5.5"/><path d="M14 11a5 5 0 0 0-7.07 0L5 12.93a5 5 0 0 0 7.07 7.07L13.5 18.5"/></svg>
       <span id="dl-fetch-label">Fetch</span>
     </button>
-    <div class="tool-loading" id="dl-loading" style="display:none"><span class="tool-spinner"></span><span>Fetching info…</span></div>
+    <div class="tool-loading" id="dl-loading" style="display:none"><span class="tool-spinner"></span><span id="dl-loading-text">Fetching info…</span></div>
     <div class="tool-err" id="dl-err"></div>
     <div class="tool-result" id="dl-result">
       <div class="tool-media">
@@ -585,23 +585,23 @@ document.addEventListener("pointermove",(e)=>{
 <!-- Settings -->
 <div class="panel" id="panel-settings">
   <div class="settings-card">
-    <div class="settings-title">Settings</div>
+    <div class="settings-title" id="s-title">Settings</div>
     <div class="setting-row"><div class="setting-label" id="s-ui-lang-label">Interface Language</div>
       <div class="ui-lang-switch">
         <button class="ui-lang-btn" id="ui-lang-ru" onclick="setUiLang('ru')">RU</button>
         <button class="ui-lang-btn" id="ui-lang-en" onclick="setUiLang('en')">EN</button>
       </div>
     </div>
-    <div class="setting-row"><div class="setting-label">VK Token</div><input class="setting-inp" id="s-vk" placeholder="vk1.a.xxx..."></div>
-    <div class="setting-row"><div class="setting-label">Gemini API (Recommended)</div><input class="setting-inp" id="s-gem" placeholder="AIza..."></div>
-    <div class="setting-row"><div class="setting-label">Anthropic API</div><input class="setting-inp" id="s-ant" placeholder="sk-ant-..."></div>
+    <div class="setting-row"><div class="setting-label" id="s-vk-label">VK Token</div><input class="setting-inp" id="s-vk" placeholder="vk1.a.xxx..."></div>
+    <div class="setting-row"><div class="setting-label" id="s-gem-label">Gemini API (Recommended)</div><input class="setting-inp" id="s-gem" placeholder="AIza..."></div>
+    <div class="setting-row"><div class="setting-label" id="s-ant-label">Anthropic API</div><input class="setting-inp" id="s-ant" placeholder="sk-ant-..."></div>
     <div class="setting-row"><div class="setting-label" id="s-ai-lang-label">AI Response Language</div>
       <select class="setting-inp" id="s-ai-lang" onchange="setAiLang(this.value)">
         <option value="ru">Русский</option>
         <option value="en">English</option>
       </select>
     </div>
-    <button class="setting-btn" onclick="saveSettings()">Save</button>
+    <button class="setting-btn" id="s-save-btn" onclick="saveSettings()">Save</button>
   </div>
 </div>
 
@@ -656,36 +656,63 @@ var DOCK_LABELS = {
 };
 var TOOL_LABELS = {
   en: {dlTitle:'Downloader', dlFetch:'Fetch', dlVideo:'Download video', dlAudio:'Download MP3',
+       dlLoading:'Fetching info…', dlUrlPlaceholder:'Paste a video/audio URL (YouTube, TikTok, Instagram, X…)',
        geoTitle:'GEOINT', geoBtn:'Analyze', geoLoading:'Analyzing…', geoNoGps:'No GPS data in EXIF',
        geoCoords:'EXIF GPS', geoAiTitle:'AI Analysis', geoAiError:'AI Analysis — Error',
        geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
        geoExifLabel:'EXIF data', geoExifEmpty:'No EXIF data found',
        geoConfHigh:'high confidence', geoConfMedium:'medium confidence', geoConfLow:'low confidence',
        geoAiMapCaption:'AI guess', geoAiMapFallback:'Search on Google Maps',
-       sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language'},
+       sTitle:'Settings', sVkLabel:'VK Token', sGemLabel:'Gemini API (Recommended)',
+       sAntLabel:'Anthropic API', sSaveBtn:'Save',
+       sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language',
+       flipConnTxt:'disconnected', flipEmptyTxt:'Select a COM port to browse<br>the Flipper Zero SD card',
+       flipEmptyHint:'Close qFlipper before connecting', flipOvClose:'close'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
+       dlLoading:'Загрузка информации…', dlUrlPlaceholder:'Вставь ссылку на видео/аудио (YouTube, TikTok, Instagram, X…)',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
        geoCoords:'GPS из EXIF', geoAiTitle:'AI-анализ', geoAiError:'AI-анализ — ошибка',
        geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
        geoExifLabel:'EXIF-данные', geoExifEmpty:'EXIF-данные не найдены',
        geoConfHigh:'высокая уверенность', geoConfMedium:'средняя уверенность', geoConfLow:'низкая уверенность',
        geoAiMapCaption:'Гипотеза AI', geoAiMapFallback:'Найти на Google Maps',
-       sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса'}
+       sTitle:'Настройки', sVkLabel:'VK Token', sGemLabel:'Gemini API (Рекомендуется)',
+       sAntLabel:'Anthropic API', sSaveBtn:'Сохранить',
+       sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса',
+       flipConnTxt:'не подключён', flipEmptyTxt:'Выбери COM-порт чтобы просматривать<br>SD-карту Flipper Zero',
+       flipEmptyHint:'Закрой qFlipper перед подключением', flipOvClose:'закрыть'}
 };
 function setToolLang(lang){
   var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
+  // Downloader
   document.getElementById('dl-title-lbl').textContent = t.dlTitle;
   document.getElementById('dl-fetch-label').textContent = t.dlFetch;
   document.getElementById('dl-video-label').textContent = t.dlVideo;
   document.getElementById('dl-audio-label').textContent = t.dlAudio;
+  document.getElementById('dl-loading-text').textContent = t.dlLoading;
+  document.getElementById('dl-url').placeholder = t.dlUrlPlaceholder;
+  // GEOINT
   document.getElementById('geo-title-lbl').textContent = t.geoTitle;
   document.getElementById('geo-btn-label').textContent = t.geoBtn;
+  document.getElementById('geo-loading-text').textContent = t.geoLoading;
   document.getElementById('geo-ai-disclaimer-text').textContent = t.geoAiDisclaimer;
   document.getElementById('geo-exif-label').textContent = t.geoExifLabel;
+  // Settings
+  document.getElementById('s-title').textContent = t.sTitle;
+  document.getElementById('s-vk-label').textContent = t.sVkLabel;
+  document.getElementById('s-gem-label').textContent = t.sGemLabel;
+  document.getElementById('s-ant-label').textContent = t.sAntLabel;
+  document.getElementById('s-save-btn').textContent = t.sSaveBtn;
   document.getElementById('s-ai-lang-label').textContent = t.sAiLangLabel;
   document.getElementById('s-ui-lang-label').textContent = t.sUiLangLabel;
   document.getElementById('ui-lang-ru').classList.toggle('active', lang === 'ru');
   document.getElementById('ui-lang-en').classList.toggle('active', lang === 'en');
+  // Flipper
+  var flipConn = document.getElementById('flip-conn-txt');
+  if(flipConn && !flipConn.dataset.connected) flipConn.textContent = t.flipConnTxt;
+  document.getElementById('flip-empty-txt').innerHTML = t.flipEmptyTxt;
+  document.getElementById('flip-empty-hint').textContent = t.flipEmptyHint;
+  document.getElementById('ov-close-text').textContent = t.flipOvClose;
 }
 setToolLang(localStorage.getItem('kiki_lang') || 'en');
 

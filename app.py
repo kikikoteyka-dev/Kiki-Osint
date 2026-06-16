@@ -1444,19 +1444,33 @@ def geocode_place(query, lang="ru"):
     """Free forward geocoding via Nominatim — turns a place name into coordinates."""
     if not query:
         return None
-    try:
+
+    def _try(q):
         r = requests.get(
             "https://nominatim.openstreetmap.org/search",
-            params={"q": query, "format": "json", "limit": 1, "accept-language": lang},
+            params={"q": q, "format": "json", "limit": 1, "accept-language": lang},
             headers={"User-Agent": "KikiHub-GEOINT/1.0"},
-            timeout=8,
+            timeout=12,
         )
         results = r.json()
         if results:
             item = results[0]
             return {"lat": float(item["lat"]), "lon": float(item["lon"]), "display_name": item.get("display_name")}
-    except Exception:
-        pass
+        return None
+
+    try:
+        result = _try(query)
+        if result:
+            return result
+        # Retry with just the first segment (city name, drop country/region)
+        parts = [p.strip() for p in query.split(",")]
+        if len(parts) > 1:
+            result = _try(parts[0])
+            if result:
+                return result
+    except Exception as e:
+        import sys
+        print(f"[geocode_place] error for {query!r}: {e}", file=sys.stderr)
     return None
 
 def _exif_full_dict(img):
