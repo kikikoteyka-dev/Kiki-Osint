@@ -718,6 +718,8 @@ function setToolLang(lang){
   document.getElementById('flip-empty-txt').innerHTML = t.flipEmptyTxt;
   document.getElementById('flip-empty-hint').textContent = t.flipEmptyHint;
   document.getElementById('ov-close-text').textContent = t.flipOvClose;
+  // Re-render GEOINT results if any exist
+  if(geoLastResult) geoRenderResult(geoLastResult);
 }
 setToolLang(localStorage.getItem('kiki_lang') || 'en');
 
@@ -858,11 +860,78 @@ function dlDownload(mode){
 }
 
 // ─── GEOINT ──────────────────────────────────────────────
+var geoLastResult = null;
+
+function geoRenderResult(d){
+  var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
+  var coordsText=document.getElementById('geo-coords-text'), mapWrap=document.getElementById('geo-map-wrap'), mapEl=document.getElementById('geo-map');
+  var addressEl=document.getElementById('geo-address');
+  var aiBox=document.getElementById('geo-ai'), aiLabelText=document.getElementById('geo-ai-label-text'), aiText=document.getElementById('geo-ai-text');
+  var aiConf=document.getElementById('geo-ai-confidence'), aiAlt=document.getElementById('geo-ai-alt');
+  var aiMapWrap=document.getElementById('geo-ai-map-wrap'), aiMapEl=document.getElementById('geo-ai-map'), aiMapCaption=document.getElementById('geo-ai-map-caption');
+  var aiDisclaimer=document.getElementById('geo-ai-disclaimer');
+  var exifBox=document.getElementById('geo-exif'), exifTable=document.getElementById('geo-exif-table');
+  mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent=''; aiDisclaimer.style.display='none';
+  aiConf.style.display='none'; aiConf.removeAttribute('data-level');
+  aiAlt.style.display='none'; aiAlt.textContent='';
+  aiMapWrap.classList.remove('show'); aiMapEl.src=''; aiMapCaption.textContent='';
+  addressEl.classList.remove('show'); addressEl.textContent='';
+  exifBox.classList.remove('show','open'); exifTable.innerHTML='';
+  if(d.lat!=null && d.lon!=null){
+    coordsText.textContent=t.geoCoords+': '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
+    var delta=0.01;
+    mapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(d.lon-delta)+','+(d.lat-delta)+','+(d.lon+delta)+','+(d.lat+delta)+'&marker='+d.lat+','+d.lon;
+    mapWrap.classList.add('show');
+    if(d.address){addressEl.textContent=d.address; addressEl.classList.add('show')}
+  }else{
+    coordsText.textContent=t.geoNoGps;
+  }
+  if(d.ai_guess){
+    var g=d.ai_guess;
+    aiLabelText.textContent=t.geoAiTitle; aiBox.style.display='block'; aiDisclaimer.style.display='flex';
+    var confKey={high:'geoConfHigh',medium:'geoConfMedium',low:'geoConfLow'}[g.confidence];
+    if(confKey){aiConf.textContent=t[confKey]; aiConf.dataset.level=g.confidence; aiConf.style.display='inline-flex'}
+    var parts=[];
+    if(g.location) parts.push(g.location);
+    if(g.reasoning) parts.push(g.reasoning);
+    aiText.textContent=parts.join('\n\n');
+    if(g.alternatives){aiAlt.textContent=g.alternatives; aiAlt.style.display='block'}
+    if(d.ai_location && d.ai_location.lat!=null && d.ai_location.lon!=null){
+      var aLat=d.ai_location.lat, aLon=d.ai_location.lon, aDelta=0.05;
+      aiMapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(aLon-aDelta)+','+(aLat-aDelta)+','+(aLon+aDelta)+','+(aLat+aDelta)+'&marker='+aLat+','+aLon;
+      aiMapCaption.textContent=t.geoAiMapCaption+': '+(d.ai_location.display_name||(aLat.toFixed(4)+', '+aLon.toFixed(4)));
+      aiMapWrap.classList.add('show');
+    } else if(g.location){
+      var fallbackLink=document.createElement('a');
+      fallbackLink.href='https://www.google.com/maps/search/'+encodeURIComponent(g.location);
+      fallbackLink.target='_blank'; fallbackLink.rel='noopener noreferrer';
+      fallbackLink.className='geo-ai-map-fallback';
+      fallbackLink.textContent=t.geoAiMapFallback+': '+g.location;
+      aiMapWrap.innerHTML=''; aiMapWrap.appendChild(fallbackLink);
+      aiMapWrap.classList.add('show');
+    }
+  }else if(d.ai_error){
+    aiLabelText.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
+  }
+  if(d.exif_data && Object.keys(d.exif_data).length){
+    var keys=Object.keys(d.exif_data).sort();
+    for(var i=0;i<keys.length;i++){
+      var tr=document.createElement('tr');
+      var tdK=document.createElement('td'), tdV=document.createElement('td');
+      tdK.textContent=keys[i]; tdV.textContent=d.exif_data[keys[i]];
+      tr.appendChild(tdK); tr.appendChild(tdV);
+      exifTable.appendChild(tr);
+    }
+    exifBox.classList.add('show');
+  }
+  document.getElementById('geo-result').classList.add('show');
+}
+
 function geoAnalyze(){
   var fileInp=document.getElementById('geo-file');
-  var err=document.getElementById('geo-err'), loading=document.getElementById('geo-loading'), result=document.getElementById('geo-result');
+  var err=document.getElementById('geo-err'), loading=document.getElementById('geo-loading');
   var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
-  err.textContent=''; result.classList.remove('show');
+  err.textContent=''; document.getElementById('geo-result').classList.remove('show');
   if(!fileInp.files.length){err.textContent=t.geoChoosePhoto;return}
   var fd=new FormData(); fd.append('photo',fileInp.files[0]);
   fd.append('ai_lang', localStorage.getItem('kiki_ai_lang') || 'ru');
@@ -871,74 +940,8 @@ function geoAnalyze(){
     .then(function(r){return r.json()}).then(function(d){
       loading.style.display='none';
       if(d.error){err.textContent=d.error;return}
-      var coordsText=document.getElementById('geo-coords-text'), mapWrap=document.getElementById('geo-map-wrap'), mapEl=document.getElementById('geo-map');
-      var addressEl=document.getElementById('geo-address');
-      var aiBox=document.getElementById('geo-ai'), aiLabelText=document.getElementById('geo-ai-label-text'), aiText=document.getElementById('geo-ai-text');
-      var aiConf=document.getElementById('geo-ai-confidence'), aiAlt=document.getElementById('geo-ai-alt');
-      var aiMapWrap=document.getElementById('geo-ai-map-wrap'), aiMapEl=document.getElementById('geo-ai-map'), aiMapCaption=document.getElementById('geo-ai-map-caption');
-      var aiDisclaimer=document.getElementById('geo-ai-disclaimer');
-      var exifBox=document.getElementById('geo-exif'), exifTable=document.getElementById('geo-exif-table');
-      mapWrap.classList.remove('show'); mapEl.src=''; aiBox.style.display='none'; aiBox.classList.remove('geo-ai-error'); aiText.textContent=''; aiDisclaimer.style.display='none';
-      aiConf.style.display='none'; aiConf.removeAttribute('data-level');
-      aiAlt.style.display='none'; aiAlt.textContent='';
-      aiMapWrap.classList.remove('show'); aiMapEl.src=''; aiMapCaption.textContent='';
-      addressEl.classList.remove('show'); addressEl.textContent='';
-      exifBox.classList.remove('show','open'); exifTable.innerHTML='';
-      if(d.lat!=null && d.lon!=null){
-        coordsText.textContent=t.geoCoords+': '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);
-        var delta=0.01;
-        mapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(d.lon-delta)+','+(d.lat-delta)+','+(d.lon+delta)+','+(d.lat+delta)+'&marker='+d.lat+','+d.lon;
-        mapWrap.classList.add('show');
-        if(d.address){
-          addressEl.textContent=d.address;
-          addressEl.classList.add('show');
-        }
-      }else{
-        coordsText.textContent=t.geoNoGps;
-      }
-      if(d.ai_guess){
-        var g=d.ai_guess;
-        aiLabelText.textContent=t.geoAiTitle; aiBox.style.display='block'; aiDisclaimer.style.display='flex';
-        var confKey={high:'geoConfHigh',medium:'geoConfMedium',low:'geoConfLow'}[g.confidence];
-        if(confKey){
-          aiConf.textContent=t[confKey]; aiConf.dataset.level=g.confidence; aiConf.style.display='inline-flex';
-        }
-        var parts=[];
-        if(g.location) parts.push(g.location);
-        if(g.reasoning) parts.push(g.reasoning);
-        aiText.textContent=parts.join('\n\n');
-        if(g.alternatives){
-          aiAlt.textContent=g.alternatives; aiAlt.style.display='block';
-        }
-        if(d.ai_location && d.ai_location.lat!=null && d.ai_location.lon!=null){
-          var aLat=d.ai_location.lat, aLon=d.ai_location.lon, aDelta=0.05;
-          aiMapEl.src='https://www.openstreetmap.org/export/embed.html?bbox='+(aLon-aDelta)+','+(aLat-aDelta)+','+(aLon+aDelta)+','+(aLat+aDelta)+'&marker='+aLat+','+aLon;
-          aiMapCaption.textContent=t.geoAiMapCaption+': '+(d.ai_location.display_name||(aLat.toFixed(4)+', '+aLon.toFixed(4)));
-          aiMapWrap.classList.add('show');
-        } else if(g.location){
-          var fallbackLink=document.createElement('a');
-          fallbackLink.href='https://www.google.com/maps/search/'+encodeURIComponent(g.location);
-          fallbackLink.target='_blank'; fallbackLink.rel='noopener noreferrer';
-          fallbackLink.className='geo-ai-map-fallback';
-          fallbackLink.textContent=t.geoAiMapFallback+': '+g.location;
-          aiMapWrap.innerHTML=''; aiMapWrap.appendChild(fallbackLink);
-          aiMapWrap.classList.add('show');
-        }
-      }else if(d.ai_error){
-        aiLabelText.textContent=t.geoAiError; aiText.textContent=d.ai_error; aiBox.classList.add('geo-ai-error'); aiBox.style.display='block';
-      }
-      if(d.exif_data && Object.keys(d.exif_data).length){
-        var keys=Object.keys(d.exif_data).sort();
-        for(var i=0;i<keys.length;i++){
-          var tr=document.createElement('tr');
-          var tdK=document.createElement('td'), tdV=document.createElement('td');
-          tdK.textContent=keys[i]; tdV.textContent=d.exif_data[keys[i]];
-          tr.appendChild(tdK); tr.appendChild(tdV);
-          exifTable.appendChild(tr);
-        }
-        exifBox.classList.add('show');
-      }
-      result.classList.add('show');
+      geoLastResult=d;
+      geoRenderResult(d);
     }).catch(function(e){loading.style.display='none';err.textContent=String(e)});
 }
 
