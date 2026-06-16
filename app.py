@@ -133,7 +133,10 @@ def hc_show(hf):
 # ════ HUB ROUTES ═══════════════════════════════════════════
 @app.route("/")
 def hub_index():
-    return send_from_directory(HUB_DIR, "index.html")
+    resp = send_from_directory(HUB_DIR, "index.html")
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.route("/hashcat_logo.png")
 def hc_logo():
