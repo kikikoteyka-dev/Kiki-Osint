@@ -662,7 +662,9 @@ var TOOL_LABELS = {
        geoAiDisclaimer:'AI analysis can be wrong — verify before relying on it.',
        geoExifLabel:'EXIF data', geoExifEmpty:'No EXIF data found',
        geoConfHigh:'high confidence', geoConfMedium:'medium confidence', geoConfLow:'low confidence',
+       geoChoosePhoto:'Choose a photo first',
        geoAiMapCaption:'AI guess', geoAiMapFallback:'Search on Google Maps',
+       dlDlAudio:'Downloading & extracting audio…', dlDlVideo:'Downloading video…', dlDlFailed:'Download failed',
        sTitle:'Settings', sVkLabel:'VK Token', sGemLabel:'Gemini API (Recommended)',
        sAntLabel:'Anthropic API', sSaveBtn:'Save',
        sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language',
@@ -675,7 +677,9 @@ var TOOL_LABELS = {
        geoAiDisclaimer:'AI-анализ может ошибаться — не воспринимай его как точный факт.',
        geoExifLabel:'EXIF-данные', geoExifEmpty:'EXIF-данные не найдены',
        geoConfHigh:'высокая уверенность', geoConfMedium:'средняя уверенность', geoConfLow:'низкая уверенность',
+       geoChoosePhoto:'Сначала выбери фото',
        geoAiMapCaption:'Гипотеза AI', geoAiMapFallback:'Найти на Google Maps',
+       dlDlAudio:'Скачивание и извлечение аудио…', dlDlVideo:'Скачивание видео…', dlDlFailed:'Ошибка загрузки',
        sTitle:'Настройки', sVkLabel:'VK Token', sGemLabel:'Gemini API (Рекомендуется)',
        sAntLabel:'Anthropic API', sSaveBtn:'Сохранить',
        sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса',
@@ -695,6 +699,7 @@ function setToolLang(lang){
   document.getElementById('geo-title-lbl').textContent = t.geoTitle;
   document.getElementById('geo-btn-label').textContent = t.geoBtn;
   document.getElementById('geo-loading-text').textContent = t.geoLoading;
+  document.getElementById('geo-ai-label-text').textContent = t.geoAiTitle;
   document.getElementById('geo-ai-disclaimer-text').textContent = t.geoAiDisclaimer;
   document.getElementById('geo-exif-label').textContent = t.geoExifLabel;
   // Settings
@@ -839,11 +844,12 @@ function dlDownload(mode){
   var url=document.getElementById('dl-result').dataset.url;
   var err=document.getElementById('dl-err'), loading=document.getElementById('dl-dl-loading');
   err.textContent=''; loading.style.display='flex';
-  document.getElementById('dl-dl-loading-text').textContent=mode==='audio'?'Downloading & extracting audio…':'Downloading video…';
+  var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
+  document.getElementById('dl-dl-loading-text').textContent=mode==='audio'?t.dlDlAudio:t.dlDlVideo;
   fetch('/api/dl/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,mode:mode})})
     .then(function(r){return r.json()}).then(function(d){
       loading.style.display='none';
-      if(!d.ok){err.textContent=d.error||'Download failed';return}
+      if(!d.ok){err.textContent=d.error||t.dlDlFailed;return}
       var a=document.createElement('a');
       a.href='/api/dl/file?name='+encodeURIComponent(d.file);
       a.download=d.file;
@@ -857,7 +863,7 @@ function geoAnalyze(){
   var err=document.getElementById('geo-err'), loading=document.getElementById('geo-loading'), result=document.getElementById('geo-result');
   var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
   err.textContent=''; result.classList.remove('show');
-  if(!fileInp.files.length){err.textContent='Choose a photo';return}
+  if(!fileInp.files.length){err.textContent=t.geoChoosePhoto;return}
   var fd=new FormData(); fd.append('photo',fileInp.files[0]);
   fd.append('ai_lang', localStorage.getItem('kiki_ai_lang') || 'ru');
   document.getElementById('geo-loading-text').textContent=t.geoLoading; loading.style.display='flex';
