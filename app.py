@@ -379,6 +379,16 @@ def search_vk_phone(query, send, collected=None):
 
 
 def search_maigret(query, limit, send, collected=None):
+    if getattr(sys, "frozen", False):
+        # sys.executable points at the bundled app itself when frozen, not a
+        # real Python interpreter — "[exe] -m maigret" just relaunches the
+        # app instead of running maigret, so this only works from source.
+        msg = "Maigret is unavailable in the packaged build — run from source (python desktop.py) for username search."
+        if collected is not None:
+            collected["maigret"] = {"found": [], "total": 0, "error": msg}
+        yield send("result", {"source": "maigret", "data": {"found": [], "total": 0, "error": msg}})
+        yield send("progress", {"source": "maigret", "status": "error", "msg": msg})
+        return
     label = "all sites" if not limit else f"{limit} sites"
     yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Starting scan ({label})..."})
     try:
@@ -660,6 +670,15 @@ def search_email_domain(query, send, collected=None):
 
 
 def search_email_holehe(query, send, collected=None):
+    if getattr(sys, "frozen", False):
+        # holehe_exe is derived from sys.executable's folder, which is the
+        # packaged app's own install dir when frozen — no such CLI exists there.
+        msg = "Holehe is unavailable in the packaged build — run from source (python desktop.py) for email checks."
+        if collected is not None:
+            collected["holehe"] = {"found": [], "error": msg}
+        yield send("result", {"source": "holehe", "data": {"found": [], "error": msg}})
+        yield send("progress", {"source": "holehe", "status": "error", "msg": msg})
+        return
     yield send("progress", {"source": "holehe", "status": "searching", "msg": "Running Holehe scan..."})
     try:
         found_sites = []

@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>KikiHub</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -31,17 +34,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 @keyframes scanMove{0%{transform:translateY(-100vh)}100%{transform:translateY(100vh)}}
 .scanline{position:fixed;left:0;width:100%;height:2px;z-index:200;pointer-events:none;background:linear-gradient(transparent,rgba(255,255,255,.04),transparent);animation:scanMove 7s linear infinite}
 
-.panel{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:scale(1.04) translateY(-8px);filter:blur(8px);transition:none;will-change:opacity,transform,filter}
-.panel.active{opacity:1;pointer-events:all;transform:scale(1) translateY(0);filter:blur(0px);transition:opacity .45s cubic-bezier(.23,1,.32,1),transform .45s cubic-bezier(.23,1,.32,1),filter .3s cubic-bezier(.23,1,.32,1)}
-.panel.leaving{opacity:0;pointer-events:none;transform:scale(.94) translateY(12px);filter:blur(6px);transition:opacity .28s cubic-bezier(.4,0,1,1),transform .28s cubic-bezier(.4,0,1,1),filter .2s ease}
+.panel{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:scale(1.04) translateY(-8px);transition:none;will-change:opacity,transform}
+.panel.active{opacity:1;pointer-events:all;transform:scale(1) translateY(0);transition:opacity .45s cubic-bezier(.23,1,.32,1),transform .45s cubic-bezier(.23,1,.32,1)}
+.panel.leaving{opacity:0;pointer-events:none;transform:scale(.94) translateY(12px);transition:opacity .28s cubic-bezier(.4,0,1,1),transform .28s cubic-bezier(.4,0,1,1)}
 #panel-osint,#panel-hc{overflow:hidden}
 #panel-dl{align-items:center;justify-content:center;overflow:auto;padding:40px 20px 120px}
 #panel-settings{display:block;overflow:auto;padding:40px 20px 120px}
 #panel-settings .settings-card{margin:0 auto}
-#panel-geoint{display:flex;flex-direction:column;align-items:center;overflow:auto;padding:40px 20px 120px}
+#panel-geoint{display:block;overflow-y:auto;padding:40px 20px 120px}
 #panel-geoint .tool-card{margin:0 auto;will-change:transform;transition:transform .85s cubic-bezier(.32,.72,0,1)}
-#panel-geoint .tool-result{display:block!important;margin-top:22px;opacity:0;transform:translateY(18px);pointer-events:none;transition:opacity 0s,transform 0s}
-#panel-geoint .tool-result.show{opacity:1;transform:translateY(0);pointer-events:auto;transition:opacity .65s cubic-bezier(.32,.72,0,1) .18s,transform .65s cubic-bezier(.32,.72,0,1) .18s}
+#panel-geoint .tool-result{display:block!important;margin-top:0;max-height:0;overflow:hidden;opacity:0;transform:translateY(12px);pointer-events:none;transition:none}
+#panel-geoint .tool-result.show{max-height:4000px;overflow:visible;margin-top:22px;opacity:1;transform:translateY(0);pointer-events:auto;transition:opacity .65s cubic-bezier(.32,.72,0,1) .18s,transform .65s cubic-bezier(.32,.72,0,1) .18s,max-height 0s,overflow 0s,margin-top 0s}
 .osint-frame{width:100%;height:100%;border:none}
 
 /* Dock */
@@ -112,18 +115,14 @@ select.setting-inp{cursor:pointer}
 .tool-card>*{position:relative;z-index:1}
 .tool-row{display:flex;gap:10px;margin-bottom:14px}
 .tool-row .setting-inp{flex:1}
-.tool-row .setting-inp[type="file"]{padding-top:10px;padding-bottom:10px;color:var(--t2);cursor:pointer}
 .tool-row select.setting-inp{flex:initial;cursor:pointer}
 .tool-row select.geo-lang-sel{flex:0 0 90px;width:90px}
 .tool-row select.setting-inp option{background:var(--bg)}
-.tool-row .setting-inp[type="file"]::file-selector-button,.tool-row .setting-inp[type="file"]::-webkit-file-upload-button{
-  margin-right:12px;padding:7px 14px;border-radius:999px;border:1px solid rgba(92,214,255,.18);
-  background:rgba(92,214,255,.08);color:var(--a);font-family:'JetBrains Mono',monospace;font-size:11px;
-  cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;
-}
-.tool-row .setting-inp[type="file"]:hover::file-selector-button,.tool-row .setting-inp[type="file"]:hover::-webkit-file-upload-button{
-  background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff;
-}
+.geo-file-wrap{flex:1;display:flex;align-items:center;gap:0;background:var(--g-bg);border:1px solid var(--g-bd2);border-radius:var(--r2);cursor:pointer;overflow:hidden;transition:border-color .2s ease,background .2s ease;min-width:0}
+.geo-file-wrap:hover{border-color:rgba(92,214,255,.35);background:rgba(92,214,255,.05)}
+.geo-file-btn{flex-shrink:0;padding:10px 14px;border-radius:999px;border:1px solid rgba(92,214,255,.18);background:rgba(92,214,255,.08);color:var(--a);font-family:'JetBrains Mono',monospace;font-size:11px;margin:5px 8px 5px 5px;white-space:nowrap;transition:background .2s,border-color .2s,color .2s;pointer-events:none}
+.geo-file-wrap:hover .geo-file-btn{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff}
+.geo-file-name{flex:1;color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:10px}
 .tool-result{margin-top:22px;display:none}
 .tool-result.show{display:block;animation:fadeUp .3s ease}
 .tool-media{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
@@ -540,7 +539,11 @@ document.addEventListener("pointermove",(e)=>{
   <div class="tool-card">
     <div class="settings-title" id="geo-title-lbl">GEOINT</div>
     <div class="tool-row">
-      <input type="file" accept="image/*" class="setting-inp" id="geo-file">
+      <div class="geo-file-wrap" onclick="document.getElementById('geo-file').click()">
+        <input type="file" accept="image/*" id="geo-file" style="display:none;position:absolute" onchange="geoUpdateFileName(this)">
+        <span class="geo-file-btn" id="geo-file-btn">Choose file</span>
+        <span class="geo-file-name" id="geo-file-name">No file chosen</span>
+      </div>
       <select class="setting-inp geo-lang-sel" id="geo-ai-lang" onchange="setAiLang(this.value)">
         <option value="ru">RU</option>
         <option value="en">EN</option>
@@ -667,6 +670,7 @@ var TOOL_LABELS = {
        geoExifLabel:'EXIF data', geoExifEmpty:'No EXIF data found',
        geoConfHigh:'high confidence', geoConfMedium:'medium confidence', geoConfLow:'low confidence',
        geoChoosePhoto:'Choose a photo first',
+       geoFileBtn:'Choose file', geoFileNone:'No file chosen',
        geoAiMapCaption:'AI guess', geoAiMapFallback:'Search on Google Maps',
        dlDlAudio:'Downloading & extracting audio…', dlDlVideo:'Downloading video…', dlDlFailed:'Download failed',
        sTitle:'Settings', sVkLabel:'VK Token', sGemLabel:'Gemini API (Recommended)',
@@ -682,6 +686,7 @@ var TOOL_LABELS = {
        geoExifLabel:'EXIF-данные', geoExifEmpty:'EXIF-данные не найдены',
        geoConfHigh:'высокая уверенность', geoConfMedium:'средняя уверенность', geoConfLow:'низкая уверенность',
        geoChoosePhoto:'Сначала выбери фото',
+       geoFileBtn:'Выбрать файл', geoFileNone:'Файл не выбран',
        geoAiMapCaption:'Гипотеза AI', geoAiMapFallback:'Найти на Google Maps',
        dlDlAudio:'Скачивание и извлечение аудио…', dlDlVideo:'Скачивание видео…', dlDlFailed:'Ошибка загрузки',
        sTitle:'Настройки', sVkLabel:'VK Token', sGemLabel:'Gemini API (Рекомендуется)',
@@ -706,6 +711,9 @@ function setToolLang(lang){
   document.getElementById('geo-ai-label-text').textContent = t.geoAiTitle;
   document.getElementById('geo-ai-disclaimer-text').textContent = t.geoAiDisclaimer;
   document.getElementById('geo-exif-label').textContent = t.geoExifLabel;
+  document.getElementById('geo-file-btn').textContent = t.geoFileBtn;
+  var gfn = document.getElementById('geo-file-name');
+  if(gfn && !gfn.dataset.hasFile) gfn.textContent = t.geoFileNone;
   // Settings
   document.getElementById('s-title').textContent = t.sTitle;
   document.getElementById('s-vk-label').textContent = t.sVkLabel;
@@ -949,6 +957,19 @@ function geoRenderResult(d){
     exifBox.classList.add('show');
   }
   document.getElementById('geo-result').classList.add('show');
+}
+
+function geoUpdateFileName(inp){
+  var el=document.getElementById('geo-file-name');
+  if(!el) return;
+  if(inp.files.length){
+    el.textContent=inp.files[0].name;
+    el.dataset.hasFile='1';
+  } else {
+    delete el.dataset.hasFile;
+    var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
+    el.textContent=t.geoFileNone;
+  }
 }
 
 function geoAnalyze(){

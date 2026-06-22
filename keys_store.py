@@ -1,8 +1,12 @@
 """Shared key store — reads from keys.json, falls back to .env"""
-import os, json
+import os, sys, json
 from dotenv import load_dotenv
 
-KEYS_FILE = os.path.join(os.path.dirname(__file__), "keys.json")
+# When frozen by PyInstaller, __file__ resolves inside the temp extraction
+# dir (sys._MEIPASS), which is wiped on every launch — keys.json must live
+# next to the actual .exe instead, so saved tokens persist across restarts.
+_APP_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+KEYS_FILE = os.path.join(_APP_DIR, "keys.json")
 
 def load():
     try:

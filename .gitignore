@@ -4,6 +4,12 @@ keys.json
 *.session
 *.session-journal
 
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+*.exe
+
 # KikiHub sensitive
 kiki_hub/keys.json
 kiki_hub/*.pcap
@@ -62,7 +68,7 @@ tmp_test/
 .idea/
 .claude/
 
-# KikiHub root — sensitive
+# KikiHub root ï¿½ sensitive
 keys.json
 *.pcap
 *.hc22000
