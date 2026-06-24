@@ -8,7 +8,7 @@
 # Run from the project root. Output lands in dist\KikiHub\ — zip that folder
 # for distribution (KikiHub.exe must stay next to its _internal folder).
 
-pyinstaller --onedir --console --name KikiHub `
+pyinstaller --onedir --console --name KikiHub --noconfirm `
   --add-data "frontend;frontend" `
   --add-data "index.html;." `
   --add-data "kiki_logo.png;." `

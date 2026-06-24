@@ -32,6 +32,28 @@ BANNER = r"""
 _flask_app = {}
 
 
+class Api:
+    # Exposed to the frontend as window.pywebview.api.* — used so file saves
+    # go through a native "Save As" dialog instead of a browser-style blob
+    # download. WebView2's built-in download manager isn't configured by
+    # pywebview here, and triggering it via an <a download> click on a blob
+    # URL was crashing the whole window instead of just failing the save.
+    def save_file(self, b64_data, suggested_name):
+        import base64
+        window = webview.windows[0]
+        path = window.create_file_dialog(webview.FileDialog.SAVE, save_filename=suggested_name)
+        if not path:
+            return {"ok": False, "error": "cancelled"}
+        if isinstance(path, (list, tuple)):
+            path = path[0]
+        try:
+            with open(path, "wb") as f:
+                f.write(base64.b64decode(b64_data))
+            return {"ok": True, "path": path}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+
 def _run_flask():
     # Imported here (not at module scope) so the slow module-level work in
     # app.py — DNS probing for the Gemini API host — runs in this thread
@@ -209,6 +231,6 @@ if __name__ == "__main__":
         webview.create_window(
             "KikiHub", f"http://{HOST}:{PORT}/",
             width=1280, height=860, min_size=(900, 600),
-            background_color=BG_COLOR,
+            background_color=BG_COLOR, js_api=Api(),
         )
     webview.start()
