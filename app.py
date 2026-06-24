@@ -835,17 +835,59 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
             return {"portrait": resp.text}
         except Exception as e:
             msg = str(e)
+            is_ru = ai_lang == "ru"
             if "getaddrinfo failed" in msg or "11001" in msg:
-                raise RuntimeError("Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN.")
+                raise RuntimeError(
+                    "Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN."
+                    if is_ru else
+                    "Gemini API unreachable: DNS error (generativelanguage.googleapis.com). Check your internet/VPN — Google API access often requires a VPN from some regions."
+                )
             if "User location is not supported" in msg or "FAILED_PRECONDITION" in msg:
-                raise RuntimeError("Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ.")
+                raise RuntimeError(
+                    "Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ."
+                    if is_ru else
+                    "Gemini API unavailable in your region (User location is not supported). A VPN exiting outside the blocked region is required."
+                )
             if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
-                raise RuntimeError("Gemini API: превышен лимит запросов (бесплатный тариф). Подожди немного и попробуй снова.")
+                raise RuntimeError(
+                    "Gemini API: превышен лимит запросов (бесплатный тариф). Подожди немного и попробуй снова."
+                    if is_ru else
+                    "Gemini API: rate limit exceeded (free tier). Wait a bit and try again."
+                )
             raise
 
     return {"error": "Unknown provider"}
 
 # ════ HASHCAT API ════════════════════════════════════════════
+
+_WC_MISSING_HTML = """<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+body{{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+background:#04111a;color:#eef2f7;font-family:'JetBrains Mono',monospace}}
+.box{{max-width:480px;padding:36px;border:1px solid rgba(255,255,255,.08);border-radius:16px;
+background:rgba(255,255,255,.03);text-align:center}}
+.box h1{{font-size:15px;letter-spacing:.08em;color:#5cd6ff;margin:0 0 14px;text-transform:uppercase}}
+.box p{{font-size:13px;line-height:1.7;color:rgba(255,255,255,.6);margin:0 0 18px}}
+.box code{{display:block;background:rgba(92,214,255,.08);border:1px solid rgba(92,214,255,.18);
+border-radius:8px;padding:10px 14px;color:#5cd6ff;font-size:12px;word-break:break-all;margin-bottom:18px}}
+.box a{{color:#5cd6ff;text-decoration:none;border-bottom:1px solid rgba(92,214,255,.3)}}
+.box a:hover{{border-color:#5cd6ff}}
+.box .sep{{margin:18px 0;border-top:1px solid rgba(255,255,255,.08)}}
+</style></head><body>
+<div class="box">
+<h1>HashCat не найден</h1>
+<p>Эта вкладка требует HashCat, установленный отдельно — он не входит в KikiHub.</p>
+<code>{path}</code>
+<p>Скачай и распакуй HashCat по этому пути, чтобы включить WiFi Cracker.<br>
+<a href="https://hashcat.net/hashcat/" target="_blank">hashcat.net/hashcat ↗</a></p>
+<div class="sep"></div>
+<h1>HashCat not found</h1>
+<p>This tab requires HashCat installed separately — it isn't bundled with KikiHub.</p>
+<code>{path}</code>
+<p>Download and extract HashCat to the path above to enable WiFi Cracker.<br>
+<a href="https://hashcat.net/hashcat/" target="_blank">hashcat.net/hashcat ↗</a></p>
+</div></body></html>"""
+
 
 @app.route("/wc/")
 @app.route("/wc")
@@ -853,6 +895,9 @@ def wc_index():
     """Serve wificracker HTML — reads from wifi_cracker.py"""
     import importlib.util
     wc_path = r"C:\HashCat\hashcat-7.1.2\wifi_cracker.py"
+    if not os.path.exists(wc_path):
+        from flask import make_response
+        return make_response(_WC_MISSING_HTML.format(path=wc_path), 200, {"Content-Type": "text/html; charset=utf-8"})
     try:
         with open(wc_path, encoding="utf-8") as f:
             src = f.read()
@@ -1609,12 +1654,25 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
             return _parse_ai_json(resp.text)
         except Exception as e:
             msg = str(e)
+            is_ru = ai_lang == "ru"
             if "getaddrinfo failed" in msg or "11001" in msg:
-                raise RuntimeError("Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN.")
+                raise RuntimeError(
+                    "Gemini API недоступен: ошибка DNS (generativelanguage.googleapis.com). Проверь интернет/VPN — в РФ доступ к Google API часто требует VPN."
+                    if is_ru else
+                    "Gemini API unreachable: DNS error (generativelanguage.googleapis.com). Check your internet/VPN — Google API access often requires a VPN from some regions."
+                )
             if "User location is not supported" in msg or "FAILED_PRECONDITION" in msg:
-                raise RuntimeError("Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ.")
+                raise RuntimeError(
+                    "Gemini API недоступен из текущего региона (User location is not supported). Нужен VPN с выходом за пределы РФ."
+                    if is_ru else
+                    "Gemini API unavailable in your region (User location is not supported). A VPN exiting outside the blocked region is required."
+                )
             if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
-                raise RuntimeError("Gemini API: превышен лимит запросов (бесплатный тариф). Подожди немного и попробуй снова.")
+                raise RuntimeError(
+                    "Gemini API: превышен лимит запросов (бесплатный тариф). Подожди немного и попробуй снова."
+                    if is_ru else
+                    "Gemini API: rate limit exceeded (free tier). Wait a bit and try again."
+                )
             raise
 
     raise RuntimeError("No AI provider configured — set an API key in Settings")
