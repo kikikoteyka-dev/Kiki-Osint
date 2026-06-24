@@ -245,7 +245,7 @@ def _donut_frame(a, b):
     return "\n".join(rows)
 
 
-def _wait_for_server(timeout=30, min_display=1.8):
+def _wait_for_server(timeout=30, min_display=5.0):
     # Clear screen (\x1b[2J) once up front, then only move the cursor home
     # (\x1b[H) per frame — every cell gets overwritten with either a glyph
     # or a space anyway, so a full erase+redraw on every frame is wasted
@@ -310,9 +310,13 @@ if __name__ == "__main__":
             background_color=BG_COLOR,
         )
     else:
-        webview.create_window(
+        # hidden=True + show() on the 'loaded' event so the window only
+        # appears once the page has actually rendered, instead of popping up
+        # blank/white for a beat before content paints in.
+        window = webview.create_window(
             "KikiHub", f"http://{HOST}:{PORT}/",
             width=1280, height=860, min_size=(900, 600),
-            background_color=BG_COLOR, js_api=Api(),
+            background_color=BG_COLOR, js_api=Api(), hidden=True,
         )
+        window.events.loaded += window.show
     webview.start()

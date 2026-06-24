@@ -10,17 +10,41 @@ from flask_cors import CORS
 import requests
 import keys_store
 
-# generativelanguage.googleapis.com doesn't resolve via the system DNS here, and even when
-# it does, Gemini geo-blocks RU IPs with "User location is not supported" (FAILED_PRECONDITION).
-# xbox-dns.ru is a public DoH "smart DNS" that resolves it to an edge IP that isn't geo-blocked;
-# we connect to that IP while keeping the original Host/SNI for correct TLS routing.
-# Resolved once at startup, BEFORE patching socket.getaddrinfo below — dnspython's DoH query
-# itself breaks if it runs through the patched resolver.
-# www.googleapis.com is kept as a secondary fallback (shares Google's Front-End / multi-SAN cert).
+# generativelanguage.googleapis.com sometimes fails to resolve via Python's own
+# socket.getaddrinfo() — observed even with a working VPN where `nslookup` (a
+# separate process using the same Windows DNS Client service) resolves it fine
+# to legitimate global Google IPs. Likely some VPN/security software hooking
+# getaddrinfo specifically for python.exe. Three-tier fallback, each one only
+# tried if the previous one failed:
+#   1. socket.getaddrinfo() — works when nothing is interfering with Python's resolver.
+#   2. shell out to `nslookup` — respects the OS/VPN's actual routing and gives
+#      back real global Google IPs (the bug above doesn't affect non-Python
+#      callers), so a VPN's tunnel correctly carries the resulting connection.
+#   3. xbox-dns.ru DoH — last resort for genuine RU ISP-level DNS poisoning with
+#      no VPN at all. Its answer is a RU-localized "smart DNS" IP (87.228.x.x);
+#      some VPN clients split-tunnel connections to RU-allocated ranges straight
+#      past the tunnel, which defeats the VPN for this one host — so this tier
+#      is deliberately last, not first.
 import socket as _socket
 _orig_getaddrinfo = _socket.getaddrinfo
 _GEMINI_HOST = "generativelanguage.googleapis.com"
 _DNS_FALLBACK = {_GEMINI_HOST: "www.googleapis.com"}
+
+
+def _nslookup_resolve(host, timeout=5):
+    try:
+        out = subprocess.run(
+            ["nslookup", host], capture_output=True, text=True, timeout=timeout,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        ).stdout
+        idx = out.find(host)
+        if idx < 0:
+            return None
+        m = re.search(r"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b", out[idx:])
+        return m.group(1) if m else None
+    except Exception:
+        return None
+
 
 def _doh_resolve(host, attempts=3):
     import dns.message, dns.query, dns.rdatatype
@@ -36,32 +60,33 @@ def _doh_resolve(host, attempts=3):
             continue
     return None
 
-def _doh_resolve_bounded(host, hard_timeout=10):
-    # _doh_resolve can internally retry 3x at up to 8s each (24s worst case) — that's run
-    # at import time, on the same thread desktop.py's startup-animation loop races against
-    # with its own 30s cutoff. A thread + join with a hard cap keeps import time bounded
-    # even if the DoH query hangs past its own per-attempt timeout.
+
+def _resolve_gemini_ip_bounded(host, hard_timeout=10):
+    # Runs at import time, on the same thread desktop.py's startup-animation
+    # loop races against with its own timeout — a thread + join with a hard
+    # cap keeps this bounded even if every tier above hangs past its own
+    # per-attempt timeout.
     result = [None]
 
     def _try():
-        result[0] = _doh_resolve(host)
+        result[0] = _nslookup_resolve(host) or _doh_resolve(host)
 
     t = threading.Thread(target=_try, daemon=True)
     t.start()
     t.join(timeout=hard_timeout)
     return result[0]
 
-_GEMINI_IP = _doh_resolve_bounded(_GEMINI_HOST)
+_GEMINI_IP = _resolve_gemini_ip_bounded(_GEMINI_HOST)
 
 def _patched_getaddrinfo(host, *args, **kwargs):
-    if host == _GEMINI_HOST and _GEMINI_IP:
-        try:
-            return _orig_getaddrinfo(_GEMINI_IP, *args, **kwargs)
-        except _socket.gaierror:
-            pass
     try:
         return _orig_getaddrinfo(host, *args, **kwargs)
     except _socket.gaierror:
+        if host == _GEMINI_HOST and _GEMINI_IP:
+            try:
+                return _orig_getaddrinfo(_GEMINI_IP, *args, **kwargs)
+            except _socket.gaierror:
+                pass
         alt = _DNS_FALLBACK.get(host)
         if alt:
             return _orig_getaddrinfo(alt, *args, **kwargs)
