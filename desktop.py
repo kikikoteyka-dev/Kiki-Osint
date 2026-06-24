@@ -226,26 +226,41 @@ def _donut_frame(a, b):
     return "\n".join(rows)
 
 
-def _wait_for_server(timeout=30):
+def _wait_for_server(timeout=30, min_display=1.8):
     # Clear screen (\x1b[2J) once up front, then only move the cursor home
     # (\x1b[H) per frame — every cell gets overwritten with either a glyph
     # or a space anyway, so a full erase+redraw on every frame is wasted
     # work and is what was making the animation crawl at ~1fps on Windows.
+    #
+    # min_display: after a successful onedir launch (every run past the
+    # first on a machine), the backend can come up in well under a second —
+    # too fast to actually see the donut spin at all. Keep animating until
+    # at least min_display seconds have passed even if the server answered
+    # sooner, so the loading screen is a deliberate beat, not a flash.
     url = f"http://{HOST}:{PORT}/"
-    deadline = time.time() + timeout
+    start = time.time()
+    deadline = start + timeout
     a = b = 0.0
+    server_up = False
     _write("\x1b[2J")
     while time.time() < deadline:
-        try:
-            urllib.request.urlopen(url, timeout=1)
+        if not server_up:
+            try:
+                urllib.request.urlopen(url, timeout=1)
+                server_up = True
+            except Exception:
+                pass
+        if server_up and time.time() - start >= min_display:
             _write("\x1b[H  ready.                                          \n")
             return True
-        except Exception:
-            frame = _donut_frame(a, b)
-            _write(f"\x1b[H{frame}\n  starting backend...                    \n")
-            a += 0.22
-            b += 0.11
-            time.sleep(0.03)
+        frame = _donut_frame(a, b)
+        _write(f"\x1b[H{frame}\n  starting backend...                    \n")
+        a += 0.22
+        b += 0.11
+        time.sleep(0.03)
+    if server_up:
+        _write("\x1b[H  ready.                                          \n")
+        return True
     _write("\x1b[H  ! backend did not respond in time\n")
     return False
 
