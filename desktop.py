@@ -154,11 +154,27 @@ def _write(text):
 _LUMINANCE = ".,-~:;=!*#$@"
 _W, _H = 42, 14  # smaller canvas = fewer chars to repaint per frame = smoother animation
 
+# Color the donut in KikiHub's own palette (--bg #04111a -> --a #5cd6ff)
+# instead of leaving it plain white-on-black, so it looks like part of the
+# app rather than a generic terminal demo.
+_BG_RGB = (4, 17, 26)
+_ACCENT_RGB = (92, 214, 255)
+_COLOR_RAMP = [
+    "\x1b[38;2;{};{};{}m".format(
+        int(_BG_RGB[0] + (_ACCENT_RGB[0] - _BG_RGB[0]) * i / (len(_LUMINANCE) - 1)),
+        int(_BG_RGB[1] + (_ACCENT_RGB[1] - _BG_RGB[1]) * i / (len(_LUMINANCE) - 1)),
+        int(_BG_RGB[2] + (_ACCENT_RGB[2] - _BG_RGB[2]) * i / (len(_LUMINANCE) - 1)),
+    )
+    for i in range(len(_LUMINANCE))
+]
+_RESET = "\x1b[0m"
+
 
 def _donut_frame(a, b):
     cos_a, sin_a = math.cos(a), math.sin(a)
     cos_b, sin_b = math.cos(b), math.sin(b)
     out = [" "] * (_W * _H)
+    lum_idx = [-1] * (_W * _H)
     zbuf = [0.0] * (_W * _H)
 
     theta = 0.0
@@ -187,10 +203,27 @@ def _donut_frame(a, b):
                 idx = xp + yp * _W
                 if ooz > zbuf[idx]:
                     zbuf[idx] = ooz
-                    out[idx] = _LUMINANCE[min(int(lum * 8), len(_LUMINANCE) - 1)]
+                    li = min(int(lum * 8), len(_LUMINANCE) - 1)
+                    lum_idx[idx] = li
+                    out[idx] = _LUMINANCE[li]
             phi += 0.07
         theta += 0.07
-    return "\n".join("".join(out[r * _W:(r + 1) * _W]) for r in range(_H))
+
+    rows = []
+    for r in range(_H):
+        chars = []
+        cur = None
+        for c in range(_W):
+            idx = r * _W + c
+            li = lum_idx[idx]
+            color = _COLOR_RAMP[li] if li >= 0 else _RESET
+            if color != cur:
+                chars.append(color)
+                cur = color
+            chars.append(out[idx])
+        chars.append(_RESET)
+        rows.append("".join(chars))
+    return "\n".join(rows)
 
 
 def _wait_for_server(timeout=30):
