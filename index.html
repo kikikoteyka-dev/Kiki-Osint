@@ -8,6 +8,8 @@
 <meta http-equiv="Expires" content="0">
 <title>KikiHub</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -123,6 +125,18 @@ select.setting-inp{cursor:pointer}
 .geo-file-btn{flex-shrink:0;padding:10px 14px;border-radius:999px;border:1px solid rgba(92,214,255,.18);background:rgba(92,214,255,.08);color:var(--a);font-family:'JetBrains Mono',monospace;font-size:11px;margin:5px 8px 5px 5px;white-space:nowrap;transition:background .2s,border-color .2s,color .2s;pointer-events:none}
 .geo-file-wrap:hover .geo-file-btn{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff}
 .geo-file-name{flex:1;color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:10px}
+.geo-card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
+.geo-card-header .settings-title{margin-bottom:0}
+.geo-spoof-toggle-btn{flex-shrink:0;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;border:1px solid rgba(92,214,255,.18);background:rgba(92,214,255,.08);color:var(--a);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
+.geo-spoof-toggle-btn:hover{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.32);color:#fff}
+.geo-spoof-toggle-btn svg{width:13px;height:13px;flex-shrink:0}
+.geo-spoof-toggle-btn.active{background:var(--a);border-color:var(--a);color:var(--bg)}
+.geo-spoof-map{width:100%;height:200px;border-radius:var(--r2);overflow:hidden;margin-bottom:14px;border:1px solid var(--g-bd)}
+.geo-spoof-strip-row{display:flex;align-items:center;gap:9px;margin-bottom:14px;cursor:pointer;font-size:12px;color:var(--t2);font-family:'JetBrains Mono',monospace}
+.geo-spoof-strip-row input{accent-color:var(--a);width:14px;height:14px;cursor:pointer}
+#geo-spoof-section.strip-mode #geo-spoof-lat,#geo-spoof-section.strip-mode #geo-spoof-lon,
+#geo-spoof-section.strip-mode #geo-spoof-make,#geo-spoof-section.strip-mode #geo-spoof-model,
+#geo-spoof-section.strip-mode #geo-spoof-datetime,#geo-spoof-section.strip-mode .geo-spoof-map{opacity:.35;pointer-events:none}
 .tool-result{margin-top:22px;display:none}
 .tool-result.show{display:block;animation:fadeUp .3s ease}
 .tool-media{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px}
@@ -537,7 +551,14 @@ document.addEventListener("pointermove",(e)=>{
 <!-- GEOINT -->
 <div class="panel" id="panel-geoint">
   <div class="tool-card">
-    <div class="settings-title" id="geo-title-lbl">GEOINT</div>
+    <div class="geo-card-header">
+      <div class="settings-title" id="geo-title-lbl">GEOINT</div>
+      <button class="geo-spoof-toggle-btn" id="geo-spoof-toggle" onclick="geoToggleSpoofMode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        <span id="geo-spoof-toggle-label">EXIF Spoofer</span>
+      </button>
+    </div>
+    <div id="geo-analyze-section">
     <div class="tool-row">
       <div class="geo-file-wrap" onclick="document.getElementById('geo-file').click()">
         <input type="file" accept="image/*" id="geo-file" style="display:none;position:absolute" onchange="geoUpdateFileName(this)">
@@ -585,6 +606,39 @@ document.addEventListener("pointermove",(e)=>{
           <span id="geo-ai-disclaimer-text"></span>
         </div>
       </div>
+    </div>
+    </div>
+
+    <div id="geo-spoof-section" style="display:none">
+      <div class="tool-row">
+        <div class="geo-file-wrap" onclick="document.getElementById('geo-spoof-file').click()">
+          <input type="file" accept="image/*" id="geo-spoof-file" style="display:none;position:absolute" onchange="geoSpoofUpdateFileName(this)">
+          <span class="geo-file-btn" id="geo-spoof-file-btn">Choose file</span>
+          <span class="geo-file-name" id="geo-spoof-file-name">No file chosen</span>
+        </div>
+      </div>
+      <div class="geo-spoof-map" id="geo-spoof-map"></div>
+      <div class="tool-row">
+        <input class="setting-inp" id="geo-spoof-lat" placeholder="Latitude" inputmode="decimal" oninput="geoSpoofLatLonInput()">
+        <input class="setting-inp" id="geo-spoof-lon" placeholder="Longitude" inputmode="decimal" oninput="geoSpoofLatLonInput()">
+      </div>
+      <div class="tool-row">
+        <input class="setting-inp" id="geo-spoof-make" placeholder="Camera make">
+        <input class="setting-inp" id="geo-spoof-model" placeholder="Camera model">
+      </div>
+      <div class="tool-row">
+        <input class="setting-inp" type="datetime-local" id="geo-spoof-datetime">
+      </div>
+      <label class="geo-spoof-strip-row">
+        <input type="checkbox" id="geo-spoof-strip" onchange="geoSpoofToggleStrip()">
+        <span id="geo-spoof-strip-label">Strip all EXIF instead</span>
+      </label>
+      <button class="setting-btn" id="geo-spoof-btn" onclick="geoSpoofGenerate()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span id="geo-spoof-btn-label">Generate</span>
+      </button>
+      <div class="tool-loading" id="geo-spoof-loading" style="display:none"><span class="tool-spinner"></span><span id="geo-spoof-loading-text">Generating…</span></div>
+      <div class="tool-err" id="geo-spoof-err"></div>
     </div>
   </div>
 </div>
@@ -671,6 +725,9 @@ var TOOL_LABELS = {
        geoConfHigh:'high confidence', geoConfMedium:'medium confidence', geoConfLow:'low confidence',
        geoChoosePhoto:'Choose a photo first',
        geoFileBtn:'Choose file', geoFileNone:'No file chosen',
+       geoSpoofToggle:'EXIF Spoofer', geoSpoofStripLabel:'Strip all EXIF instead',
+       geoSpoofBtn:'Generate', geoSpoofLoading:'Generating…', geoSpoofChoosePhoto:'Choose a photo first',
+       geoSpoofLat:'Latitude', geoSpoofLon:'Longitude', geoSpoofMake:'Camera make', geoSpoofModel:'Camera model',
        geoAiMapCaption:'AI guess', geoAiMapFallback:'Search on Google Maps',
        dlDlAudio:'Downloading & extracting audio…', dlDlVideo:'Downloading video…', dlDlFailed:'Download failed',
        sTitle:'Settings', sVkLabel:'VK Token', sGemLabel:'Gemini API (Recommended)',
@@ -687,6 +744,9 @@ var TOOL_LABELS = {
        geoConfHigh:'высокая уверенность', geoConfMedium:'средняя уверенность', geoConfLow:'низкая уверенность',
        geoChoosePhoto:'Сначала выбери фото',
        geoFileBtn:'Выбрать файл', geoFileNone:'Файл не выбран',
+       geoSpoofToggle:'EXIF Spoofer', geoSpoofStripLabel:'Удалить все EXIF вместо подмены',
+       geoSpoofBtn:'Сгенерировать', geoSpoofLoading:'Генерация…', geoSpoofChoosePhoto:'Сначала выбери фото',
+       geoSpoofLat:'Широта', geoSpoofLon:'Долгота', geoSpoofMake:'Производитель камеры', geoSpoofModel:'Модель камеры',
        geoAiMapCaption:'Гипотеза AI', geoAiMapFallback:'Найти на Google Maps',
        dlDlAudio:'Скачивание и извлечение аудио…', dlDlVideo:'Скачивание видео…', dlDlFailed:'Ошибка загрузки',
        sTitle:'Настройки', sVkLabel:'VK Token', sGemLabel:'Gemini API (Рекомендуется)',
@@ -714,6 +774,18 @@ function setToolLang(lang){
   document.getElementById('geo-file-btn').textContent = t.geoFileBtn;
   var gfn = document.getElementById('geo-file-name');
   if(gfn && !gfn.dataset.hasFile) gfn.textContent = t.geoFileNone;
+  // EXIF Spoofer
+  document.getElementById('geo-spoof-toggle-label').textContent = t.geoSpoofToggle;
+  document.getElementById('geo-spoof-file-btn').textContent = t.geoFileBtn;
+  var gsfn = document.getElementById('geo-spoof-file-name');
+  if(gsfn && !gsfn.dataset.hasFile) gsfn.textContent = t.geoFileNone;
+  document.getElementById('geo-spoof-lat').placeholder = t.geoSpoofLat;
+  document.getElementById('geo-spoof-lon').placeholder = t.geoSpoofLon;
+  document.getElementById('geo-spoof-make').placeholder = t.geoSpoofMake;
+  document.getElementById('geo-spoof-model').placeholder = t.geoSpoofModel;
+  document.getElementById('geo-spoof-strip-label').textContent = t.geoSpoofStripLabel;
+  document.getElementById('geo-spoof-btn-label').textContent = t.geoSpoofBtn;
+  document.getElementById('geo-spoof-loading-text').textContent = t.geoSpoofLoading;
   // Settings
   document.getElementById('s-title').textContent = t.sTitle;
   document.getElementById('s-vk-label').textContent = t.sVkLabel;
@@ -970,6 +1042,102 @@ function geoUpdateFileName(inp){
     var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
     el.textContent=t.geoFileNone;
   }
+}
+
+var geoSpoofMap=null, geoSpoofMarker=null;
+
+function geoToggleSpoofMode(){
+  var btn=document.getElementById('geo-spoof-toggle');
+  var spoofSec=document.getElementById('geo-spoof-section');
+  var analyzeSec=document.getElementById('geo-analyze-section');
+  var showSpoof = spoofSec.style.display==='none';
+  spoofSec.style.display = showSpoof ? 'block' : 'none';
+  analyzeSec.style.display = showSpoof ? 'none' : 'block';
+  btn.classList.toggle('active', showSpoof);
+  if(showSpoof && !geoSpoofMap){
+    geoSpoofMap = L.map('geo-spoof-map', {attributionControl:false}).setView([20,0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:18}).addTo(geoSpoofMap);
+    geoSpoofMap.on('click', function(e){
+      geoSpoofSetLatLon(e.latlng.lat, e.latlng.lng);
+    });
+  } else if(showSpoof && geoSpoofMap){
+    setTimeout(function(){ geoSpoofMap.invalidateSize(); }, 50);
+  }
+}
+
+function geoSpoofSetLatLon(lat, lon){
+  document.getElementById('geo-spoof-lat').value = lat.toFixed(6);
+  document.getElementById('geo-spoof-lon').value = lon.toFixed(6);
+  if(geoSpoofMarker){ geoSpoofMarker.setLatLng([lat,lon]); }
+  else { geoSpoofMarker = L.marker([lat,lon]).addTo(geoSpoofMap); }
+  geoSpoofMap.panTo([lat,lon]);
+}
+
+function geoSpoofLatLonInput(){
+  var lat=parseFloat(document.getElementById('geo-spoof-lat').value);
+  var lon=parseFloat(document.getElementById('geo-spoof-lon').value);
+  if(isNaN(lat) || isNaN(lon) || !geoSpoofMap) return;
+  if(geoSpoofMarker){ geoSpoofMarker.setLatLng([lat,lon]); }
+  else { geoSpoofMarker = L.marker([lat,lon]).addTo(geoSpoofMap); }
+  geoSpoofMap.panTo([lat,lon]);
+}
+
+function geoSpoofToggleStrip(){
+  var stripped = document.getElementById('geo-spoof-strip').checked;
+  document.getElementById('geo-spoof-section').classList.toggle('strip-mode', stripped);
+}
+
+function geoSpoofUpdateFileName(inp){
+  var el=document.getElementById('geo-spoof-file-name');
+  if(!el) return;
+  if(inp.files.length){
+    el.textContent=inp.files[0].name;
+    el.dataset.hasFile='1';
+  } else {
+    delete el.dataset.hasFile;
+    var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
+    el.textContent=t.geoFileNone;
+  }
+}
+
+function geoSpoofGenerate(){
+  var fileInp=document.getElementById('geo-spoof-file');
+  var err=document.getElementById('geo-spoof-err'), loading=document.getElementById('geo-spoof-loading');
+  var lang=localStorage.getItem('kiki_lang')||'en', t=TOOL_LABELS[lang]||TOOL_LABELS.en;
+  err.textContent='';
+  if(!fileInp.files.length){err.textContent=t.geoSpoofChoosePhoto;return}
+  var fd=new FormData();
+  fd.append('photo', fileInp.files[0]);
+  var strip = document.getElementById('geo-spoof-strip').checked;
+  fd.append('strip', strip ? '1' : '0');
+  if(!strip){
+    var lat=document.getElementById('geo-spoof-lat').value.trim();
+    var lon=document.getElementById('geo-spoof-lon').value.trim();
+    var make=document.getElementById('geo-spoof-make').value.trim();
+    var model=document.getElementById('geo-spoof-model').value.trim();
+    var dt=document.getElementById('geo-spoof-datetime').value.trim();
+    if(lat) fd.append('lat', lat);
+    if(lon) fd.append('lon', lon);
+    if(make) fd.append('make', make);
+    if(model) fd.append('model', model);
+    if(dt) fd.append('datetime', dt);
+  }
+  document.getElementById('geo-spoof-loading-text').textContent=t.geoSpoofLoading; loading.style.display='flex';
+  fetch('/api/geoint/spoof',{method:'POST',body:fd})
+    .then(function(r){
+      if(!r.ok) return r.json().then(function(d){throw new Error(d.error||'error')});
+      var filename = (r.headers.get('X-Filename')) || 'spoofed.jpg';
+      return r.blob().then(function(b){return {blob:b, filename:filename}});
+    })
+    .then(function(res){
+      loading.style.display='none';
+      var url=URL.createObjectURL(res.blob);
+      var a=document.createElement('a');
+      a.href=url; a.download=res.filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(function(e){loading.style.display='none';err.textContent=String(e.message||e)});
 }
 
 function geoAnalyze(){

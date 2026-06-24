@@ -186,11 +186,29 @@ if __name__ == "__main__":
     _write(BANNER)
     threading.Thread(target=_run_flask, daemon=True).start()
     threading.Thread(target=_create_desktop_shortcut, daemon=True).start()
-    _wait_for_server()
+    server_ready = _wait_for_server(timeout=45)
     _hide_console()
-    webview.create_window(
-        "KikiHub", f"http://{HOST}:{PORT}/",
-        width=1280, height=860, min_size=(900, 600),
-        background_color=BG_COLOR,
-    )
+    if not server_ready:
+        # Opening the window anyway would just show a permanently blank page —
+        # the backend (Flask import, which does a DNS lookup for the Gemini API)
+        # never came up. Keep retrying the page load instead of giving up silently.
+        webview.create_window(
+            "KikiHub", html=(
+                "<body style='background:#04111a;color:#eef2f7;font-family:monospace;"
+                "display:flex;align-items:center;justify-content:center;height:100vh;"
+                "text-align:center;padding:20px'><div>KikiHub backend is taking longer than "
+                "usual to start (slow network?).<br>Retrying — this window will refresh "
+                "automatically.<script>setTimeout(function(){"
+                f"window.location.href='http://{HOST}:{PORT}/'"
+                "},5000)</script></div></body>"
+            ),
+            width=1280, height=860, min_size=(900, 600),
+            background_color=BG_COLOR,
+        )
+    else:
+        webview.create_window(
+            "KikiHub", f"http://{HOST}:{PORT}/",
+            width=1280, height=860, min_size=(900, 600),
+            background_color=BG_COLOR,
+        )
     webview.start()

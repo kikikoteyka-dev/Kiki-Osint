@@ -36,7 +36,22 @@ def _doh_resolve(host, attempts=3):
             continue
     return None
 
-_GEMINI_IP = _doh_resolve(_GEMINI_HOST)
+def _doh_resolve_bounded(host, hard_timeout=10):
+    # _doh_resolve can internally retry 3x at up to 8s each (24s worst case) — that's run
+    # at import time, on the same thread desktop.py's startup-animation loop races against
+    # with its own 30s cutoff. A thread + join with a hard cap keeps import time bounded
+    # even if the DoH query hangs past its own per-attempt timeout.
+    result = [None]
+
+    def _try():
+        result[0] = _doh_resolve(host)
+
+    t = threading.Thread(target=_try, daemon=True)
+    t.start()
+    t.join(timeout=hard_timeout)
+    return result[0]
+
+_GEMINI_IP = _doh_resolve_bounded(_GEMINI_HOST)
 
 def _patched_getaddrinfo(host, *args, **kwargs):
     if host == _GEMINI_HOST and _GEMINI_IP:
@@ -150,7 +165,8 @@ def padlock_icon():
 def flipper_logo():
     return send_from_directory(HUB_DIR, "flipper_logo.png")
 
-
+@app.route("/kiki_logo.png")
+def kiki_logo():
     return send_from_directory(HUB_DIR, "kiki_logo.png")
 
 # ════ OSINT IFRAME ══════════════════════════════════════════
@@ -1720,6 +1736,78 @@ def geoint_analyze():
             result["ai_error"] = str(e)
 
     return jsonify(result)
+
+
+def _deg_to_dms_rational(deg_float):
+    deg_float = abs(deg_float)
+    degrees = int(deg_float)
+    minutes_float = (deg_float - degrees) * 60
+    minutes = int(minutes_float)
+    seconds_float = (minutes_float - minutes) * 60
+    seconds = int(round(seconds_float * 100))
+    return [(degrees, 1), (minutes, 1), (seconds, 100)]
+
+
+@app.route("/api/geoint/spoof", methods=["POST"])
+def geoint_spoof():
+    if "photo" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    import io
+    import piexif
+    from PIL import Image
+
+    image_bytes = request.files["photo"].read()
+    strip = request.form.get("strip") == "1"
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        if strip:
+            exif_bytes = piexif.dump({"0th": {}, "Exif": {}, "GPS": {}, "Interop": {}, "1st": {}})
+        else:
+            try:
+                exif_dict = piexif.load(image_bytes)
+            except Exception:
+                exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "Interop": {}, "1st": {}}
+
+            lat = request.form.get("lat", "").strip()
+            lon = request.form.get("lon", "").strip()
+            make = request.form.get("make", "").strip()
+            model = request.form.get("model", "").strip()
+            dt = request.form.get("datetime", "").strip()
+
+            if lat and lon:
+                lat_f, lon_f = float(lat), float(lon)
+                exif_dict["GPS"][piexif.GPSIFD.GPSLatitude] = _deg_to_dms_rational(lat_f)
+                exif_dict["GPS"][piexif.GPSIFD.GPSLatitudeRef] = "N" if lat_f >= 0 else "S"
+                exif_dict["GPS"][piexif.GPSIFD.GPSLongitude] = _deg_to_dms_rational(lon_f)
+                exif_dict["GPS"][piexif.GPSIFD.GPSLongitudeRef] = "E" if lon_f >= 0 else "W"
+            if make:
+                exif_dict["0th"][piexif.ImageIFD.Make] = make.encode("utf-8")
+            if model:
+                exif_dict["0th"][piexif.ImageIFD.Model] = model.encode("utf-8")
+            if dt:
+                # <input type="datetime-local"> sends "YYYY-MM-DDTHH:MM" — EXIF wants "YYYY:MM:DD HH:MM:SS"
+                exif_date = dt.replace("-", ":").replace("T", " ")
+                if len(exif_date) == 16:
+                    exif_date += ":00"
+                exif_dict["0th"][piexif.ImageIFD.DateTime] = exif_date.encode("utf-8")
+                exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal] = exif_date.encode("utf-8")
+
+            exif_bytes = piexif.dump(exif_dict)
+
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=95, exif=exif_bytes)
+        out.seek(0)
+        from flask import send_file
+        resp = send_file(out, mimetype="image/jpeg", as_attachment=True, download_name="spoofed.jpg")
+        resp.headers["X-Filename"] = "spoofed.jpg"
+        return resp
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__=="__main__":
     print("\n  KikiHub  ->  http://localhost:7777\n")
