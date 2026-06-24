@@ -116,7 +116,7 @@ def _write(text):
 
 # ── ASCII donut (donut.c by Andy Sloane, ported to Python) ──────────────
 _LUMINANCE = ".,-~:;=!*#$@"
-_W, _H = 60, 22
+_W, _H = 42, 14  # smaller canvas = fewer chars to repaint per frame = smoother animation
 
 
 def _donut_frame(a, b):
@@ -138,8 +138,8 @@ def _donut_frame(a, b):
             z = 5 + cos_a * circle_x * sin_p + circle_y * sin_a
             ooz = 1 / z
 
-            xp = int(_W / 2 + 18 * ooz * x)
-            yp = int(_H / 2 - 9 * ooz * y)
+            xp = int(_W / 2 + 13 * ooz * x)
+            yp = int(_H / 2 - 6 * ooz * y)
 
             lum = (
                 cos_p * cos_t * sin_b
@@ -158,21 +158,26 @@ def _donut_frame(a, b):
 
 
 def _wait_for_server(timeout=30):
+    # Clear screen (\x1b[2J) once up front, then only move the cursor home
+    # (\x1b[H) per frame — every cell gets overwritten with either a glyph
+    # or a space anyway, so a full erase+redraw on every frame is wasted
+    # work and is what was making the animation crawl at ~1fps on Windows.
     url = f"http://{HOST}:{PORT}/"
     deadline = time.time() + timeout
     a = b = 0.0
+    _write("\x1b[2J")
     while time.time() < deadline:
         try:
             urllib.request.urlopen(url, timeout=1)
-            _write("\x1b[2J\x1b[H  ready.\n")
+            _write("\x1b[H  ready.                                          \n")
             return True
         except Exception:
             frame = _donut_frame(a, b)
-            _write(f"\x1b[2J\x1b[H{frame}\n  starting backend...\n")
-            a += 0.18
-            b += 0.09
-            time.sleep(0.05)
-    _write("\x1b[2J\x1b[H  ! backend did not respond in time\n")
+            _write(f"\x1b[H{frame}\n  starting backend...                    \n")
+            a += 0.22
+            b += 0.11
+            time.sleep(0.03)
+    _write("\x1b[H  ! backend did not respond in time\n")
     return False
 
 
