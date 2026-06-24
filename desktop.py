@@ -58,6 +58,20 @@ def _run_flask():
     # Imported here (not at module scope) so the slow module-level work in
     # app.py — DNS probing for the Gemini API host — runs in this thread
     # instead of blocking the main thread before the loading screen appears.
+    #
+    # Flask/Werkzeug print their own startup banner + per-request access log
+    # straight to the console — on the SAME console the main thread is
+    # repainting with \x1b[H every frame for the donut animation. The two
+    # writers race for the same screen, corrupting both (looked like "wrong
+    # animation" + dropped frames). Silence both: werkzeug's access/info log
+    # goes through the 'werkzeug' logger, but the " * Serving Flask app" /
+    # " * Debug mode" lines go through click.echo directly (not logging),
+    # so the logger alone doesn't catch them — patch show_server_banner too.
+    import logging
+    logging.getLogger("werkzeug").disabled = True
+    import flask.cli
+    flask.cli.show_server_banner = lambda *a, **k: None
+
     from app import app
     _flask_app["app"] = app
     app.run(host=HOST, port=PORT, debug=False, threaded=True, use_reloader=False)
