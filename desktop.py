@@ -152,7 +152,26 @@ def _write(text):
 
 # ── ASCII donut (donut.c by Andy Sloane, ported to Python) ──────────────
 _LUMINANCE = ".,-~:;=!*#$@"
-_W, _H = 42, 14  # smaller canvas = fewer chars to repaint per frame = smoother animation
+_W, _H = 42, 14  # overwritten by _size_canvas_to_console() at startup
+_XSCALE, _YSCALE = 13, 6  # projection scale — kept proportional to _W/_H so the
+                          # donut doesn't stretch when the canvas size changes
+
+
+def _size_canvas_to_console():
+    # Fill the actual console window instead of a small fixed box — a
+    # character cell is roughly twice as tall as it is wide, so the x/y
+    # projection scale has to stay proportional to width/height or the
+    # donut comes out squashed.
+    global _W, _H, _XSCALE, _YSCALE
+    try:
+        import shutil
+        size = shutil.get_terminal_size(fallback=(42, 14))
+        _W = max(20, size.columns - 2)
+        _H = max(8, size.lines - 4)
+    except Exception:
+        pass
+    _XSCALE = 13 * _W / 42
+    _YSCALE = 6 * _H / 14
 
 # Color the donut in KikiHub's own palette (--bg #04111a -> --a #5cd6ff)
 # instead of leaving it plain white-on-black, so it looks like part of the
@@ -190,8 +209,8 @@ def _donut_frame(a, b):
             z = 5 + cos_a * circle_x * sin_p + circle_y * sin_a
             ooz = 1 / z
 
-            xp = int(_W / 2 + 13 * ooz * x)
-            yp = int(_H / 2 - 6 * ooz * y)
+            xp = int(_W / 2 + _XSCALE * ooz * x)
+            yp = int(_H / 2 - _YSCALE * ooz * y)
 
             lum = (
                 cos_p * cos_t * sin_b
@@ -267,6 +286,7 @@ def _wait_for_server(timeout=30, min_display=1.8):
 
 if __name__ == "__main__":
     _enable_vt_mode()
+    _size_canvas_to_console()
     _write(BANNER)
     threading.Thread(target=_run_flask, daemon=True).start()
     threading.Thread(target=_create_desktop_shortcut, daemon=True).start()
