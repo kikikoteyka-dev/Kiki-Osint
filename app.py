@@ -1834,6 +1834,67 @@ def geoint_spoof():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/unredact/marker", methods=["POST"])
+def unredact_marker():
+    if "photo" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    import io as _io, base64 as _b64
+    try:
+        import numpy as np
+        from PIL import Image, ImageEnhance
+    except ImportError as e:
+        return jsonify({"error": f"Missing dependency: {e}"}), 500
+
+    image_bytes = request.files["photo"].read()
+    try:
+        brightness = float(request.form.get("brightness", 100))
+        exposure   = float(request.form.get("exposure",   100))
+        contrast   = float(request.form.get("contrast",   -56))
+        shadows    = float(request.form.get("shadows",    -50))
+        color      = float(request.form.get("color",      100))
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid params"}), 400
+
+    try:
+        img = Image.open(_io.BytesIO(image_bytes))
+        if img.mode not in ("RGB",):
+            img = img.convert("RGB")
+
+        arr = np.array(img, dtype=np.float32)
+
+        # Exposure: multiplicative EV shift. 0=1×, ±100=4×/0.25×
+        if exposure != 0:
+            arr = arr * (2.0 ** (exposure / 50.0))
+
+        # Brightness: additive lift (0=no change, +100=+128, -100=-128)
+        if brightness != 0:
+            arr = arr + (brightness / 100.0) * 128.0
+
+        # Shadows: adjust dark pixels (< 128). Negative = deepen, positive = lift.
+        if shadows != 0:
+            s = shadows / 100.0
+            mask = arr < 128.0
+            arr[mask] = arr[mask] + s * (128.0 - arr[mask])
+
+        arr = np.clip(arr, 0, 255)
+        img = Image.fromarray(arr.astype(np.uint8))
+
+        # Contrast: factor 0..2 (0=grey, 1=original, 2=double)
+        if contrast != 0:
+            img = ImageEnhance.Contrast(img).enhance(max(0.0, 1.0 + contrast / 100.0))
+
+        # Color saturation: 0=greyscale, 1=original, 2=double
+        if color != 0:
+            img = ImageEnhance.Color(img).enhance(max(0.0, 1.0 + color / 100.0))
+
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=95)
+        b64 = _b64.b64encode(buf.getvalue()).decode()
+        return jsonify({"ok": True, "image": b64})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__=="__main__":
     print("\n  KikiHub  ->  http://localhost:7777\n")
     # Try to start OSINT backend

@@ -197,6 +197,35 @@ select.setting-inp{cursor:pointer}
 .geo-ai-disclaimer{margin-top:12px;padding-top:12px;border-top:1px solid var(--g-bd);display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.6;color:var(--t3);font-family:'JetBrains Mono',monospace}
 .geo-ai-disclaimer svg{width:14px;height:14px;flex-shrink:0;margin-top:1px;opacity:.6;color:#f5d742}
 
+/* ── Reveal Text panel ─────────────────────────────────── */
+#panel-unredact{display:block;overflow-y:auto;padding:40px 20px 120px}
+#panel-unredact .tool-card{margin:0 auto;max-width:640px;width:100%;will-change:transform;transition:transform .85s cubic-bezier(.32,.72,0,1)}
+.ur-drop{position:relative;border:2px dashed var(--g-bd2);border-radius:var(--r);padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(255,255,255,.01)}
+.ur-drop:hover,.ur-drop.drag-over{border-color:rgba(92,214,255,.35);background:rgba(92,214,255,.04)}
+.ur-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.ur-drop-icon{width:36px;height:36px;margin:0 auto 10px;color:rgba(92,214,255,.45)}
+.ur-drop-text{font-size:12px;color:var(--t2);font-family:'JetBrains Mono',monospace;line-height:1.6}
+.ur-drop-text span{color:var(--a)}
+.ur-preview{margin-top:14px;border-radius:var(--r2);overflow:hidden;border:1px solid var(--g-bd);background:rgba(0,0,0,.3);display:none;max-height:260px;text-align:center}
+.ur-preview img{max-width:100%;max-height:260px;object-fit:contain;display:block;margin:0 auto}
+.ur-sliders{margin-top:18px;display:flex;flex-direction:column;gap:12px}
+.ur-slider-row{display:flex;align-items:center;gap:12px}
+.ur-slider-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(92,214,255,.7);width:88px;flex-shrink:0}
+.ur-slider-val{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--t1);width:40px;text-align:right;flex-shrink:0}
+input[type=range].ur-range{flex:1;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--a) var(--pct,50%),rgba(255,255,255,.1) var(--pct,50%));outline:none;cursor:pointer}
+input[type=range].ur-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--a);border:2px solid #04111a;box-shadow:0 0 8px rgba(92,214,255,.4);cursor:pointer}
+input[type=range].ur-range::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--a);border:2px solid #04111a;cursor:pointer}
+.ur-result{margin-top:20px;display:none}
+.ur-result.show{display:block;animation:fadeUp .35s cubic-bezier(.23,1,.32,1)}
+.ur-compare{position:relative;border-radius:var(--r2);overflow:hidden;user-select:none;touch-action:none;border:1px solid var(--g-bd);background:#000;line-height:0}
+.ur-compare img{display:block;width:100%;height:auto;max-height:400px;object-fit:contain}
+.ur-compare .ur-after{position:absolute;inset:0;overflow:hidden}
+.ur-compare .ur-after img{position:absolute;top:0;left:0;width:100%;height:auto}
+.ur-divider{position:absolute;top:0;bottom:0;width:2px;background:rgba(92,214,255,.8);cursor:ew-resize;transform:translateX(-50%);z-index:3;box-shadow:0 0 8px rgba(92,214,255,.5)}
+.ur-divider::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--a);border:2px solid #04111a;box-shadow:0 0 12px rgba(92,214,255,.6)}
+.ur-compare-hint{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;text-align:center;margin-top:8px;letter-spacing:.08em}
+.ur-compare-labels{display:flex;justify-content:space-between;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;padding:0 4px;margin-top:6px}
+
 /* Flipper panel */
 #panel-flipper{overflow:hidden}
 .flip-root{display:flex;flex-direction:column;height:100%;background:transparent;position:relative;z-index:1}
@@ -643,6 +672,69 @@ document.addEventListener("pointermove",(e)=>{
   </div>
 </div>
 
+<!-- Reveal Text -->
+<div class="panel" id="panel-unredact">
+  <div class="tool-card">
+    <div class="settings-title" id="ur-title-lbl">Reveal Text</div>
+    <div class="ur-drop" id="ur-drop" ondragover="urDragOver(event)" ondragleave="urDragLeave(event)" ondrop="urDrop(event)">
+      <input type="file" accept="image/*" id="ur-file" onchange="urFileChange(this)">
+      <div class="ur-drop-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+      <div class="ur-drop-text" id="ur-drop-text"><span id="ur-drop-cta">Choose image</span><br>or drag &amp; drop</div>
+    </div>
+    <div class="ur-preview" id="ur-preview"><img id="ur-preview-img" src="" alt=""></div>
+    <div class="ur-sliders" id="ur-sliders">
+      <div class="ur-slider-row">
+        <span class="ur-slider-label" id="ur-lbl-brightness">Brightness</span>
+        <input type="range" class="ur-range" id="ur-brightness" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-brightness')">
+        <span class="ur-slider-val" id="ur-val-brightness">+100</span>
+      </div>
+      <div class="ur-slider-row">
+        <span class="ur-slider-label" id="ur-lbl-exposure">Exposure</span>
+        <input type="range" class="ur-range" id="ur-exposure" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-exposure')">
+        <span class="ur-slider-val" id="ur-val-exposure">+100</span>
+      </div>
+      <div class="ur-slider-row">
+        <span class="ur-slider-label" id="ur-lbl-contrast">Contrast</span>
+        <input type="range" class="ur-range" id="ur-contrast" min="-100" max="100" value="-56" oninput="urSliderInput(this,'ur-val-contrast')">
+        <span class="ur-slider-val" id="ur-val-contrast">−56</span>
+      </div>
+      <div class="ur-slider-row">
+        <span class="ur-slider-label" id="ur-lbl-shadows">Shadows</span>
+        <input type="range" class="ur-range" id="ur-shadows" min="-100" max="100" value="-50" oninput="urSliderInput(this,'ur-val-shadows')">
+        <span class="ur-slider-val" id="ur-val-shadows">−50</span>
+      </div>
+      <div class="ur-slider-row">
+        <span class="ur-slider-label" id="ur-lbl-color">Color</span>
+        <input type="range" class="ur-range" id="ur-color" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-color')">
+        <span class="ur-slider-val" id="ur-val-color">+100</span>
+      </div>
+    </div>
+    <button class="setting-btn" id="ur-btn" onclick="urProcess()" style="margin-top:18px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+      <span id="ur-btn-label">Reveal</span>
+    </button>
+    <div class="tool-loading" id="ur-loading" style="display:none"><span class="tool-spinner"></span><span id="ur-loading-text">Processing…</span></div>
+    <div class="tool-err" id="ur-err"></div>
+    <div class="ur-result" id="ur-result">
+      <div class="ur-compare-labels"><span id="ur-lbl-original">Original</span><span id="ur-lbl-revealed">Revealed</span></div>
+      <div class="ur-compare" id="ur-compare">
+        <img id="ur-orig-img" src="" alt="original">
+        <div class="ur-after" id="ur-after" style="width:50%">
+          <img id="ur-out-img" src="" alt="revealed">
+        </div>
+        <div class="ur-divider" id="ur-divider" style="left:50%"></div>
+      </div>
+      <div class="ur-compare-hint" id="ur-compare-hint">← drag to compare →</div>
+      <div class="tool-btns" style="margin-top:14px">
+        <button class="setting-btn" onclick="urDownload()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span id="ur-dl-label">Download</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Settings -->
 <div class="panel" id="panel-settings">
   <div class="settings-card">
@@ -698,6 +790,12 @@ document.addEventListener("pointermove",(e)=>{
     <span class="icon-btn__label">GEOINT</span>
   </button>
   <div class="icon-btn-sep"></div>
+  <button class="icon-btn c-unredact" id="di-unredact" onclick="sw('unredact')">
+    <span class="icon-btn__back"></span>
+    <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22"/></svg></span></span>
+    <span class="icon-btn__label">Reveal Text</span>
+  </button>
+  <div class="icon-btn-sep"></div>
   <button class="icon-btn c-slate" id="di-settings" onclick="sw('settings')">
     <span class="icon-btn__back"></span>
     <span class="icon-btn__front"><span class="icon-btn__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></span>
@@ -712,8 +810,8 @@ document.addEventListener("pointermove",(e)=>{
 <script>
 // ─── Dock label i18n ───────────────────────────────────────
 var DOCK_LABELS = {
-  en: {osint:'Kiki OSINT', hc:'WiFi Cracker', flipper:'Flipper Zero', dl:'Downloader', geoint:'GEOINT', settings:'Settings'},
-  ru: {osint:'Kiki OSINT', hc:'WiFi Крекер', flipper:'Flipper Zero', dl:'Загрузчик', geoint:'GEOINT', settings:'Настройки'}
+  en: {osint:'Kiki OSINT', hc:'WiFi Cracker', flipper:'Flipper Zero', dl:'Downloader', geoint:'GEOINT', unredact:'Reveal Text', settings:'Settings'},
+  ru: {osint:'Kiki OSINT', hc:'WiFi Крекер', flipper:'Flipper Zero', dl:'Загрузчик', geoint:'GEOINT', unredact:'Reveal Text', settings:'Настройки'}
 };
 var TOOL_LABELS = {
   en: {dlTitle:'Downloader', dlFetch:'Fetch', dlVideo:'Download video', dlAudio:'Download MP3',
@@ -734,7 +832,13 @@ var TOOL_LABELS = {
        sAntLabel:'Anthropic API', sSaveBtn:'Save',
        sAiLangLabel:'AI Response Language', sUiLangLabel:'Interface Language',
        flipConnTxt:'disconnected', flipEmptyTxt:'Select a COM port to browse<br>the Flipper Zero SD card',
-       flipEmptyHint:'Close qFlipper before connecting', flipOvClose:'close'},
+       flipEmptyHint:'Close qFlipper before connecting', flipOvClose:'close',
+       urTitle:'Reveal Text', urBtn:'Reveal', urLoading:'Processing…',
+       urDropCta:'Choose image', urOriginal:'Original', urRevealed:'Revealed',
+       urHint:'← drag to compare →', urDl:'Download',
+       urBrightness:'Brightness', urExposure:'Exposure', urContrast:'Contrast',
+       urShadows:'Shadows', urColor:'Color',
+       urChooseFirst:'Choose an image first'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        dlLoading:'Загрузка информации…', dlUrlPlaceholder:'Вставь ссылку на видео/аудио (YouTube, TikTok, Instagram, X…)',
        geoTitle:'GEOINT', geoBtn:'Анализ', geoLoading:'Анализ…', geoNoGps:'В EXIF нет координат GPS',
@@ -753,7 +857,13 @@ var TOOL_LABELS = {
        sAntLabel:'Anthropic API', sSaveBtn:'Сохранить',
        sAiLangLabel:'Язык ответов AI', sUiLangLabel:'Язык интерфейса',
        flipConnTxt:'не подключён', flipEmptyTxt:'Выбери COM-порт чтобы просматривать<br>SD-карту Flipper Zero',
-       flipEmptyHint:'Закрой qFlipper перед подключением', flipOvClose:'закрыть'}
+       flipEmptyHint:'Закрой qFlipper перед подключением', flipOvClose:'закрыть',
+       urTitle:'Reveal Text', urBtn:'Раскрыть', urLoading:'Обработка…',
+       urDropCta:'Выбрать изображение', urOriginal:'Оригинал', urRevealed:'Раскрыто',
+       urHint:'← потяни для сравнения →', urDl:'Скачать',
+       urBrightness:'Яркость', urExposure:'Экспозиция', urContrast:'Контраст',
+       urShadows:'Тени', urColor:'Цвет',
+       urChooseFirst:'Сначала выбери изображение'}
 };
 function setToolLang(lang){
   var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
@@ -802,6 +912,20 @@ function setToolLang(lang){
   document.getElementById('flip-empty-txt').innerHTML = t.flipEmptyTxt;
   document.getElementById('flip-empty-hint').textContent = t.flipEmptyHint;
   document.getElementById('ov-close-text').textContent = t.flipOvClose;
+  // Reveal Text
+  document.getElementById('ur-title-lbl').textContent = t.urTitle;
+  document.getElementById('ur-btn-label').textContent = t.urBtn;
+  document.getElementById('ur-loading-text').textContent = t.urLoading;
+  document.getElementById('ur-drop-cta').textContent = t.urDropCta;
+  document.getElementById('ur-lbl-original').textContent = t.urOriginal;
+  document.getElementById('ur-lbl-revealed').textContent = t.urRevealed;
+  document.getElementById('ur-compare-hint').textContent = t.urHint;
+  document.getElementById('ur-dl-label').textContent = t.urDl;
+  document.getElementById('ur-lbl-brightness').textContent = t.urBrightness;
+  document.getElementById('ur-lbl-exposure').textContent = t.urExposure;
+  document.getElementById('ur-lbl-contrast').textContent = t.urContrast;
+  document.getElementById('ur-lbl-shadows').textContent = t.urShadows;
+  document.getElementById('ur-lbl-color').textContent = t.urColor;
   // Re-render GEOINT results if any exist
   if(geoLastResult) geoRenderResult(geoLastResult);
 }
@@ -884,6 +1008,7 @@ function sw(name){
     if(name==='settings') loadSettings();
     if(name==='flipper') flipInit();
     if(name==='geoint') geoCenterCard();
+    if(name==='unredact') urInitSliders();
   },120);
 }
 
@@ -1511,6 +1636,140 @@ async function flipSendToWC(path, filename){
     flipSetStep('w1','err');
     flipShowOvErr(e.message);
   }
+}
+
+// ─── Reveal Text ──────────────────────────────────────────
+var _urFile = null;
+var _urResultB64 = null;
+
+function urInitSliders(){
+  ['ur-brightness','ur-exposure','ur-contrast','ur-shadows','ur-color'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) urUpdateTrack(el);
+  });
+}
+
+function urSliderInput(el, valId){
+  var v = parseInt(el.value, 10);
+  document.getElementById(valId).textContent = (v >= 0 ? '+' : '') + v;
+  urUpdateTrack(el);
+}
+
+function urUpdateTrack(el){
+  var min = parseFloat(el.min), max = parseFloat(el.max), v = parseFloat(el.value);
+  var pct = ((v - min) / (max - min) * 100).toFixed(1);
+  el.style.setProperty('--pct', pct + '%');
+}
+
+function urDragOver(e){
+  e.preventDefault();
+  document.getElementById('ur-drop').classList.add('drag-over');
+}
+function urDragLeave(e){
+  document.getElementById('ur-drop').classList.remove('drag-over');
+}
+function urDrop(e){
+  e.preventDefault();
+  document.getElementById('ur-drop').classList.remove('drag-over');
+  var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f && f.type.startsWith('image/')) urLoadFile(f);
+}
+function urFileChange(input){
+  if(input.files && input.files[0]) urLoadFile(input.files[0]);
+}
+function urLoadFile(f){
+  _urFile = f;
+  _urResultB64 = null;
+  document.getElementById('ur-result').classList.remove('show');
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = document.getElementById('ur-preview-img');
+    img.src = e.target.result;
+    document.getElementById('ur-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(f);
+}
+
+async function urProcess(){
+  var lang = localStorage.getItem('kiki_lang') || 'en';
+  var t = TOOL_LABELS[lang] || TOOL_LABELS.en;
+  if(!_urFile){
+    document.getElementById('ur-err').textContent = t.urChooseFirst;
+    return;
+  }
+  document.getElementById('ur-err').textContent = '';
+  document.getElementById('ur-loading').style.display = 'flex';
+  document.getElementById('ur-btn').disabled = true;
+  document.getElementById('ur-result').classList.remove('show');
+
+  var fd = new FormData();
+  fd.append('photo', _urFile);
+  fd.append('brightness', document.getElementById('ur-brightness').value);
+  fd.append('exposure',   document.getElementById('ur-exposure').value);
+  fd.append('contrast',   document.getElementById('ur-contrast').value);
+  fd.append('shadows',    document.getElementById('ur-shadows').value);
+  fd.append('color',      document.getElementById('ur-color').value);
+
+  try{
+    var r = await fetch('/api/unredact/marker', {method:'POST', body:fd});
+    var d = await r.json();
+    if(!r.ok || d.error) throw new Error(d.error || 'Server error');
+    _urResultB64 = d.image;
+    var origSrc = document.getElementById('ur-preview-img').src;
+    document.getElementById('ur-orig-img').src = origSrc;
+    document.getElementById('ur-out-img').src = 'data:image/jpeg;base64,' + d.image;
+    document.getElementById('ur-result').classList.add('show');
+    urInitCompare();
+  }catch(e){
+    document.getElementById('ur-err').textContent = e.message;
+  }finally{
+    document.getElementById('ur-loading').style.display = 'none';
+    document.getElementById('ur-btn').disabled = false;
+  }
+}
+
+function urInitCompare(){
+  var compare = document.getElementById('ur-compare');
+  var after   = document.getElementById('ur-after');
+  var divider = document.getElementById('ur-divider');
+  var pct = 50;
+
+  function setPct(p){
+    pct = Math.max(0, Math.min(100, p));
+    after.style.width = pct + '%';
+    divider.style.left = pct + '%';
+  }
+  setPct(50);
+
+  function onMove(clientX){
+    var rect = compare.getBoundingClientRect();
+    setPct((clientX - rect.left) / rect.width * 100);
+  }
+  // Mouse
+  divider.onmousedown = function(e){
+    e.preventDefault();
+    function mm(e){ onMove(e.clientX); }
+    function mu(){ document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu); }
+    document.addEventListener('mousemove',mm);
+    document.addEventListener('mouseup',mu);
+  };
+  compare.addEventListener('click', function(e){ onMove(e.clientX); });
+  // Touch
+  divider.ontouchstart = function(e){
+    e.preventDefault();
+    function tm(e){ if(e.touches[0]) onMove(e.touches[0].clientX); }
+    function te(){ divider.removeEventListener('touchmove',tm); divider.removeEventListener('touchend',te); }
+    divider.addEventListener('touchmove',tm);
+    divider.addEventListener('touchend',te);
+  };
+}
+
+function urDownload(){
+  if(!_urResultB64) return;
+  var a = document.createElement('a');
+  a.href = 'data:image/jpeg;base64,' + _urResultB64;
+  a.download = 'revealed.jpg';
+  a.click();
 }
 </script>
 </html>
