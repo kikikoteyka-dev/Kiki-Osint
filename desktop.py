@@ -245,17 +245,21 @@ def _donut_frame(a, b):
     return "\n".join(rows)
 
 
-def _wait_for_server(timeout=30, min_display=5.0):
-    # Clear screen (\x1b[2J) once up front, then only move the cursor home
-    # (\x1b[H) per frame — every cell gets overwritten with either a glyph
-    # or a space anyway, so a full erase+redraw on every frame is wasted
-    # work and is what was making the animation crawl at ~1fps on Windows.
-    #
-    # min_display: after a successful onedir launch (every run past the
-    # first on a machine), the backend can come up in well under a second —
-    # too fast to actually see the donut spin at all. Keep animating until
-    # at least min_display seconds have passed even if the server answered
-    # sooner, so the loading screen is a deliberate beat, not a flash.
+# ── Startup synchronisation events ──────────────────────────────────────────
+# _flask_ready  — set when Flask first answers HTTP
+# _donut_done   — set after the donut has been shown for at least MIN_DISPLAY s
+# _nav_started  — set just before window.load_url() so the loaded callback
+#                 knows the blank warm-up page is no longer the subject
+_flask_ready = threading.Event()
+_donut_done  = threading.Event()
+_nav_started = threading.Event()
+
+MIN_DISPLAY = 5.0   # seconds the donut must be visible
+
+
+def _run_donut(timeout=45):
+    # Runs entirely in a background thread — the main thread is free to call
+    # webview.start() immediately, so WebView2 initialises in parallel.
     url = f"http://{HOST}:{PORT}/"
     start = time.time()
     deadline = start + timeout
@@ -267,56 +271,96 @@ def _wait_for_server(timeout=30, min_display=5.0):
             try:
                 urllib.request.urlopen(url, timeout=1)
                 server_up = True
+                _flask_ready.set()
             except Exception:
                 pass
-        if server_up and time.time() - start >= min_display:
-            _write("\x1b[H  ready.                                          \n")
-            return True
+        elapsed = time.time() - start
+        if server_up and elapsed >= MIN_DISPLAY:
+            break
         frame = _donut_frame(a, b)
         _write(f"\x1b[H{frame}\n  starting backend...                    \n")
         a += 0.22
         b += 0.11
         time.sleep(0.03)
-    if server_up:
-        _write("\x1b[H  ready.                                          \n")
-        return True
-    _write("\x1b[H  ! backend did not respond in time\n")
-    return False
+    _write("\x1b[H  ready.                                          \n")
+    if not server_up:
+        _flask_ready.set()   # unblock navigator even on timeout
+    _donut_done.set()
+
+
+def _navigate_when_ready(window):
+    # Background thread: wait for Flask, then point the (already-warm) window at it.
+    _flask_ready.wait(timeout=50)
+    flask_up = True
+    try:
+        urllib.request.urlopen(f"http://{HOST}:{PORT}/", timeout=2)
+    except Exception:
+        flask_up = False
+    _nav_started.set()
+    if flask_up:
+        try:
+            window.load_url(f"http://{HOST}:{PORT}/")
+        except Exception:
+            pass
+    else:
+        # Flask never came up — show a retrying page.
+        _donut_done.wait(timeout=60)
+        _hide_console()
+        try:
+            window.load_html(
+                "<body style='background:#04111a;color:#eef2f7;font-family:monospace;"
+                "display:flex;align-items:center;justify-content:center;height:100vh;"
+                "text-align:center;padding:20px'><div>KikiHub backend is taking longer "
+                "than usual to start (slow network?).<br>Retrying…"
+                f"<script>setTimeout(function(){{window.location.href='http://{HOST}:{PORT}/'}}"
+                ",5000)</script></div></body>"
+            )
+            window.show()
+        except Exception:
+            pass
+
+
+def _on_loaded(window):
+    # Spawned in a thread so we don't block the WebView2 GUI thread.
+    if not _nav_started.is_set():
+        # The blank warm-up page just finished loading — ignore it.
+        return
+    # Wait for the donut to finish its minimum display time, then reveal.
+    _donut_done.wait(timeout=30)
+    try:
+        window.show()
+        time.sleep(0.05)   # let the window actually paint before console vanishes
+        _hide_console()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
     _enable_vt_mode()
     _size_canvas_to_console()
     _write(BANNER)
-    threading.Thread(target=_run_flask, daemon=True).start()
+
+    threading.Thread(target=_run_flask,             daemon=True).start()
     threading.Thread(target=_create_desktop_shortcut, daemon=True).start()
-    server_ready = _wait_for_server(timeout=45)
-    _hide_console()
-    if not server_ready:
-        # Opening the window anyway would just show a permanently blank page —
-        # the backend (Flask import, which does a DNS lookup for the Gemini API)
-        # never came up. Keep retrying the page load instead of giving up silently.
-        webview.create_window(
-            "KikiHub", html=(
-                "<body style='background:#04111a;color:#eef2f7;font-family:monospace;"
-                "display:flex;align-items:center;justify-content:center;height:100vh;"
-                "text-align:center;padding:20px'><div>KikiHub backend is taking longer than "
-                "usual to start (slow network?).<br>Retrying — this window will refresh "
-                "automatically.<script>setTimeout(function(){"
-                f"window.location.href='http://{HOST}:{PORT}/'"
-                "},5000)</script></div></body>"
-            ),
-            width=1280, height=860, min_size=(900, 600),
-            background_color=BG_COLOR,
-        )
-    else:
-        # hidden=True + show() on the 'loaded' event so the window only
-        # appears once the page has actually rendered, instead of popping up
-        # blank/white for a beat before content paints in.
-        window = webview.create_window(
-            "KikiHub", f"http://{HOST}:{PORT}/",
-            width=1280, height=860, min_size=(900, 600),
-            background_color=BG_COLOR, js_api=Api(), hidden=True,
-        )
-        window.events.loaded += window.show
+
+    # Donut runs in background — main thread is free for webview immediately.
+    threading.Thread(target=_run_donut, daemon=True).start()
+
+    # Create the window NOW with a blank page so WebView2 warms up in parallel
+    # with Flask startup and the donut animation (instead of after both finish).
+    window = webview.create_window(
+        "KikiHub",
+        html="<body style='background:#04111a;margin:0;padding:0'></body>",
+        width=1280, height=860, min_size=(900, 600),
+        background_color=BG_COLOR, js_api=Api(), hidden=True,
+    )
+
+    # As soon as Flask answers, navigate the already-warm window to the app.
+    threading.Thread(target=_navigate_when_ready, args=(window,), daemon=True).start()
+
+    # Show window once the real page has loaded AND the donut has run ≥5s.
+    window.events.loaded += lambda: threading.Thread(
+        target=_on_loaded, args=(window,), daemon=True
+    ).start()
+
     webview.start()
