@@ -12,19 +12,18 @@ import keys_store
 
 # generativelanguage.googleapis.com sometimes fails to resolve via Python's own
 # socket.getaddrinfo() even when the OS resolver (nslookup) works fine and a VPN
-# is correctly routing everything else. xbox-dns.ru was previously used as a
-# fallback here, but it's a "smart DNS" — its own docs say it proxies
-# geo-restricted requests through its own gateway rather than returning a real
-# Google IP, and that gateway is RU-hosted, so Gemini still sees a RU source
-# regardless of any VPN. It can never actually bypass the geo-block, only DNS
-# poisoning, so it's now last-resort only. Two-tier fallback:
+# is correctly routing everything else. xbox-dns.ru is a "smart DNS" whose own
+# gateway for this host resolves to a Russia-hosted IP (confirmed via geoip:
+# St. Petersburg / Selectel, AS49505) — it can never dodge Gemini's region
+# check, it can only fix "doesn't resolve at all". So it's last-resort only:
 #   1. socket.getaddrinfo() — works when nothing is interfering with Python's resolver.
 #   2. shell out to `nslookup` — respects the OS/VPN's actual routing and gives
 #      back a real global Google IP, so a VPN's tunnel correctly carries the
 #      resulting connection (confirmed: a browser under the same VPN reaches
 #      Gemini fine, proving the VPN itself isn't the problem).
 #   3. xbox-dns.ru DoH — last resort for genuine RU ISP-level DNS poisoning with
-#      no VPN at all; won't fix the geo-block, only "can't resolve at all".
+#      no VPN at all; routes through a RU gateway, so it WILL still trip the
+#      region check — it only helps when resolution itself was failing outright.
 import socket as _socket
 _orig_getaddrinfo = _socket.getaddrinfo
 _GEMINI_HOST = "generativelanguage.googleapis.com"
@@ -872,7 +871,7 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
             return {"error": "google-genai not installed. Run: py -m pip install google-genai"}
         try:
             client = genai.Client(api_key=config["api_key"])
-            resp = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+            resp = client.models.generate_content(model=GEMINI_DEFAULT_MODEL, contents=prompt)
             return {"portrait": resp.text}
         except Exception as e:
             msg = str(e)
@@ -1639,7 +1638,10 @@ def _parse_ai_json(text):
     except Exception:
         return {"location": "", "confidence": "", "reasoning": text, "alternatives": ""}
 
-def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
+GEMINI_DEFAULT_MODEL = "gemini-flash-latest"
+ANTHROPIC_MODELS = ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
+
+def geoint_ai_guess(image_bytes, config, ai_lang="ru", model=None):
     lang_instruction = {
         "ru": "Отвечай строго на русском языке.",
         "en": "Respond strictly in English.",
@@ -1666,7 +1668,7 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
         import anthropic, base64
         client = anthropic.Anthropic(api_key=config["api_key"])
         b64 = base64.b64encode(image_bytes).decode()
-        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=700,
+        msg = client.messages.create(model=model or ANTHROPIC_MODELS[0], max_tokens=700,
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
                 {"type": "text", "text": prompt}]}])
@@ -1675,24 +1677,49 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
     if config["provider"] == "gemini":
         from google import genai
         from google.genai import types
+
+        # Bounded the same way as geoint_models(): no explicit SDK timeout
+        # here, and a slow/blocked network path can hang this call far past
+        # any reasonable wait instead of failing fast.
+        outcome = {}
+
+        def _call():
+            try:
+                client = genai.Client(api_key=config["api_key"])
+                resp = client.models.generate_content(model=model or GEMINI_DEFAULT_MODEL,
+                    contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "location": types.Schema(type=types.Type.STRING),
+                                "confidence": types.Schema(type=types.Type.STRING),
+                                "reasoning": types.Schema(type=types.Type.STRING),
+                                "alternatives": types.Schema(type=types.Type.STRING),
+                            },
+                            required=["location", "confidence", "reasoning", "alternatives"],
+                        ),
+                    ))
+                outcome["text"] = resp.text
+            except Exception as e:
+                outcome["exc"] = e
+
+        t = threading.Thread(target=_call, daemon=True)
+        t.start()
+        t.join(timeout=25)
+
+        if "text" in outcome:
+            return _parse_ai_json(outcome["text"])
+        if "exc" not in outcome:
+            is_ru = ai_lang == "ru"
+            raise RuntimeError(
+                "Gemini не ответил за 25 секунд — сеть/VPN слишком медленные или запрос завис. Попробуй другую модель или проверь соединение."
+                if is_ru else
+                "Gemini didn't respond within 25s — network/VPN too slow or the request stalled. Try a different model or check your connection."
+            )
         try:
-            client = genai.Client(api_key=config["api_key"])
-            resp = client.models.generate_content(model="gemini-2.5-flash",
-                contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=types.Schema(
-                        type=types.Type.OBJECT,
-                        properties={
-                            "location": types.Schema(type=types.Type.STRING),
-                            "confidence": types.Schema(type=types.Type.STRING),
-                            "reasoning": types.Schema(type=types.Type.STRING),
-                            "alternatives": types.Schema(type=types.Type.STRING),
-                        },
-                        required=["location", "confidence", "reasoning", "alternatives"],
-                    ),
-                ))
-            return _parse_ai_json(resp.text)
+            raise outcome["exc"]
         except Exception as e:
             msg = str(e)
             is_ru = ai_lang == "ru"
@@ -1714,9 +1741,60 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru"):
                     if is_ru else
                     "Gemini API: rate limit exceeded (free tier). Wait a bit and try again."
                 )
+            if "NOT_FOUND" in msg or "404" in msg:
+                raise RuntimeError(
+                    "Модель "+(model or GEMINI_DEFAULT_MODEL)+" больше не доступна — выбери другую модель в выпадающем списке."
+                    if is_ru else
+                    "Model "+(model or GEMINI_DEFAULT_MODEL)+" is no longer available — pick a different model from the dropdown."
+                )
             raise
 
     raise RuntimeError("No AI provider configured — set an API key in Settings")
+
+@app.route("/api/geoint/models", methods=["GET"])
+def geoint_models():
+    provider = AI_CONFIG.get("provider")
+    if provider == "anthropic":
+        return jsonify({"provider": "anthropic", "models": ANTHROPIC_MODELS, "default": ANTHROPIC_MODELS[0]})
+    if provider == "gemini":
+        if not AI_CONFIG.get("api_key"):
+            return jsonify({"error": "no API key configured"}), 400
+
+        # client.models.list() has no explicit timeout in this SDK version and
+        # can hang far longer than a normal failed request when the network
+        # path is slow/flaky (seen under a VPN: fails fast in a plain
+        # interpreter, but hangs well past 40s in the frozen exe) — bound it
+        # in a thread so a slow Gemini call can never wedge this route.
+        result = {}
+
+        def _fetch():
+            try:
+                from google import genai
+                client = genai.Client(api_key=AI_CONFIG["api_key"])
+                names = []
+                for m in client.models.list():
+                    actions = getattr(m, "supported_actions", None) or []
+                    if "generateContent" not in actions:
+                        continue
+                    name = (m.name or "").split("/", 1)[-1]
+                    if name and "vision" not in name and "embedding" not in name:
+                        names.append(name)
+                result["names"] = sorted(set(names))
+            except Exception as e:
+                result["error"] = str(e)
+
+        t = threading.Thread(target=_fetch, daemon=True)
+        t.start()
+        t.join(timeout=8)
+
+        if "names" in result:
+            names = result["names"]
+            default = GEMINI_DEFAULT_MODEL if GEMINI_DEFAULT_MODEL in names else (names[0] if names else GEMINI_DEFAULT_MODEL)
+            return jsonify({"provider": "gemini", "models": names, "default": default})
+        err = result.get("error", "timed out after 8s (slow/blocked network path)")
+        return jsonify({"error": err, "models": [GEMINI_DEFAULT_MODEL], "default": GEMINI_DEFAULT_MODEL})
+    return jsonify({"provider": None, "models": [], "default": None})
+
 
 @app.route("/api/geoint/analyze", methods=["POST"])
 def geoint_analyze():
@@ -1726,6 +1804,7 @@ def geoint_analyze():
     result = {}
 
     ai_lang = request.form.get("ai_lang", "ru")
+    model = request.form.get("model") or None
 
     try:
         from PIL import Image
@@ -1746,7 +1825,7 @@ def geoint_analyze():
 
     if AI_CONFIG.get("provider") and AI_CONFIG.get("api_key"):
         try:
-            ai_guess = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang)
+            ai_guess = geoint_ai_guess(image_bytes, AI_CONFIG, ai_lang, model)
             result["ai_guess"] = ai_guess
             if ai_guess.get("location"):
                 try:
@@ -1852,6 +1931,7 @@ def unredact_marker():
         contrast   = float(request.form.get("contrast",   -56))
         shadows    = float(request.form.get("shadows",    -50))
         color      = float(request.form.get("color",      100))
+        sharpen    = float(request.form.get("sharpen",    0))
     except (TypeError, ValueError):
         return jsonify({"error": "invalid params"}), 400
 
@@ -1887,10 +1967,85 @@ def unredact_marker():
         if color != 0:
             img = ImageEnhance.Color(img).enhance(max(0.0, 1.0 + color / 100.0))
 
+        # Sharpen: UnsharpMask (0=off, 100=strong). radius scales 1→4, percent 50→400
+        if sharpen > 0:
+            from PIL import ImageFilter
+            radius  = 1 + (sharpen / 100.0) * 3      # 1..4
+            percent = int(50 + (sharpen / 100.0) * 350)  # 50..400
+            img = img.filter(ImageFilter.UnsharpMask(radius=radius, percent=percent, threshold=2))
+
         buf = _io.BytesIO()
         img.save(buf, format="JPEG", quality=95)
         b64 = _b64.b64encode(buf.getvalue()).decode()
         return jsonify({"ok": True, "image": b64})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/unredact/depix", methods=["POST"])
+def unredact_depix():
+    if "photo" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    import io as _io, base64 as _b64
+    try:
+        import numpy as np
+        from PIL import Image, ImageEnhance, ImageFilter
+    except ImportError as e:
+        return jsonify({"error": f"Missing dependency: {e}"}), 500
+
+    image_bytes = request.files["photo"].read()
+    try:
+        blur_radius = float(request.form.get("blur_radius", 3))
+        iterations  = max(1, int(float(request.form.get("iterations", 10))))
+        contrast    = float(request.form.get("contrast", 30))
+        sharpen     = float(request.form.get("sharpen", 50))
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid params"}), 400
+
+    try:
+        img = Image.open(_io.BytesIO(image_bytes))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        arr = np.array(img, dtype=np.float64) / 255.0
+
+        # Build Gaussian PSF
+        psf_size = max(3, int(blur_radius * 4) | 1)
+        c = psf_size // 2
+        ys, xs = np.mgrid[-c:c+1, -c:c+1].astype(np.float64)
+        psf = np.exp(-(xs**2 + ys**2) / (2 * blur_radius**2))
+        psf /= psf.sum()
+
+        # Richardson-Lucy via FFT convolution — pure numpy, no skimage/scipy needed
+        def _rl_fft(channel, h, psf, num_iter):
+            """R-L deconvolution using FFT. PSF embedded at (0,0) for circular conv."""
+            psf_full = np.zeros((h, channel.shape[1]), dtype=np.float64)
+            ph, pw = psf.shape
+            psf_full[:ph, :pw] = psf
+            psf_full = np.roll(np.roll(psf_full, -(ph // 2), axis=0), -(pw // 2), axis=1)
+            PSF = np.fft.rfft2(psf_full)
+            PSF_T = np.conj(PSF)  # symmetric PSF: conj == flipped
+            est = channel.copy()
+            for _ in range(num_iter):
+                conv = np.fft.irfft2(np.fft.rfft2(est) * PSF, s=channel.shape)
+                ratio = channel / np.maximum(conv, 1e-10)
+                est = np.clip(est * np.fft.irfft2(np.fft.rfft2(ratio) * PSF_T, s=channel.shape), 0, 1)
+            return est
+
+        H = arr.shape[0]
+        result = np.stack([_rl_fft(arr[:, :, ch], H, psf, iterations) for ch in range(3)], axis=2)
+
+        img = Image.fromarray((np.clip(result, 0, 1) * 255).astype(np.uint8))
+
+        if contrast > 0:
+            img = ImageEnhance.Contrast(img).enhance(1.0 + contrast / 50.0)
+        if sharpen > 0:
+            radius  = 1 + (sharpen / 100.0) * 3
+            percent = int(100 + (sharpen / 100.0) * 300)
+            img = img.filter(ImageFilter.UnsharpMask(radius=radius, percent=percent, threshold=1))
+
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=95)
+        return jsonify({"ok": True, "image": _b64.b64encode(buf.getvalue()).decode()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

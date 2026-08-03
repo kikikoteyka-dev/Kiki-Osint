@@ -250,9 +250,12 @@ def _donut_frame(a, b):
 # _donut_done   — set after the donut has been shown for at least MIN_DISPLAY s
 # _nav_started  — set just before window.load_url() so the loaded callback
 #                 knows the blank warm-up page is no longer the subject
+# _revealed     — set once show()+_hide_console() have run, so the loaded
+#                 callback and the reveal watchdog below don't double-fire
 _flask_ready = threading.Event()
 _donut_done  = threading.Event()
 _nav_started = threading.Event()
+_revealed    = threading.Event()
 
 MIN_DISPLAY = 5.0   # seconds the donut must be visible
 
@@ -320,6 +323,22 @@ def _navigate_when_ready(window):
             pass
 
 
+def _reveal(window):
+    # Idempotent: the loaded callback and the watchdog below can both race to
+    # call this, only the first one should actually show the window.
+    if _revealed.is_set():
+        return
+    _revealed.set()
+    try:
+        window.show()
+        time.sleep(0.05)   # let the window actually paint before console vanishes
+        _hide_console()
+    except Exception as e:
+        # Surface it instead of swallowing — a hidden window with a visible
+        # console is worse than a console with a traceback in it.
+        _write(f"\n  window reveal failed: {e!r}\n  KikiHub is still running — check Task Manager.\n")
+
+
 def _on_loaded(window):
     # Spawned in a thread so we don't block the WebView2 GUI thread.
     if not _nav_started.is_set():
@@ -327,12 +346,21 @@ def _on_loaded(window):
         return
     # Wait for the donut to finish its minimum display time, then reveal.
     _donut_done.wait(timeout=30)
-    try:
-        window.show()
-        time.sleep(0.05)   # let the window actually paint before console vanishes
-        _hide_console()
-    except Exception:
-        pass
+    _reveal(window)
+
+
+def _reveal_watchdog(window):
+    # WebView2's second `loaded` event (after load_url navigates the warmed-up
+    # window) doesn't always fire — observed as the console staying open
+    # forever with the window never appearing, even though Flask is up and
+    # the process is otherwise healthy. Belt-and-suspenders: force the reveal
+    # a few seconds after navigation was attempted if _on_loaded never got
+    # there on its own.
+    _nav_started.wait(timeout=55)
+    _donut_done.wait(timeout=35)
+    if _revealed.wait(timeout=5):
+        return
+    _reveal(window)
 
 
 if __name__ == "__main__":
@@ -362,5 +390,10 @@ if __name__ == "__main__":
     window.events.loaded += lambda: threading.Thread(
         target=_on_loaded, args=(window,), daemon=True
     ).start()
+
+    # Fallback in case the loaded event never fires a second time (see
+    # _reveal_watchdog docstring-comment) — otherwise the window stays
+    # hidden and the console stays up forever.
+    threading.Thread(target=_reveal_watchdog, args=(window,), daemon=True).start()
 
     webview.start()

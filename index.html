@@ -208,19 +208,30 @@ select.setting-inp{cursor:pointer}
 .ur-drop-text span{color:var(--a)}
 .ur-preview{margin-top:14px;border-radius:var(--r2);overflow:hidden;border:1px solid var(--g-bd);background:rgba(0,0,0,.3);display:none;max-height:260px;text-align:center}
 .ur-preview img{max-width:100%;max-height:260px;object-fit:contain;display:block;margin:0 auto}
-.ur-sliders{margin-top:18px;display:flex;flex-direction:column;gap:12px}
+.ur-sliders{margin-top:0;display:none;flex-direction:column;gap:10px;overflow:hidden;transition:max-height .35s cubic-bezier(.32,.72,0,1),opacity .25s}
+.ur-sliders.open{display:flex}
 .ur-slider-row{display:flex;align-items:center;gap:12px}
-.ur-slider-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(92,214,255,.7);width:88px;flex-shrink:0}
-.ur-slider-val{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--t1);width:40px;text-align:right;flex-shrink:0}
+.ur-slider-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(92,214,255,.6);width:84px;flex-shrink:0}
+.ur-slider-val{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--a);width:38px;text-align:right;flex-shrink:0;opacity:.9}
 input[type=range].ur-range{flex:1;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--a) var(--pct,50%),rgba(255,255,255,.1) var(--pct,50%));outline:none;cursor:pointer}
 input[type=range].ur-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--a);border:2px solid #04111a;box-shadow:0 0 8px rgba(92,214,255,.4);cursor:pointer}
 input[type=range].ur-range::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--a);border:2px solid #04111a;cursor:pointer}
+.ur-mode-tabs{display:flex;gap:1px;margin-bottom:20px;border-radius:var(--r2);overflow:hidden;border:1px solid var(--g-bd2);background:rgba(255,255,255,.02)}
+.ur-mode-tab{flex:1;padding:10px 0;border:none;background:transparent;color:var(--t3);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:background .18s,color .18s;position:relative}
+.ur-mode-tab.active{background:rgba(92,214,255,.1);color:var(--a)}
+.ur-mode-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:rgba(92,214,255,.5)}
+.ur-presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+.ur-preset-btn{padding:14px 12px;border-radius:var(--r2);border:1px solid var(--g-bd2);background:rgba(255,255,255,.025);color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .18s,border-color .18s,color .18s,transform .12s;text-align:left;display:flex;flex-direction:column;gap:4px;line-height:1}
+.ur-preset-btn small{font-size:9px;letter-spacing:.06em;color:var(--t3);text-transform:none;font-family:'JetBrains Mono',monospace;opacity:.7}
+.ur-preset-btn:hover{background:rgba(92,214,255,.07);border-color:rgba(92,214,255,.25);color:var(--t1);transform:translateY(-1px)}
+.ur-preset-btn.active{background:rgba(92,214,255,.12);border-color:rgba(92,214,255,.4);color:var(--a)}
+.ur-preset-btn.active small{color:rgba(92,214,255,.6);opacity:1}
+.ur-custom-sliders{margin-bottom:18px;padding:16px;border-radius:var(--r2);border:1px solid rgba(92,214,255,.15);background:rgba(92,214,255,.03);animation:fadeUp .25s cubic-bezier(.23,1,.32,1)}
 .ur-result{margin-top:20px;display:none}
 .ur-result.show{display:block;animation:fadeUp .35s cubic-bezier(.23,1,.32,1)}
 .ur-compare{position:relative;border-radius:var(--r2);overflow:hidden;user-select:none;touch-action:none;border:1px solid var(--g-bd);background:#000;line-height:0}
 .ur-compare img{display:block;width:100%;height:auto;max-height:400px;object-fit:contain}
-.ur-compare .ur-after{position:absolute;inset:0;overflow:hidden}
-.ur-compare .ur-after img{position:absolute;top:0;left:0;width:100%;height:auto}
+#ur-out-img{position:absolute;top:0;left:0;width:100%;height:auto;max-height:400px;object-fit:contain}
 .ur-divider{position:absolute;top:0;bottom:0;width:2px;background:rgba(92,214,255,.8);cursor:ew-resize;transform:translateX(-50%);z-index:3;box-shadow:0 0 8px rgba(92,214,255,.5)}
 .ur-divider::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--a);border:2px solid #04111a;box-shadow:0 0 12px rgba(92,214,255,.6)}
 .ur-compare-hint{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;text-align:center;margin-top:8px;letter-spacing:.08em}
@@ -599,6 +610,11 @@ document.addEventListener("pointermove",(e)=>{
         <option value="en">EN</option>
       </select>
     </div>
+    <div class="tool-row">
+      <select class="setting-inp" id="geo-model-sel" onchange="geoModelChange(this.value)">
+        <option value="">Loading models…</option>
+      </select>
+    </div>
     <button class="setting-btn" id="geo-btn" onclick="geoAnalyze()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
       <span id="geo-btn-label">Analyze</span>
@@ -682,33 +698,84 @@ document.addEventListener("pointermove",(e)=>{
       <div class="ur-drop-text" id="ur-drop-text"><span id="ur-drop-cta">Choose image</span><br>or drag &amp; drop</div>
     </div>
     <div class="ur-preview" id="ur-preview"><img id="ur-preview-img" src="" alt=""></div>
-    <div class="ur-sliders" id="ur-sliders">
-      <div class="ur-slider-row">
-        <span class="ur-slider-label" id="ur-lbl-brightness">Brightness</span>
-        <input type="range" class="ur-range" id="ur-brightness" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-brightness')">
-        <span class="ur-slider-val" id="ur-val-brightness">+100</span>
-      </div>
-      <div class="ur-slider-row">
-        <span class="ur-slider-label" id="ur-lbl-exposure">Exposure</span>
-        <input type="range" class="ur-range" id="ur-exposure" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-exposure')">
-        <span class="ur-slider-val" id="ur-val-exposure">+100</span>
-      </div>
-      <div class="ur-slider-row">
-        <span class="ur-slider-label" id="ur-lbl-contrast">Contrast</span>
-        <input type="range" class="ur-range" id="ur-contrast" min="-100" max="100" value="-56" oninput="urSliderInput(this,'ur-val-contrast')">
-        <span class="ur-slider-val" id="ur-val-contrast">−56</span>
-      </div>
-      <div class="ur-slider-row">
-        <span class="ur-slider-label" id="ur-lbl-shadows">Shadows</span>
-        <input type="range" class="ur-range" id="ur-shadows" min="-100" max="100" value="-50" oninput="urSliderInput(this,'ur-val-shadows')">
-        <span class="ur-slider-val" id="ur-val-shadows">−50</span>
-      </div>
-      <div class="ur-slider-row">
-        <span class="ur-slider-label" id="ur-lbl-color">Color</span>
-        <input type="range" class="ur-range" id="ur-color" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-color')">
-        <span class="ur-slider-val" id="ur-val-color">+100</span>
-      </div>
+    <div class="ur-mode-tabs">
+      <button class="ur-mode-tab active" id="ur-tab-marker" onclick="urSetMode('marker')">Marker</button>
+      <button class="ur-mode-tab" id="ur-tab-depix" onclick="urSetMode('depix')">Depix</button>
     </div>
+    <div id="ur-panel-marker">
+      <div class="ur-presets" id="ur-presets">
+        <button class="ur-preset-btn active" id="ur-pbtn-marker" onclick="urPreset('marker')">iPhone Marker<small>brightness · exposure · color</small></button>
+        <button class="ur-preset-btn" id="ur-pbtn-blur" onclick="urPreset('blur')">Blur / WA<small>sharpen агрессивный</small></button>
+        <button class="ur-preset-btn" id="ur-pbtn-highlight" onclick="urPreset('highlight')">Highlighter<small>подъём средних тонов</small></button>
+        <button class="ur-preset-btn" id="ur-pbtn-custom" onclick="urPreset('custom')">Custom<small>ручная настройка</small></button>
+      </div>
+      <div class="ur-custom-sliders" id="ur-sliders" style="display:none">
+        <div class="ur-sliders open">
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-brightness">Brightness</span>
+          <input type="range" class="ur-range" id="ur-brightness" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-brightness')">
+          <span class="ur-slider-val" id="ur-val-brightness">+100</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-exposure">Exposure</span>
+          <input type="range" class="ur-range" id="ur-exposure" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-exposure')">
+          <span class="ur-slider-val" id="ur-val-exposure">+100</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-contrast">Contrast</span>
+          <input type="range" class="ur-range" id="ur-contrast" min="-100" max="100" value="-56" oninput="urSliderInput(this,'ur-val-contrast')">
+          <span class="ur-slider-val" id="ur-val-contrast">−56</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-shadows">Shadows</span>
+          <input type="range" class="ur-range" id="ur-shadows" min="-100" max="100" value="-50" oninput="urSliderInput(this,'ur-val-shadows')">
+          <span class="ur-slider-val" id="ur-val-shadows">−50</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-color">Color</span>
+          <input type="range" class="ur-range" id="ur-color" min="-100" max="200" value="100" oninput="urSliderInput(this,'ur-val-color')">
+          <span class="ur-slider-val" id="ur-val-color">+100</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-sharpen">Sharpen</span>
+          <input type="range" class="ur-range" id="ur-sharpen" min="0" max="100" value="0" oninput="urSliderInput(this,'ur-val-sharpen')">
+          <span class="ur-slider-val" id="ur-val-sharpen">0</span>
+        </div>
+        </div>
+      </div>
+    </div><!-- /ur-panel-marker -->
+    <div id="ur-panel-depix" style="display:none">
+      <div class="ur-presets">
+        <button class="ur-preset-btn active" id="ur-pbtn-dp-light" onclick="urPresetDepix('light')">Light<small>radius 2 · 8 iter</small></button>
+        <button class="ur-preset-btn" id="ur-pbtn-dp-medium" onclick="urPresetDepix('medium')">Medium<small>radius 4 · 15 iter</small></button>
+        <button class="ur-preset-btn" id="ur-pbtn-dp-heavy" onclick="urPresetDepix('heavy')">Heavy<small>radius 6 · 20 iter</small></button>
+        <button class="ur-preset-btn" id="ur-pbtn-dp-custom" onclick="urPresetDepix('custom')">Custom<small>ручная настройка</small></button>
+      </div>
+      <div class="ur-custom-sliders" id="ur-depix-sliders" style="display:none">
+        <div class="ur-sliders open">
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-blur-radius">Blur Radius</span>
+          <input type="range" class="ur-range" id="ur-blur-radius" min="1" max="20" value="2" step="0.5" oninput="urSliderInput(this,'ur-val-blur-radius')">
+          <span class="ur-slider-val" id="ur-val-blur-radius">2</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-iterations">Iterations</span>
+          <input type="range" class="ur-range" id="ur-iterations" min="1" max="30" value="8" oninput="urSliderInput(this,'ur-val-iterations')">
+          <span class="ur-slider-val" id="ur-val-iterations">8</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-dp-contrast">Contrast</span>
+          <input type="range" class="ur-range" id="ur-dp-contrast" min="0" max="100" value="30" oninput="urSliderInput(this,'ur-val-dp-contrast')">
+          <span class="ur-slider-val" id="ur-val-dp-contrast">30</span>
+        </div>
+        <div class="ur-slider-row">
+          <span class="ur-slider-label" id="ur-lbl-dp-sharpen">Sharpen</span>
+          <input type="range" class="ur-range" id="ur-dp-sharpen" min="0" max="100" value="50" oninput="urSliderInput(this,'ur-val-dp-sharpen')">
+          <span class="ur-slider-val" id="ur-val-dp-sharpen">50</span>
+        </div>
+        </div>
+      </div>
+    </div><!-- /ur-panel-depix -->
     <button class="setting-btn" id="ur-btn" onclick="urProcess()" style="margin-top:18px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
       <span id="ur-btn-label">Reveal</span>
@@ -719,9 +786,7 @@ document.addEventListener("pointermove",(e)=>{
       <div class="ur-compare-labels"><span id="ur-lbl-original">Original</span><span id="ur-lbl-revealed">Revealed</span></div>
       <div class="ur-compare" id="ur-compare">
         <img id="ur-orig-img" src="" alt="original">
-        <div class="ur-after" id="ur-after" style="width:50%">
-          <img id="ur-out-img" src="" alt="revealed">
-        </div>
+        <img id="ur-out-img" src="" alt="revealed" style="clip-path:inset(0 50% 0 0)">
         <div class="ur-divider" id="ur-divider" style="left:50%"></div>
       </div>
       <div class="ur-compare-hint" id="ur-compare-hint">← drag to compare →</div>
@@ -837,7 +902,7 @@ var TOOL_LABELS = {
        urDropCta:'Choose image', urOriginal:'Original', urRevealed:'Revealed',
        urHint:'← drag to compare →', urDl:'Download',
        urBrightness:'Brightness', urExposure:'Exposure', urContrast:'Contrast',
-       urShadows:'Shadows', urColor:'Color',
+       urShadows:'Shadows', urColor:'Color', urSharpen:'Sharpen',
        urChooseFirst:'Choose an image first'},
   ru: {dlTitle:'Загрузчик', dlFetch:'Получить', dlVideo:'Скачать видео', dlAudio:'Скачать MP3',
        dlLoading:'Загрузка информации…', dlUrlPlaceholder:'Вставь ссылку на видео/аудио (YouTube, TikTok, Instagram, X…)',
@@ -862,7 +927,7 @@ var TOOL_LABELS = {
        urDropCta:'Выбрать изображение', urOriginal:'Оригинал', urRevealed:'Раскрыто',
        urHint:'← потяни для сравнения →', urDl:'Скачать',
        urBrightness:'Яркость', urExposure:'Экспозиция', urContrast:'Контраст',
-       urShadows:'Тени', urColor:'Цвет',
+       urShadows:'Тени', urColor:'Цвет', urSharpen:'Резкость',
        urChooseFirst:'Сначала выбери изображение'}
 };
 function setToolLang(lang){
@@ -926,6 +991,7 @@ function setToolLang(lang){
   document.getElementById('ur-lbl-contrast').textContent = t.urContrast;
   document.getElementById('ur-lbl-shadows').textContent = t.urShadows;
   document.getElementById('ur-lbl-color').textContent = t.urColor;
+  document.getElementById('ur-lbl-sharpen').textContent = t.urSharpen;
   // Re-render GEOINT results if any exist
   if(geoLastResult) geoRenderResult(geoLastResult);
 }
@@ -987,7 +1053,8 @@ var current = localStorage.getItem('kiki_panel') || 'osint';
     if(di) di.classList.add('is-active');
     if(current==='settings') loadSettings();
     if(current==='flipper') flipInit();
-    if(current==='geoint') setTimeout(geoCenterCard, 80);
+    if(current==='geoint'){ setTimeout(geoCenterCard, 80); geoLoadModels(); }
+    if(current==='unredact') urInitSliders();
   }
 })();
 
@@ -1007,7 +1074,7 @@ function sw(name){
     if(outEl)setTimeout(function(){outEl.classList.remove('leaving')},300);
     if(name==='settings') loadSettings();
     if(name==='flipper') flipInit();
-    if(name==='geoint') geoCenterCard();
+    if(name==='geoint'){ geoCenterCard(); geoLoadModels(); }
     if(name==='unredact') urInitSliders();
   },120);
 }
@@ -1278,6 +1345,39 @@ function geoSpoofGenerate(){
     .catch(function(e){loading.style.display='none';err.textContent=String(e.message||e)});
 }
 
+var geoModelsLoaded=false;
+
+function geoModelChange(v){
+  localStorage.setItem('kiki_geo_model', v);
+}
+
+function geoLoadModels(){
+  if(geoModelsLoaded) return;
+  var sel=document.getElementById('geo-model-sel');
+  if(!sel) return;
+  fetch('/api/geoint/models').then(function(r){return r.json()}).then(function(d){
+    geoModelsLoaded=true;
+    var models=d.models||[];
+    if(!models.length){
+      sel.innerHTML='<option value="">'+(d.provider?'No models found':'No AI provider configured')+'</option>';
+      return;
+    }
+    var saved=localStorage.getItem('kiki_geo_model');
+    var pick=(saved && models.indexOf(saved)!==-1) ? saved : (d.default||models[0]);
+    sel.innerHTML='';
+    models.forEach(function(m){
+      var opt=document.createElement('option');
+      opt.value=m; opt.textContent=m;
+      if(m===pick) opt.selected=true;
+      sel.appendChild(opt);
+    });
+    localStorage.setItem('kiki_geo_model', pick);
+  }).catch(function(){
+    geoModelsLoaded=false;
+    sel.innerHTML='<option value="">Failed to load models</option>';
+  });
+}
+
 function geoAnalyze(){
   var fileInp=document.getElementById('geo-file');
   var err=document.getElementById('geo-err'), loading=document.getElementById('geo-loading');
@@ -1286,6 +1386,8 @@ function geoAnalyze(){
   if(!fileInp.files.length){err.textContent=t.geoChoosePhoto;return}
   var fd=new FormData(); fd.append('photo',fileInp.files[0]);
   fd.append('ai_lang', localStorage.getItem('kiki_ai_lang') || 'ru');
+  var model=localStorage.getItem('kiki_geo_model');
+  if(model) fd.append('model', model);
   document.getElementById('geo-loading-text').textContent=t.geoLoading; loading.style.display='flex';
   fetch('/api/geoint/analyze',{method:'POST',body:fd})
     .then(function(r){return r.json()}).then(function(d){
@@ -1641,17 +1743,35 @@ async function flipSendToWC(path, filename){
 // ─── Reveal Text ──────────────────────────────────────────
 var _urFile = null;
 var _urResultB64 = null;
+var _urMode = 'marker';
+
+function urSetMode(mode){
+  _urMode = mode;
+  document.getElementById('ur-tab-marker').classList.toggle('active', mode === 'marker');
+  document.getElementById('ur-tab-depix').classList.toggle('active', mode === 'depix');
+  document.getElementById('ur-panel-marker').style.display = mode === 'marker' ? '' : 'none';
+  document.getElementById('ur-panel-depix').style.display  = mode === 'depix'  ? '' : 'none';
+  // close custom slider panels on mode switch
+  document.getElementById('ur-sliders').style.display      = 'none';
+  document.getElementById('ur-depix-sliders').style.display = 'none';
+}
 
 function urInitSliders(){
-  ['ur-brightness','ur-exposure','ur-contrast','ur-shadows','ur-color'].forEach(function(id){
+  ['ur-brightness','ur-exposure','ur-contrast','ur-shadows','ur-color','ur-sharpen',
+   'ur-blur-radius','ur-iterations','ur-dp-contrast','ur-dp-sharpen'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) urUpdateTrack(el);
   });
 }
 
+// IDs where value is always non-negative and + prefix makes no sense
+var _urNoSign = {'ur-blur-radius':1,'ur-iterations':1,'ur-dp-contrast':1,'ur-dp-sharpen':1,'ur-sharpen':1};
+
 function urSliderInput(el, valId){
-  var v = parseInt(el.value, 10);
-  document.getElementById(valId).textContent = (v >= 0 ? '+' : '') + v;
+  var v = parseFloat(el.value);
+  var display = _urNoSign[el.id] ? String(Number.isInteger(v) ? v : v.toFixed(1))
+                                 : (v >= 0 ? '+' : '') + v;
+  document.getElementById(valId).textContent = display;
   urUpdateTrack(el);
 }
 
@@ -1704,14 +1824,25 @@ async function urProcess(){
 
   var fd = new FormData();
   fd.append('photo', _urFile);
-  fd.append('brightness', document.getElementById('ur-brightness').value);
-  fd.append('exposure',   document.getElementById('ur-exposure').value);
-  fd.append('contrast',   document.getElementById('ur-contrast').value);
-  fd.append('shadows',    document.getElementById('ur-shadows').value);
-  fd.append('color',      document.getElementById('ur-color').value);
+  var endpoint;
+  if(_urMode === 'depix'){
+    endpoint = '/api/unredact/depix';
+    fd.append('blur_radius', document.getElementById('ur-blur-radius').value);
+    fd.append('iterations',  document.getElementById('ur-iterations').value);
+    fd.append('contrast',    document.getElementById('ur-dp-contrast').value);
+    fd.append('sharpen',     document.getElementById('ur-dp-sharpen').value);
+  } else {
+    endpoint = '/api/unredact/marker';
+    fd.append('brightness', document.getElementById('ur-brightness').value);
+    fd.append('exposure',   document.getElementById('ur-exposure').value);
+    fd.append('contrast',   document.getElementById('ur-contrast').value);
+    fd.append('shadows',    document.getElementById('ur-shadows').value);
+    fd.append('color',      document.getElementById('ur-color').value);
+    fd.append('sharpen',    document.getElementById('ur-sharpen').value);
+  }
 
   try{
-    var r = await fetch('/api/unredact/marker', {method:'POST', body:fd});
+    var r = await fetch(endpoint, {method:'POST', body:fd});
     var d = await r.json();
     if(!r.ok || d.error) throw new Error(d.error || 'Server error');
     _urResultB64 = d.image;
@@ -1728,15 +1859,56 @@ async function urProcess(){
   }
 }
 
+function urPreset(name){
+  ['marker','blur','highlight','custom'].forEach(function(n){
+    var btn = document.getElementById('ur-pbtn-'+n);
+    if(btn) btn.classList.toggle('active', n === name);
+  });
+  var customEl = document.getElementById('ur-sliders');
+  customEl.style.display = (name === 'custom') ? 'block' : 'none';
+  if(name === 'custom') return;
+  var presets = {
+    marker:    {brightness:100, exposure:100, contrast:-56, shadows:-50, color:100, sharpen:0},
+    blur:      {brightness:0,   exposure:0,   contrast:0,   shadows:0,   color:0,   sharpen:80},
+    highlight: {brightness:60,  exposure:40,  contrast:-30, shadows:-20, color:20,  sharpen:20},
+  };
+  var p = presets[name]; if(!p) return;
+  ['brightness','exposure','contrast','shadows','color','sharpen'].forEach(function(k){
+    var el = document.getElementById('ur-'+k);
+    if(el){ el.value = p[k]; urSliderInput(el,'ur-val-'+k); }
+  });
+}
+
+function urPresetDepix(name){
+  ['dp-light','dp-medium','dp-heavy','dp-custom'].forEach(function(n){
+    var btn = document.getElementById('ur-pbtn-'+n);
+    if(btn) btn.classList.toggle('active', n === 'dp-'+name);
+  });
+  var customEl = document.getElementById('ur-depix-sliders');
+  customEl.style.display = (name === 'custom') ? 'block' : 'none';
+  if(name === 'custom') return;
+  var presets = {
+    light:  {'blur-radius':2,  iterations:8,  'dp-contrast':20, 'dp-sharpen':30},
+    medium: {'blur-radius':4,  iterations:15, 'dp-contrast':30, 'dp-sharpen':50},
+    heavy:  {'blur-radius':6,  iterations:20, 'dp-contrast':40, 'dp-sharpen':70},
+  };
+  var p = presets[name]; if(!p) return;
+  Object.keys(p).forEach(function(k){
+    var el  = document.getElementById('ur-'+k);
+    var vid = 'ur-val-'+k;
+    if(el){ el.value = p[k]; urSliderInput(el, vid); }
+  });
+}
+
 function urInitCompare(){
   var compare = document.getElementById('ur-compare');
-  var after   = document.getElementById('ur-after');
+  var outImg  = document.getElementById('ur-out-img');
   var divider = document.getElementById('ur-divider');
   var pct = 50;
 
   function setPct(p){
     pct = Math.max(0, Math.min(100, p));
-    after.style.width = pct + '%';
+    outImg.style.clipPath = 'inset(0 ' + (100-pct) + '% 0 0)';
     divider.style.left = pct + '%';
   }
   setPct(50);
