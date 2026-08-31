@@ -10,7 +10,7 @@ KEYS_FILE = os.path.join(_APP_DIR, "keys.json")
 
 def load():
     try:
-        with open(KEYS_FILE, "r", encoding="utf-8") as f:
+        with open(KEYS_FILE, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         load_dotenv()
@@ -18,6 +18,7 @@ def load():
             "VK_TOKEN":          os.getenv("VK_TOKEN", ""),
             "GEMINI_API_KEY":    os.getenv("GEMINI_API_KEY", ""),
             "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
+            "MISTRAL_API_KEY":   os.getenv("MISTRAL_API_KEY", ""),
             "HIBP_API_KEY":      os.getenv("HIBP_API_KEY", ""),
         }
 

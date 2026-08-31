@@ -65,6 +65,21 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opa
 body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(92,214,255,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(92,214,255,.008) 1px,transparent 1px);background-size:68px 68px}
 .scanline{position:fixed;left:0;width:100%;height:2px;z-index:200;pointer-events:none;background:linear-gradient(transparent,rgba(255,255,255,.04),transparent);animation:scanMove 7s linear infinite}
 
+/* See-through desktop — mirrors the parent hub's html.desktop-transparent
+   rule so the native Windows Mica/Acrylic backdrop shows through here too. */
+html.desktop-transparent,html.desktop-transparent body{background:transparent !important}
+html.desktop-transparent .aurora-container,
+html.desktop-transparent .bg-orbs,
+html.desktop-transparent .scanline{display:none !important}
+html.desktop-transparent body{
+  background:rgba(4,17,26,.62) !important;
+  backdrop-filter:blur(22px) saturate(130%);-webkit-backdrop-filter:blur(22px) saturate(130%);
+}
+html.desktop-transparent[data-transparent-level="heavy"] body{
+  background:rgba(4,17,26,.5) !important;
+  backdrop-filter:blur(28px) saturate(140%);-webkit-backdrop-filter:blur(28px) saturate(140%);
+}
+
 /* ═══════════════════════════════════
    KEYFRAMES
 ═══════════════════════════════════ */
@@ -146,6 +161,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
   display:grid;grid-template-columns:1fr 500px;
   transition:opacity .45s cubic-bezier(0.23,1,0.32,1),visibility .55s;
   overflow:hidden;
+  /* .hero-title's font-size and .hero-cat-big's position/size below were
+     tuned in vw/px — both measure the real browser VIEWPORT, blind to
+     KikiHub squeezing this element's actual box narrower (Rail nav padding
+     eats into #osint-frame without the window itself resizing). This box's
+     own rendered width already tracks that squeeze correctly (position:
+     fixed/absolute both resolve against real available space) — a query
+     container lets descendants size off THAT instead of the viewport. */
+  container-type:inline-size;
 }
 .root.active .hero-full{opacity:0;visibility:hidden;pointer-events:none}
 
@@ -165,8 +188,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 
 /* ── LOGO — original absolute position, bottom-right of hero-left, now visible ── */
 .hero-cat-big{
-  position:absolute;right:100px;top:calc(50% - 320px);
-  width:380px;height:380px;
+  position:absolute;left:62%;transform:translateX(-50%);top:calc(50% - 320px);
+  width:clamp(180px,19.8cqw,380px);height:clamp(180px,19.8cqw,380px);
   object-fit:contain;
   mix-blend-mode:screen;
   opacity:.88;
@@ -197,7 +220,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 /* ── TITLE ── */
 .hero-title{
   font-family:'Bricolage Grotesque',sans-serif;
-  font-size:clamp(64px,7.8vw,136px);
+  font-size:clamp(64px,7.8cqw,136px);
   font-weight:800;letter-spacing:-.045em;line-height:.86;
   background:linear-gradient(140deg,
     #ffffff     0%,
@@ -318,6 +341,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 }
 .hf-inp::placeholder{color:rgba(255,255,255,.22)}
 .hf-inp.typing-done::placeholder{color:rgba(92,214,255,.35)}
+.hf-inp:-webkit-autofill,.hf-inp:-webkit-autofill:hover,
+.hf-inp:-webkit-autofill:focus,.hf-inp:-webkit-autofill:active{
+  -webkit-text-fill-color:var(--t1) !important;
+  -webkit-box-shadow:0 0 0 1000px #0c1821 inset !important;
+  box-shadow:0 0 0 1000px #0c1821 inset !important;
+  caret-color:var(--t1);
+  transition:background-color 5000s ease-in-out 0s;
+}
 
 /* ── CTA Button — flat ── */
 .hf-btn{
@@ -337,7 +368,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .hf-btn:active{transform:scale(0.97);transition:transform 100ms cubic-bezier(0.23,1,0.32,1)}
 .hf-btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
 .hf-btn.loading{color:transparent!important;pointer-events:none}
-.hf-btn.loading::before{content:'';position:absolute;width:22px;height:22px;border-radius:50%;border:2px solid rgba(92,214,255,.2);border-top-color:var(--a);top:50%;left:50%;margin:-11px 0 0 -11px;animation:spin .75s linear infinite;background:transparent!important}
+.hf-btn .tool-spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:none}
+.hf-btn.loading .tool-spinner{display:inline-block}
 
 /* ── Segment ── */
 .hf-segment{
@@ -411,6 +443,20 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
 }
 .hf-ai-sel:focus{border-color:rgba(92,214,255,.32)}
 .hf-ai-sel option{background:#04111a;color:#eef2f7}
+.ai-select-wrap{position:relative}
+.ai-select-wrap .hf-ai-sel{padding-left:46px}
+.ai-select-wrap .provider-icon{
+  position:absolute;left:16px;top:50%;transform:translateY(-50%);
+  width:18px;height:18px;background:var(--a);pointer-events:none;
+  mask-size:contain;mask-repeat:no-repeat;mask-position:center;
+  -webkit-mask-size:contain;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center;
+  opacity:0;transition:opacity .2s ease;
+}
+.ai-select-wrap .provider-icon.show{opacity:.85}
+.ai-select-wrap .provider-icon.mistral{-webkit-mask-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAACpElEQVR42u2YPWsVQRSGnzOzBgnBQrARuxCsFOwCFpLfYKlVKrEK+DsEK7FKpaU/IhBBsEvKYCAgQRACkSQGsjuvxZ1s9uvu3U0uuQnsqXZnZ8+853PmHRhkkEEGmbFY87Cs8kWmfoqvrmF2HpCzoI88JcMDkOH5bJ/kLetovbdMb3hd0rBlb+UsVOcmY3Qs86z0/mN8uMaY9ZjnpbH55qnjAByR5fhTEk57+/aUjDTqz/Ac9QPg8BABCN/D+gsveBQ1gMeNW2jGMnMASVegSkhUrOqsmvmFMCXqbFpXAMeWkraGvAgoBR1PD4ADVnSKI8SkNP7YesUDqzxA0QuOwMqlAywH2pSUarzs1f7aa5mdStocab5sCAKh8Ow4qM044CGhYLPrZn/nJCyoC7FLlMWTlADcljK8NX2gMVVnCSBUN1aF6wUwryfVkesD4IAltqaTUUMVDAAGALeiFWd41vlAEs9EjsASXyuzXrKTH1kSUtZYzQ/2VwQgYN+2S0N1nrBtO6UZ+/HPKXXCObmSB+YbmrMreWBuuq1YFhQ3IGGhYesJFkScESxIQxX0CIGslK1OocYFi8TEKeBrLMErwcXQNBETK3yP1WWKAExVdTprJyY6rGXPoaWtxOTMGomNyUy6zzt8TisM8YpH+XvA8Z2NPMdHveFvRdO9ghcdgRcs56dkYfziCxYLUxgZ7+1ANqIhi+oru7Uy2e2tYxHkzi8Q/nEnt3h0yrdWYnKoWghIW4mJyArPxtnoPYlOT0hKACYSk2pENYmYWCFrhJ2vNvSBJM9q1xqCcj6IhlZMRqBbAx5VQQGA424P0B5YqI0u4CdvviUt7gLACRsTkrBsq+NnbfQbvzuzY2GknMDNuartTTVrV8+1y+nJSwcGGWSQQW6C/AdwEoyuLDSb7AAAAABJRU5ErkJggg==)}
+.ai-select-wrap .provider-icon.deepseek{-webkit-mask-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAGMklEQVR42u2YW4hVVRjH/2vvc3Ty0ohSWWnlhCmWXWgyI4ouVOJE6ENFCWn1EAVRiVD0oGlZ9BAYifViQRTdrUisSIvoIpSImgaj42S3B7topdM4s/devx63Ovvsvc85+5xRfGq+8zCXsy7/7/9d1ycNy7AMy/9dzPE4FCMjDMcRAEZGnuIrjAmPI0UYDJ77GEnCo1Sw3pOYynpOlmhBveKjPGEiSaQBGSuLp4t1pS7UBKGtWqEwIdxIWqIuzeVl+QoaM2hskd4eXvL7OCZzNh1Mpl2SmMYydlCVpyhXdMVInMh+QjY15qoJMxh8SeJs7uMtdvE7/QQE9PMbW/mKQXdxwAAhi2La3V5f4jIgBJZXTJg735cYy9QGQOLDmMWb/EsjCYiACNgj4VcPoiRxS7JiMzcnvHiU8PHwJcawmUOMrwUXoxvFKiJ3UUiETX0iQqyDEQE/MyJjrpLEAiBwLMB7jMZPm4Lz2Az0c2aau+r1k/gGsKmLGksIrKzsTE6Yk1weMQislSQuYjnv8BFfMAhE/MTInBHwJM5kLyRWbi4R8Bonxbq7M6Y7/kgUmc4zGXUGsWzM6Y/BYyzfOfpalxDo5VJHv8FQZjc2A2J/YtCQEEsAPFwBnab/1SFpX3VJ6OMmB6Ek8XiNGmmDWiIGmZJhAF9i/pC1T7MQMl+ihMFwCgeIMhyQMQCsqfpNJd2eQG+GuKFJhCVknkQJX+J2IKjrxoPAHtorib0aPPcctf5VCAHXSZTxJR7O6W6xhM5jzql1QJ8dzmMjIhf9RwOhj6skypQkFvFnck71tHWcmr/el7jEYcweGAzRJBFwmDkSPm0Sz6dYtfzC69xQzbZZAyx11gnpYQtb6KYv5eW2ybVBAjVO0YsliTLfgXPGLczgRFfm6qbfDS47zaQc/49JXM8TfJvy81ZiocLjp8xmtqM+BD50p/p1SyMlegDY6CIihZFZrOGfRLu8WOBHVvMSP6UgxD8PpgBsistQg9rMeA4AsA0vvh6DVy0hdPA8UZ0oiV32HEminedSK8Jcolqby3s1FeAIAL8yKl+lK00Fl7Otjikslq95kasliccyTmdTAB4qBtDhtgV01PhoAoLRrM0l1Zji3XxGyMV4kltRGxvXZDJfDYAz6Hcb5zZa6LqkR3IQAmAJk4BbJcq00Z3zFgscKmhRMRLt/OHCcGVDqoRJMmaWhQEOYenEY4TEtTkAIfBlPV7TAHy6nTbfFLeMlCUeqJu0b5NoY6TEBxkzBHF3WNDK40t87BJOwLQCtBUIqzIQ4hTey1S3YnHuW+hs6AFJJnwaS0AALCtEKwwlPL7MOZsFfmcFd/AsB1MREGHZXif71TBwExASAftoq9Ot1gbuX7mCZRs2Kw8WqxR7wQT+SnLY3U02xJwtrPGEmMN05Yiw/FG3/a7DwTosARGWXtrSvX5DCOub1ogAeLSZOpXjupLWCpbW31S1JR6GSRws7BsiLHsZ1cQDUq610/lzyBEuKE5IjrU7CruoALih0P9zHNziNkXALsZg8uHIaXhxoUr2vNkQwiDwTAv0p+nli5QZNuBXIbhH52G2cWdyuYfHOH6oW6gDYCNeM1/KB9cMjrg0GwDvUk5ePJVXL8BnzIyfpPgSsxio8YQI6GZ8LYfNY+He5GkSAJs4WaIUdwnOSwaAPu6vdjg1LXiEpYeTJEYwtBEQJddIViH0co0z0Eh8ugiJXOi9wTiJEmWJhzIFKgK2MocxaadtdR7kS7ydQIivWsVZ7vuJ9LlWIwC+p1OSaHMFKp8Ne1jK5KGPpDx8XklIja3bxyesYjW9qUsC4F/ui5tYiRvZT5hMFCo8HeDJ6gCn5amYxNPJJY2zXez7O3mSecxmCnflGpHK67C9tXlZhgWJBfwJ7jFlCVO9P5lCnJbXWMj77EuGO3+znYXF5b0oIjp4JykyUUG+6ycA+nnE7R3JZC6kkwuYeCwDyrgH7OLzTK0Lk0+28q1jZmUQVT91Hw0EN3ziCl5gX0MGfuAFLs1UiXiy6rdUhJrNivFlDRKjdL46da5O13i1KdTfOqhf1a3t2mH6YysXTj6PaVrsF9OIfxRONtRpOUaejCSEkGRk3N+2tbH8sAzLsAxLI/kPvYa6G/V8er0AAAAASUVORK5CYII=)}
+.ai-select-wrap .provider-icon.gemini{-webkit-mask-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAD2ElEQVR42u2ZT2wUZRjGn29m1aAltkorkojElh4KVrRgPBpDSAzR+IfUiCYQhBsXE0NiPHPxoDejQkg8cNH4L8aDkBAjErMxCA0XAxGpkJISGoixQtmZ78dhvp3dzm7b3Zmd2Wh4T3vYmff9nvd5n+/5vpHuxH89MNme9zJX8AClLhaAp1H1ZsHBywj+Su3SiKRuFCBP0ma9rrFuFYCkZ+VrlSTbFfbjcwKY5ikJr2gEPIyGtE5WA3o1/ZsytMCg3bpfodAGjMJiG+BhWMkMEABXeDx9E9IV4Eu8CYSABQ5m18S2CIjHck5j4wL+ZSNeGgzSweYZq7f1hKw8SUahlullY2UK6r/ECDMEWKIIsUywthAeYPDxKTv6EZcAX1PCy50J+BKvJNKDJeQaL+aOAb7EBs4REpKMgD8ZxeDnm/5BzjvmJ8MCH3bCpCyWvp9jDfDXCrBM8R49mBxK4C6Jfn5bMH0tPoiUosPMlxjkBFBZNHmA5TIvVce1Y9BLjMfKv3hY4CYf01d9MmNyjEQfH7n1tRLRfHzKGifaJi3sJbfvvcEFp3athsUyx8/srGlnu1rnrDY7mGhj7fNLgGvsZH2UHm9JLKLE1WrpZRenXPKQtDHHNJ+zKX5rKWpqna2ppTe4X6u0SVu0TQOSQpkMrgn3/ov6Rkd1RpNRjlqueXaafg1rm1breS2TMievOWcrX9JNzeikzuq4fjR/N/rbUfbxe90038gAe7O5qH/bL4zzCPfOQwBPvobVq9f0qJ7RgCQpkN8Ri4FwSF7RcZ3XKZU1pblaG5L/f5gX+NLxPmhj+JpPQ0ThS5Q5xPqlnK5PqapeDLKfv1KNYFKS4DM2ViHHS87BAp5HkujhHS7GU93u2kNgmiOMx6rajiriOSVczicpcIjSlxmMXbTJIsdbmWyrhMisv0tPBHnWrbgkMUR5ya24Pv1UBHyHtmRKEvfxQ0slVIBJhqo7aSft2N181YIhgauMRQ6q88cRn58W5YIF/uDpCLN8TsQrOF03343Mv85ITunjRqxjdgF9rABv5QB+Ax33NmVCABzIcfV1Kmk40tAGi+UyD+VyImhCxmH+SbQhAMY74oNbZMKBeW0IgTM1O1fE/dBqrtb55ADYXtD6Yyq+D9yK008UcDOQwOAxbrhtugLsyZ3/TXhwGEsFC1ynr9BbMlfAGGCpAIcLXr/Tg3v41TVga+EFOCLuwxIyS1/B96SxID0JwHfpriizXlaD0VlNSDpnorNPsQUY5JtZnZT0RZYPFlm/mHyvii643+rGN5M1fFs4/RJXOM8VLEH6v3267XrcBqdintJHo7XpAAAAAElFTkSuQmCC)}
+.ai-select-wrap .provider-icon.anthropic{-webkit-mask-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g fill="%23000"><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(0 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(45 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(90 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(135 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(180 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(225 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(270 50 50)"/><rect x="44" y="12" width="12" height="34" rx="4" transform="rotate(315 50 50)"/><circle cx="50" cy="50" r="11"/></g></svg>')}
 #aiKeyWrap{margin-top:0}
 #aiKeyWrap .hf-inp{font-size:15px;padding:12px 17px}
 
@@ -510,10 +556,19 @@ select option{background:#04111a;color:#eef2f7}
 /* ═══════════════════════════════════
    STAGE — RESULTS
 ═══════════════════════════════════ */
-.stage{flex:1;height:100%;overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .4s ease .2s;min-width:0;padding:22px}
+.stage{flex:1;height:100%;overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .4s ease .2s;min-width:0;padding:22px;position:relative}
 .stage::-webkit-scrollbar{width:3px}
 .stage::-webkit-scrollbar-thumb{background:rgba(92,214,255,.22);border-radius:2px}
 .root.active .stage{opacity:1;pointer-events:all}
+/* From search-start until the stream's first "start" event, the real bars/
+   log/results are either empty or not-yet-created — a bare blank pane read
+   as "did my click even register?". Showing the eventual layout blurred,
+   with one big centered spinner on top, answers that instead of silence. */
+.stage-loading-overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:5}
+.stage.loading-skel .stage-loading-overlay{display:flex}
+.stage.loading-skel #srcBars,
+.stage.loading-skel .log-box,
+.stage.loading-skel #results{filter:blur(6px);pointer-events:none;user-select:none}
 
 .sbars{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .sbar{flex:1;min-width:70px;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);transition:border-color .22s,background .22s}
@@ -539,7 +594,10 @@ select option{background:#04111a;color:#eef2f7}
 .le.err .le-m{color:var(--red)}
 
 /* Result cards */
-.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+/* align-items:start — grid's default (stretch) was forcing every short
+   3-line card to match the height of the tallest card in its row (e.g. a
+   long AI/avatar-match card), instead of sizing to its own content. */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
 .rcard{
   background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.06);border-radius:var(--r);padding:22px;
@@ -547,6 +605,11 @@ select option{background:#04111a;color:#eef2f7}
 }
 .rcard:hover{border-color:rgba(92,214,255,.2);background:rgba(92,214,255,.05)}
 .rcard.err{border-color:rgba(255,60,85,.2);background:rgba(255,40,70,.05)}
+/* Was applied as a class with no matching rule at all — the AI portrait
+   card rendered as one more single-column cell instead of the full-width
+   row it was named for. */
+.rcard-ai-wide{grid-column:1/-1}
+.rcard-skel{display:flex;align-items:center;justify-content:center;min-height:110px;opacity:.55}
 
 .rbadge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:6px;margin-bottom:14px}
 .rb-vk{background:rgba(80,130,255,.1);color:#7ea8ff;border:1px solid rgba(80,130,255,.22)}
@@ -635,6 +698,54 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
 .vk-name{font-size:22px;font-weight:700;color:var(--t1);margin-bottom:4px;font-family:'Bricolage Grotesque',sans-serif}
 .vk-id{font-size:13px;color:var(--a);margin-bottom:6px;font-family:'JetBrains Mono',monospace}
 .vk-status{font-size:14px;color:var(--t2);font-style:italic;max-width:260px;line-height:1.45;margin-bottom:4px}
+
+.rcard-tg{display:flex;flex-direction:column;align-items:center;text-align:center}
+.tg-av{width:90px;height:90px;border-radius:50%;object-fit:cover;border:2px solid rgba(92,214,255,.3);margin-bottom:12px;cursor:zoom-in;transition:transform .15s ease}
+.tg-av:hover{transform:scale(1.05)}
+.tg-av-ph{width:90px;height:90px;border-radius:50%;background:rgba(92,214,255,.06);border:2px solid rgba(92,214,255,.2);display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:12px}
+.tg-name{font-size:20px;font-weight:700;color:var(--t1);margin-bottom:2px;font-family:'Bricolage Grotesque',sans-serif}
+.tg-user{font-size:13px;color:var(--a);margin-bottom:8px;font-family:'JetBrains Mono',monospace}
+.tg-bio{font-size:13px;color:var(--t2);line-height:1.5;max-width:280px;margin-bottom:14px}
+.tg-link{font-size:12px;color:var(--a);text-decoration:none;font-family:'JetBrains Mono',monospace;padding:8px 16px;border:1px solid rgba(92,214,255,.25);border-radius:8px;transition:background .15s ease,border-color .15s ease}
+.tg-link:hover{background:rgba(92,214,255,.08);border-color:rgba(92,214,255,.45)}
+.mg-tg-row{grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap}
+/* Telegram previously had flex:1 with nothing capping it — the moment it
+   wrapped onto its own line (any time Maigret's chip grid was wide enough
+   to fill the first line by itself), flex:1 stretched a single small
+   avatar card to the full row width. Capped growth instead: it still
+   shares the line with Maigret when there's room, but never balloons. */
+.mg-tg-row .rcard-tg{flex:0 1 300px;min-width:260px;max-width:340px}
+.mg-tg-row>.rcard:not(.rcard-tg){flex:2 1 420px}
+
+/* Full-size avatar viewer — any .avatar-zoomable img opens here on click */
+.avatar-zoomable{cursor:zoom-in}
+.avatar-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(2,7,12,.88);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s ease}
+.avatar-lightbox.open{opacity:1;pointer-events:auto}
+.avatar-lightbox img{max-width:min(90vw,560px);max-height:85vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1)}
+.avatar-lightbox-close{position:absolute;top:24px;right:28px;width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:18px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease}
+.avatar-lightbox-close:hover{background:rgba(255,255,255,.18)}
+
+.alt-user-pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:6px 12px;border-radius:20px;
+  background:rgba(92,214,255,.07);border:1px solid rgba(92,214,255,.22);color:var(--a);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;transition:background .15s ease,border-color .15s ease}
+.alt-user-pill:hover{background:rgba(92,214,255,.14);border-color:rgba(92,214,255,.4)}
+.alt-user-pill.searching{opacity:.5;pointer-events:none}
+.alt-user-pill.guess{background:rgba(255,184,92,.08);border-color:rgba(255,184,92,.28);color:#ffb85c}
+.alt-user-pill.guess:hover{background:rgba(255,184,92,.16);border-color:rgba(255,184,92,.45)}
+.alt-user-tier-label{width:100%;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);margin:8px 0 2px}
+.alt-user-tier-label:first-child{margin-top:0}
+.alt-result-section{border:1px solid rgba(92,214,255,.12);border-left:3px solid rgba(92,214,255,.4);border-radius:var(--r);padding:16px 18px;margin-top:24px;
+  background:rgba(92,214,255,.02);animation:fadeUp .3s ease}
+.alt-result-section+.alt-result-section{margin-top:28px}
+.alt-result-header{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;
+  font-weight:700;color:var(--t1);font-family:'Bricolage Grotesque',sans-serif}
+.alt-result-status{font-size:12px;font-weight:400;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.alt-result-body{margin-top:10px}
+.alt-result-divider{height:1px;background:rgba(92,214,255,.12);margin-top:2px}
 .fld-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
 .tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .tag{font-size:12px;padding:3px 9px;background:rgba(92,214,255,.06);border:1px solid rgba(92,214,255,.16);border-radius:20px;color:var(--t3)}
@@ -668,6 +779,14 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
 .modal-field label a{color:rgba(92,214,255,.6);text-decoration:none;transition:color .2s}
 .modal-field label a:hover{color:var(--a)}
 .modal-inp{width:100%;padding:12px 15px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;transition:border-color .22s,background .22s}
+.modal-inp:-webkit-autofill,.modal-inp:-webkit-autofill:hover,
+.modal-inp:-webkit-autofill:focus,.modal-inp:-webkit-autofill:active{
+  -webkit-text-fill-color:var(--t1) !important;
+  -webkit-box-shadow:0 0 0 1000px #0c1821 inset !important;
+  box-shadow:0 0 0 1000px #0c1821 inset !important;
+  caret-color:var(--t1);
+  transition:background-color 5000s ease-in-out 0s;
+}
 .modal-inp:focus{border-color:rgba(92,214,255,.35);background:rgba(92,214,255,.05)}
 .modal-inp::placeholder{color:rgba(255,255,255,.2)}
 .modal-divider{height:1px;background:rgba(92,214,255,.1);margin:20px 0}
@@ -701,8 +820,8 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
 @media (max-height:750px){
   .hero-left{padding:20px 58px;gap:22px}
   .hero-cat-big{
-  position:absolute;right:100px;top:calc(50% - 320px);
-  width:380px;height:380px;
+  position:absolute;left:62%;transform:translateX(-50%);top:calc(50% - 320px);
+  width:clamp(180px,19.8cqw,380px);height:clamp(180px,19.8cqw,380px);
   object-fit:contain;
   mix-blend-mode:screen;
   opacity:.88;
@@ -711,7 +830,7 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
   animation:catFloat 6s ease-in-out infinite;
   z-index:2;
 }
-  .hero-title{font-size:clamp(52px,7.5vw,108px)}
+  .hero-title{font-size:clamp(52px,7.5cqw,108px)}
   .hero-sub{font-size:13px}
   .hero-badge-wrap{padding:9px 22px;font-size:10px}
   .stat-item{padding:14px 24px}
@@ -728,8 +847,8 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
 @media (max-height:650px){
   .hero-left{padding:16px 46px;gap:16px}
   .hero-cat-big{
-  position:absolute;right:100px;top:calc(50% - 320px);
-  width:380px;height:380px;
+  position:absolute;left:62%;transform:translateX(-50%);top:calc(50% - 320px);
+  width:clamp(180px,19.8cqw,380px);height:clamp(180px,19.8cqw,380px);
   object-fit:contain;
   mix-blend-mode:screen;
   opacity:.88;
@@ -738,7 +857,7 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
   animation:catFloat 6s ease-in-out infinite;
   z-index:2;
 }
-  .hero-title{font-size:clamp(44px,8vw,90px);line-height:.9}
+  .hero-title{font-size:clamp(44px,8cqw,90px);line-height:.9}
   .hero-right{padding:16px 36px;gap:12px}
   .hf-inp{padding:11px 14px;font-size:14px}
   .hf-btn{padding:11px 18px;font-size:14px}
@@ -884,7 +1003,7 @@ void main(){
         <div id="bothGroup" class="collapsible"><div class="collapsible-inner"><div class="hf-label" data-i18n="label_email" style="margin-bottom:8px">email</div>
           <div class="hf-row"><input class="hf-inp" id="queryEmail" type="text" placeholder="user@example.com" onkeydown="if(event.key==='Enter')doSearch()" style="flex:1"></div></div>
         </div>
-        <button class="hf-btn" id="searchBtn" onclick="doSearch()" data-i18n="btn_search" style="width:100%;margin-top:12px">Search &#x2192;</button>
+        <button class="hf-btn" id="searchBtn" onclick="doSearch()" data-i18n="btn_search" style="width:100%;margin-top:12px">Search &#x2192;<span class="tool-spinner"></span></button>
       </div>
       <div class="hf-group">
         <div class="hf-label" data-i18n="label_type">search type</div>
@@ -900,7 +1019,7 @@ void main(){
           <div class="hf-toggle on" data-src="vk" onclick="toggleSrc(this)"><div class="hf-dot"></div><span>VKontakte</span></div>
           <div class="hf-toggle on" data-src="maigret" onclick="toggleSrc(this)"><div class="hf-dot"></div><span>Maigret</span></div>
         </div>
-        <div class="hf-limit-row"><input type="range" id="siteLimit" min="10" max="500" value="100" step="10" oninput="updateSlider(this)" style="flex:1"><span class="hf-limit-val" id="limitVal">100</span><button class="unlim-btn" id="unlimBtn" onclick="toggleUnlim()" title="All sites (no limit)">∞</button></div>
+        <div class="hf-limit-row"><input type="range" class="ur-range" id="siteLimit" min="10" max="500" value="100" step="10" oninput="updateSlider(this);if(window.urUpdateTrack)urUpdateTrack(this)" style="flex:1"><span class="hf-limit-val" id="limitVal">100</span><button class="unlim-btn" id="unlimBtn" onclick="toggleUnlim()" title="All sites (no limit)">∞</button></div>
       </div>
       <div class="hf-group">
         <div class="ai-toggle-wrap">
@@ -912,11 +1031,16 @@ void main(){
           </label>
         </div>
         <div class="ai-body" id="aiBody">
-          <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
-            <option value="" data-i18n="ai_disabled">— disabled —</option>
-            <option value="anthropic">Claude (Anthropic)</option>
-            <option value="gemini">Gemini (Google)</option>
-          </select>
+          <div class="ai-select-wrap">
+            <span class="provider-icon" id="providerIcon"></span>
+            <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
+              <option value="" data-i18n="ai_disabled">— disabled —</option>
+              <option value="mistral">Mistral (Recommended)</option>
+              <option value="anthropic">Claude (Anthropic)</option>
+              <option value="gemini">Gemini (Google)</option>
+              <option value="deepseek">DeepSeek</option>
+            </select>
+          </div>
           <div id="aiKeyHint" style="display:none;font-size:12px;color:rgba(255,200,80,.8);font-family:'JetBrains Mono',monospace;margin-top:5px">
             ⚠ No key saved — open <a href="#" onclick="openSettings();return false;" style="color:#5cd6ff">⚙ Settings</a>
           </div>
@@ -938,6 +1062,11 @@ void main(){
     <input id="query2" placeholder="new query..." type="text" data-i18n-placeholder="placeholder_query2" style="margin-bottom:8px;font-size:16px;padding:13px 15px" onkeydown="if(event.key==='Enter')doSearch2()">
     <button class="btn btn-p" id="searchBtn2" onclick="doSearch2()" style="padding:13px;font-size:16px;margin-top:0" data-i18n="btn_search">Search →</button>
   </div>
+  <div class="card" id="altUserCard" style="margin-bottom:10px;display:none">
+    <div class="sec-title">Alt accounts</div>
+    <button class="btn btn-g" id="altUserBtn" onclick="searchAltUsers()" style="width:100%;font-size:13px;padding:10px;margin-top:0">🔍 Search another user's account</button>
+    <div id="altUserBox" style="display:none;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
+  </div>
   <div class="card" style="margin-bottom:10px">
     <div class="sec-title" data-i18n="sec_sources">Sources</div>
     <div class="src-toggle on" data-src="vk" onclick="toggleSrc(this)"><div class="src-label" style="font-size:16px">VKontakte</div><div class="pill"></div></div>
@@ -949,10 +1078,10 @@ void main(){
       <span class="sb-limit-label" data-i18n="sb_sites">Sites</span>
       <span class="slider-val" id="limitVal2">100</span>
     </div>
-    <input type="range" id="siteLimit2" min="10" max="500" value="100" step="10" oninput="updateSlider2(this)" style="width:100%;margin-top:10px">
+    <input type="range" class="ur-range" id="siteLimit2" min="10" max="500" value="100" step="10" oninput="updateSlider2(this);if(window.urUpdateTrack)urUpdateTrack(this)" style="width:100%;margin-top:10px">
   </div>
 </div>
-  <div class="stage" id="stage"><div class="sbars" id="srcBars"></div><div class="log-box" style="margin-bottom:16px"><div class="log-top"><div class="log-live"></div>Search log</div><div class="log-lines" id="logBox"></div></div><div id="results"></div></div>
+  <div class="stage" id="stage"><div class="stage-loading-overlay" id="stageLoadingOverlay"><span class="tool-spinner" data-size="56" style="width:56px;height:56px"></span></div><div class="sbars" id="srcBars"></div><div class="log-box" style="margin-bottom:16px"><div class="log-top"><div class="log-live"></div>Search log</div><div class="log-lines" id="logBox"></div></div><div id="results"></div></div>
 </div>
 <div class="lang-switcher" id="langSwitcher">
   <button class="lang-btn" id="langRU" onclick="setLang('ru')">🇷🇺 RU</button>
@@ -1055,13 +1184,35 @@ function setLang(lang){
 // Listen for language changes pushed from the parent dashboard (e.g. Settings tab)
 window.addEventListener("message", (e)=>{
   if(e.data && e.data.type === "kiki-lang" && e.data.lang !== currentLang) setLang(e.data.lang);
+  if(e.data && e.data.type === "kiki-theme" && e.data.accent) applyTheme(e.data.accent, !!e.data.glass);
 });
+
+function osintHexToRgba(hex,alpha){
+  var n=parseInt(hex.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return 'rgba('+r+','+g+','+b+','+alpha+')';
+}
+function applyTheme(accent, glass){
+  var root = document.documentElement.style;
+  root.setProperty('--a', accent);
+  root.setProperty('--a2', osintHexToRgba(accent,.18));
+  root.setProperty('--a3', osintHexToRgba(accent,.08));
+  root.setProperty('--a4', osintHexToRgba(accent,.04));
+  root.setProperty('--ab', osintHexToRgba(accent,.28));
+  document.documentElement.classList.toggle('liquid-glass', glass);
+  try{ localStorage.setItem('kiki_theme_accent', accent); localStorage.setItem('kiki_theme_glass', glass?'1':'0'); }catch(e){}
+}
 
 // Apply the globally-saved language (falls back to English) on load
 document.addEventListener("DOMContentLoaded",()=>{
   let lang = "en";
   try{ lang = localStorage.getItem("kiki_lang") || "en"; }catch(e){}
   setLang(lang);
+  let accent = "#5cd6ff", glass = false;
+  try{
+    accent = localStorage.getItem("kiki_theme_accent") || accent;
+    glass = localStorage.getItem("kiki_theme_glass") === "1";
+  }catch(e){}
+  applyTheme(accent, glass);
 });
 
 // Spotlight border — tracks pointer position over cards for a soft cyan glow
@@ -1162,6 +1313,8 @@ document.addEventListener("DOMContentLoaded",()=>{
 function showProgress(show){
   const pb=document.getElementById("searchProgress");
   if(pb)pb.classList.toggle("active",show);
+  const stage=document.getElementById("stage");
+  if(stage) stage.classList.toggle("loading-skel",show);
 }
 
 function updateSlider(el){
@@ -1251,12 +1404,19 @@ function toggleAiEnabled(){
   if(body) body.classList.toggle("collapsed", !enabled);
 }
 
+function updateProviderIcon(provider){
+  const icon = document.getElementById("providerIcon");
+  if(!icon) return;
+  icon.className = "provider-icon" + (provider ? " "+provider+" show" : "");
+}
+
 function toggleAiKey(){
   const provider = document.getElementById("aiProvider").value;
+  updateProviderIcon(provider);
   const hint = document.getElementById("aiKeyHint");
   if(!provider || !hint) return;
   // Check if key is saved for this provider
-  const keyMap = {gemini:"GEMINI_API_KEY", anthropic:"ANTHROPIC_API_KEY"};
+  const keyMap = {gemini:"GEMINI_API_KEY", anthropic:"ANTHROPIC_API_KEY", deepseek:"DEEPSEEK_API_KEY", mistral:"MISTRAL_API_KEY"};
   const field = keyMap[provider];
   // We know key status from last loadSavedKeys call
   const el = document.getElementById("status-ai");
@@ -1264,7 +1424,7 @@ function toggleAiKey(){
   hint.style.display = (provider && !hasKey) ? "block" : "none";
 }
 
-const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP",telegram:"Telegram",github:"GitHub",gravatar:"Gravatar",github_email:"GitHub",email_domain:"Domain",emailrep:"EmailRep",skype:"Skype/MS",protonmail:"ProtonMail",google_account:"Google",twitter_email:"X / Twitter"};
+const srcLabels={vk:"VK",maigret:"Maigret",ai:"AI",holehe:"Holehe",hibp:"HIBP",telegram:"Telegram",github:"GitHub",gravatar:"Gravatar",github_email:"GitHub",email_domain:"Domain",emailrep:"EmailRep",skype:"Skype/MS",protonmail:"ProtonMail",google_account:"Google",twitter_email:"X / Twitter",ip:"IP"};
 let bars={};
 
 function initBars(sources){
@@ -1278,6 +1438,30 @@ function initBars(sources){
     d.innerHTML='<div class="sbar-name">'+(srcLabels[s]||s)+'</div><div class="sbar-st">waiting</div>';
     cont.appendChild(d);bars[s]=d;
   });
+  // Skeleton placeholder per pending source — otherwise the results area
+  // stays visually empty until the first hit streams in, even though half
+  // a dozen checks are already running. renderResult() removes the
+  // matching skeleton once that source's real card lands.
+  const resCont=document.getElementById("results");
+  if(resCont){
+    let grid=resCont.querySelector(".rgrid");
+    if(!grid){grid=document.createElement("div");grid.className="rgrid";resCont.appendChild(grid);}
+    sources.forEach(s=>{
+      if(s==="ai")return;
+      const sk=document.createElement("div");
+      sk.className="rcard rcard-skel";sk.id="skel-"+s;
+      sk.innerHTML='<span class="tool-spinner" data-size="28"></span>';
+      grid.appendChild(sk);
+    });
+    if(typeof m3InitSpinners==="function") m3InitSpinners();
+  }
+}
+// A source that comes back "not found" only ever updates its status chip —
+// no result event fires, so renderResult() never gets a chance to remove
+// that source's skeleton. Sweep whatever's left once a search fully wraps
+// up instead of leaving those spinning forever.
+function clearStaleSkeletons(){
+  document.querySelectorAll(".rcard-skel").forEach(el=>el.remove());
 }
 
 function setBar(src,state,msg){
@@ -1304,6 +1488,9 @@ async function runSearch(q,sources,limit){
   document.getElementById("results").innerHTML="";
   renderedOnce.clear();
   allResults.length=0;
+  const altCard=document.getElementById("altUserCard"), altBox=document.getElementById("altUserBox");
+  if(altCard) altCard.style.display="none";
+  if(altBox){ altBox.style.display="none"; altBox.innerHTML=""; }
   const btn2=document.getElementById("searchBtn2");
   const btn=document.getElementById("searchBtn");
   if(btn2){btn2.textContent=currentLang==="ru"?"Идёт поиск...":"Searching...";btn2.disabled=true;}
@@ -1312,6 +1499,15 @@ async function runSearch(q,sources,limit){
   initBars(sources);
   log("Query: "+q+" ["+currentQueryType+"]");
   await runStream({query:q,sources,maigret_limit:limit,query_type:currentQueryType,ai_lang:document.getElementById("aiLang")?.value||"auto",ai_provider:(document.getElementById("aiEnabled")?.checked?document.getElementById("aiProvider")?.value:"")||""});
+  clearStaleSkeletons();
+  // runStream() itself never touches these — every single-search entry point
+  // (username/email/ip, both doSearch() and the sidebar's doSearch2()) goes
+  // through here, so this is the one place that must re-enable them, or
+  // they're stuck disabled/"Searching..." forever after the first search.
+  if(btn){btn.classList.remove("loading");btn.textContent=TRANSLATIONS[currentLang].btn_search;btn.disabled=false;}
+  if(btn2){btn2.textContent=TRANSLATIONS[currentLang].btn_search;btn2.disabled=false;}
+  showProgress(false);
+  if(allResults.length) showExportBar(q);
 }
 
 async function runStream(payload){
@@ -1337,10 +1533,14 @@ async function runStream(payload){
           if(evt==="start"){
             const qt=d.type||"username";
             if(currentQueryType!=="both"){
-              const srcs=qt==="email"?["holehe","hibp","gravatar","github_email","email_domain","emailrep","skype","protonmail","google_account","twitter_email"]:qt==="phone"?["phone","vk"]:getSources().concat(["telegram","github"]);
+              const srcs=qt==="email"?["holehe","hibp","gravatar","github_email","email_domain","emailrep","skype","protonmail","google_account","twitter_email"]:qt==="phone"?["phone","vk"]:qt==="ip"?["ip"]:getSources().concat(["telegram","github"]);
               initBars(srcs);
               document.querySelectorAll(".hf-seg-btn").forEach(e=>{e.classList.remove("on");if(e.dataset.src===qt)e.classList.add("on");});
             }
+            // The real layout (bars/log/results) is now known — drop the
+            // blurred placeholder rather than waiting for the whole search
+            // (which can run for a while) to finish.
+            document.getElementById("stage")?.classList.remove("loading-skel");
           }else if(evt==="progress"||evt==="status"){
             const src=d.source||d.src;const state=d.status||d.state;const msg=d.msg||d.message||"";
             if(src)setBar(src,state,msg);
@@ -1353,6 +1553,8 @@ async function runStream(payload){
           }else if(evt==="done"){
             log("Search complete","done");
             Object.keys(bars).forEach(k=>{const b=bars[k];if(b&&!b.className.includes("done")&&!b.className.includes("err"))setBar(k,"done","Done");});
+            const altCard=document.getElementById("altUserCard");
+            if(altCard && allResults.length) altCard.style.display="block";
           }
         }catch(e){}
       }
@@ -1373,6 +1575,9 @@ async function doSearch(){
     document.getElementById("logBox").innerHTML="";
     document.getElementById("results").innerHTML="";
     renderedOnce.clear(); allResults.length=0;
+    const altCard0=document.getElementById("altUserCard"), altBox0=document.getElementById("altUserBox");
+    if(altCard0) altCard0.style.display="none";
+    if(altBox0){ altBox0.style.display="none"; altBox0.innerHTML=""; }
     const btn=document.getElementById("searchBtn");
     const btn2=document.getElementById("searchBtn2");
     if(btn){btn.classList.add("loading");btn.disabled=true;}
@@ -1385,12 +1590,14 @@ async function doSearch(){
     // Init bars for both query types
     const allSrcs=sources.concat(["telegram","github","holehe","hibp","gravatar","github_email","email_domain","emailrep","skype","protonmail","google_account","twitter_email"]);
     initBars(allSrcs);
+    document.getElementById("stage")?.classList.remove("loading-skel");
     // Username search first
     await runStream({query:q,sources,maigret_limit:limit,query_type:"username",ai_lang:aiLang,ai_provider:""});
     // Email search second
     await runStream({query:qEmail,sources:[],maigret_limit:limit,query_type:"email",ai_lang:aiLang,ai_provider:""});
     // AI portrait with all collected data
     if(aiProvider) await runStream({query:q+" / "+qEmail,sources:[],maigret_limit:0,query_type:"both",ai_lang:aiLang,ai_provider:aiProvider});
+    clearStaleSkeletons();
     if(btn){btn.classList.remove("loading");btn.textContent=TRANSLATIONS[currentLang].btn_search;btn.disabled=false;}
     if(btn2){btn2.textContent=TRANSLATIONS[currentLang].btn_search;btn2.disabled=false;}
     showProgress(false);
@@ -1405,6 +1612,9 @@ async function doSearch(){
       e.classList.remove("on");
       if(e.dataset.src==="email")e.classList.add("on");
     });
+  } else if(/^(\d{1,3}\.){3}\d{1,3}$/.test(q)){
+    currentQueryType="ip";
+    document.querySelectorAll(".hf-seg-btn").forEach(e=>e.classList.remove("on"));
   } else {
     currentQueryType="username";
     document.querySelectorAll(".hf-seg-btn").forEach(e=>{
@@ -1429,17 +1639,123 @@ async function doSearch2(){
   await runSearch(q,sources,limit);
 }
 
+// ─── Alt-account suggestions — AI infers OTHER usernames the same person
+// plausibly uses (grounded in the already-collected data, not guesswork),
+// each suggestion is a clickable pill; clicking runs a real search whose
+// summary gets appended below the current results rather than replacing them.
+async function searchAltUsers(){
+  if(!allResults.length) return;
+  const btn=document.getElementById("altUserBtn"), box=document.getElementById("altUserBox");
+  const origLabel=btn.textContent;
+  btn.disabled=true; btn.textContent=currentLang==="ru"?"Ищу варианты…":"Finding candidates…";
+  const aiProvider=document.getElementById("aiEnabled")?.checked?document.getElementById("aiProvider")?.value:"";
+  const q=document.getElementById("query")?.value.trim()||document.getElementById("query2")?.value.trim()||"";
+  try{
+    const r=await fetch("/api/search/suggest_users",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({query:q,results:allResults,ai_provider:aiProvider,ai_lang:document.getElementById("aiLang")?.value||"auto"})});
+    const d=await r.json();
+    btn.disabled=false; btn.textContent=origLabel;
+    if(d.error){ alert(d.error); return; }
+    const confirmed=d.confirmed||[], guess=d.guess||[];
+    if(!confirmed.length&&!guess.length){
+      alert(currentLang==="ru"?"ИИ не нашёл реальных сигналов для альт-юзернеймов в собранных данных":"AI found no real signal for alt usernames in the gathered data");
+      return;
+    }
+    function pill(c,cls){
+      var u=(typeof c==="string"?c:c.username)||"";
+      var reason=(typeof c==="object"&&c.reason)||"";
+      var esc=u.replace(/'/g,"\\'");
+      return '<span class="alt-user-pill'+(cls?' '+cls:'')+'"'+(reason?' title="'+reason.replace(/"/g,"&quot;")+'"':'')+
+             ' onclick="runAltUserSearch(\''+esc+'\',this)">@'+u+'</span>';
+    }
+    var html="";
+    if(confirmed.length){
+      html+='<div class="alt-user-tier-label">'+(currentLang==="ru"?"Найдено в данных":"Found in data")+'</div>';
+      html+=confirmed.map(function(c){return pill(c,"")}).join("");
+    }
+    if(guess.length){
+      html+='<div class="alt-user-tier-label">'+(currentLang==="ru"?"Гипотеза ИИ — проверь вручную (Lens/TinEye/Yandex)":"AI guess — verify manually (Lens/TinEye/Yandex)")+'</div>';
+      html+=guess.map(function(c){return pill(c,"guess")}).join("");
+    }
+    box.innerHTML=html;
+    box.style.display="flex";
+    box.style.flexWrap="wrap";
+  }catch(e){
+    btn.disabled=false; btn.textContent=origLabel;
+    alert("Error: "+e.message);
+  }
+}
+
+async function runAltUserSearch(username,pillEl){
+  if(pillEl) pillEl.classList.add("searching");
+  const section=document.createElement("div");
+  section.className="alt-result-section";
+  section.innerHTML='<div class="alt-result-header"><span>@'+username+'</span><span class="alt-result-status">'+
+    (currentLang==="ru"?"поиск…":"searching…")+'</span></div><div class="alt-result-body"></div>';
+  document.getElementById("results").appendChild(section);
+  section.scrollIntoView({behavior:"smooth",block:"nearest"});
+  const statusEl=section.querySelector(".alt-result-status");
+  const bodyEl=section.querySelector(".alt-result-body");
+  const found=[];
+  try{
+    const resp=await fetch("/api/search/stream",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({query:username,sources:getSources(),maigret_limit:getLimit(),query_type:"username",ai_lang:"auto",ai_provider:""})});
+    const reader=resp.body.getReader(), dec=new TextDecoder();
+    let buf="";
+    while(true){
+      const{done,value}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const parts=buf.split("\n\n");buf=parts.pop();
+      for(const p of parts){
+        if(!p.trim())continue;
+        const line=p.startsWith("data:")?p.slice(5).trim():p.trim();
+        if(!line)continue;
+        try{
+          const ev=JSON.parse(line);
+          if(ev.event==="result"&&ev.data&&ev.data.source&&ev.data.data&&!ev.data.data.error){
+            found.push(ev.data.source);
+          }
+        }catch(e){}
+      }
+    }
+  }catch(e){}
+  if(pillEl) pillEl.classList.remove("searching");
+  statusEl.textContent=found.length
+    ? (currentLang==="ru"?"найдено на: ":"found on: ")+found.join(", ")
+    : (currentLang==="ru"?"ничего не найдено":"nothing found");
+  bodyEl.innerHTML='<div class="alt-result-divider"></div>';
+  // The scrollIntoView on creation targets an almost-empty shell — by the
+  // time the real content above/around it has streamed in and pushed the
+  // page taller, that scroll position is stale and the finished section
+  // can sit well past the viewport with no further nudge. Re-aim now that
+  // its final height/position is known.
+  section.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
 const renderedOnce=new Set();
 const allResults=[];
+
+// Keeps still-pending skeletons trailing at the end instead of sandwiching
+// them between already-finished cards — a result that lands while other
+// sources are still running gets inserted before the first remaining
+// skeleton rather than always at the grid's current end.
+function appendResultCard(grid, card){
+  const firstSkel = grid.querySelector(".rcard-skel");
+  if(firstSkel) grid.insertBefore(card, firstSkel);
+  else grid.appendChild(card);
+}
 
 function renderResult(d){
   const cont=document.getElementById("results");
   let grid=cont.querySelector(".rgrid");
   if(!grid){grid=document.createElement("div");grid.className="rgrid";cont.appendChild(grid);}
   const src=d.source;
+  const skel=document.getElementById("skel-"+src);
+  if(skel)skel.remove();
   const data=d.data||d;
   // Deduplicate single-result sources
-  const singleSources=["telegram","holehe","hibp","gravatar","github_email","email_domain","github","maigret","emailrep","skype","protonmail","google_account","twitter_email"];
+  const singleSources=["telegram","holehe","hibp","gravatar","github_email","email_domain","github","maigret","emailrep","skype","protonmail","google_account","twitter_email","ip"];
   if(singleSources.includes(src)){
     if(renderedOnce.has(src))return;
     renderedOnce.add(src);
@@ -1457,16 +1773,16 @@ function renderResult(d){
         'API key required &mdash; get it at<br>'+
         '<a href="https://haveibeenpwned.com/API/Key" target="_blank" style="color:#ff6b6b;text-decoration:none;font-family:\'JetBrains Mono\',monospace;font-size:13px">haveibeenpwned.com/API/Key</a>'+
         '<br><span style="font-size:12px;color:rgba(255,255,255,.3)">Then add it in ⚙ Settings</span></div>';
-      grid.appendChild(card);return;
+      appendResultCard(grid,card);return;
     }
     card.className="rcard err";
     card.innerHTML='<div class="rbadge" style="background:rgba(255,68,102,.1);color:#ff6b6b;border-color:rgba(255,68,102,.2)">'+(src||"?")+'</div><div class="errmsg">'+data.error+'</div>';
-    grid.appendChild(card);return;
+    appendResultCard(grid,card);return;
   }
 
   if(src==="vk"){
     card.className="rcard rcard-vk";
-    const avatar=data.photo?'<img class="vk-av" src="'+data.photo+'">':'<div class="vk-av vk-av-empty">👤</div>';
+    const avatar=data.photo?'<img class="vk-av avatar-zoomable" src="'+data.photo+'" onclick="openAvatarLightbox(\''+data.photo+'\')">':'<div class="vk-av vk-av-empty">👤</div>';
     const idStr=data.domain?"@"+data.domain:data.id?"id"+data.id:"";
     card.innerHTML=
       '<div class="rbadge rb-vk">VK</div>'+
@@ -1492,7 +1808,7 @@ function renderResult(d){
 
   }else if(src==="telegram"){
     card.className="rcard rcard-tg";
-    const av=data.photo?'<img class="tg-av" src="'+data.photo+'">':'<div class="tg-av tg-av-ph">✈</div>';
+    const av=data.photo?'<img class="tg-av avatar-zoomable" src="'+data.photo+'" onclick="openAvatarLightbox(\''+data.photo+'\')">':'<div class="tg-av tg-av-ph">✈</div>';
     card.innerHTML=
       av+
       '<div class="tg-name">'+(data.name||data.username||"—")+'</div>'+
@@ -1590,7 +1906,7 @@ function renderResult(d){
   }else if(src==="github_email"){
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(255,255,255,.08);color:#e6edf3;border-color:rgba(255,255,255,.15)">GitHub</div>'+
-      (data.avatar?'<img src="'+data.avatar+'" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
+      (data.avatar?'<img class="avatar-zoomable" src="'+data.avatar+'" onclick="openAvatarLightbox(\''+data.avatar+'\')" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
       '<div class="hit-n">'+data.name+'</div>'+
       '<div class="hit-s">@'+data.username+(data.location?' · '+data.location:'')+'</div>'+
       (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
@@ -1627,7 +1943,7 @@ function renderResult(d){
     const repos=data.repos||[];
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(255,255,255,.08);color:#e6edf3;border-color:rgba(255,255,255,.15)">GitHub</div>'+
-      (data.avatar?'<img src="'+data.avatar+'" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
+      (data.avatar?'<img class="avatar-zoomable" src="'+data.avatar+'" onclick="openAvatarLightbox(\''+data.avatar+'\')" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
       '<div class="hit-n">'+data.name+'</div>'+
       '<div class="hit-s">@'+data.username+(data.location?' · '+data.location:'')+'</div>'+
       (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
@@ -1644,12 +1960,34 @@ function renderResult(d){
       '<div class="divider"></div>'+
       '<a href="'+data.url+'" target="_blank" class="tg-link">Open GitHub ↗</a>';
 
+  }else if(src==="ip"){
+    card.className="rcard";
+    const flags=[];
+    if(data.is_proxy)   flags.push({t:"⚠ Proxy/VPN",c:"#ff6b6b"});
+    if(data.is_hosting) flags.push({t:"☁ Hosting/DC",c:"#f0c040"});
+    if(data.is_mobile)  flags.push({t:"📱 Mobile",c:"#6eb4ff"});
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(100,200,255,.08);color:#6eb4ff;border-color:rgba(100,200,255,.2)">IP Geolocation</div>'+
+      '<div class="hit-n" style="font-size:18px">'+(data.ip||"—")+'</div>'+
+      '<div class="hit-s">'+(data.city||"?")+', '+(data.region||"?")+', '+(data.country||"?")+'</div>'+
+      (flags.length?'<div style="display:flex;gap:8px;margin:8px 0">'+flags.map(f=>'<span style="font-size:11px;color:'+f.c+'">'+f.t+'</span>').join("")+'</div>':'')+
+      '<div class="divider"></div>'+
+      '<table style="width:100%;font-size:13px;font-family:\'JetBrains Mono\',monospace;border-collapse:collapse">'+
+        (data.isp?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0;width:110px">ISP</td><td style="color:#fff">'+data.isp+'</td></tr>':'')+
+        (data.org?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">Org</td><td style="color:#fff">'+data.org+'</td></tr>':'')+
+        (data.asn?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">ASN</td><td style="color:#fff">'+data.asn+'</td></tr>':'')+
+        (data.reverse_dns?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">rDNS</td><td style="color:#fff">'+data.reverse_dns+'</td></tr>':'')+
+        (data.timezone?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">Timezone</td><td style="color:#fff">'+data.timezone+'</td></tr>':'')+
+        ((data.lat!=null&&data.lon!=null)?'<tr><td style="color:rgba(255,255,255,.4);padding:3px 0">Coords</td><td style="color:#fff">'+data.lat+', '+data.lon+'</td></tr>':'')+
+      '</table>'+
+      ((data.lat!=null&&data.lon!=null)?'<div class="divider"></div><a href="https://www.google.com/maps?q='+data.lat+','+data.lon+'" target="_blank" class="tg-link">Open in Maps ↗</a>':'');
+
   }else if(src==="gravatar"){
     const accs=data.accounts||[];
     const urls=data.urls||[];
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(26,150,255,.1);color:#6eb4ff;border-color:rgba(26,150,255,.25)">Gravatar</div>'+
-      (data.avatar?'<img src="'+data.avatar+'" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
+      (data.avatar?'<img class="avatar-zoomable" src="'+data.avatar+'" onclick="openAvatarLightbox(\''+data.avatar+'\')" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
       '<div class="hit-n">'+(data.name||data.username||"—")+'</div>'+
       (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
       (data.location?'<div style="font-size:13px;color:rgba(255,255,255,.4)">📍 '+data.location+'</div>':'')+
@@ -1772,15 +2110,19 @@ function renderResult(d){
     let i=0;
     while(i<lines.length){
       const line=lines[i].trimEnd();
-      // H2/H3 — section title
-      if(/^#{1,3}\s/.test(line)){
+      // Any markdown heading depth — models routinely go to #### for
+      // numbered subsections ("#### 1. Personality Traits"), and capping
+      // this at H3 meant those never matched, so every subsection after
+      // the first got silently folded into one wall of bullets under a
+      // single title instead of getting its own boxed section.
+      if(/^#{1,6}\s/.test(line)){
         const title=line.replace(/^#+\s*/,'');
         html+='<div class="ai-section"><div class="ai-sec-title">'+parseMd(title)+'</div>';
         // collect following content until next heading or end
         let body='';
         i++;
         let ulItems=[];
-        while(i<lines.length&&!/^#{1,3}\s/.test(lines[i])){
+        while(i<lines.length&&!/^#{1,6}\s/.test(lines[i])){
           const l=lines[i].trimEnd();
           if(/^\s*[\*\-]\s/.test(l)){
             if(body){html+='<div class="ai-para">'+parseMd(body.trim())+'</div>';body='';}
@@ -1835,9 +2177,39 @@ function renderResult(d){
     </div>`;
 
     card.innerHTML=html;
+
+  }else if(src==="avatar_match"){
+    card.className="rcard";
+    const clusters=data.clusters||[];
+    const links=data.links||[];
+    if(!links.length)return;
+    card.innerHTML=
+      '<div class="rbadge" style="background:rgba(92,214,255,.1);color:#5cd6ff;border-color:rgba(92,214,255,.25)">🖼 Avatar Match</div>'+
+      (clusters.length?clusters.map(c=>
+        '<div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+          '<div style="display:flex">'+c.avatars.map((u,i)=>
+            '<img class="avatar-zoomable" src="'+u+'" onclick="openAvatarLightbox(\''+u+'\')" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.15)'+(i>0?';margin-left:-10px':'')+'">'
+          ).join('')+'</div>'+
+          '<div style="font-size:13px;color:rgba(255,255,255,.7)">Same photo across: <b style="color:#5cd6ff">'+c.sources.join(' + ')+'</b></div>'+
+        '</div>'
+      ).join(''):'<div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,.4)">No shared avatars across sources</div>')+
+      '<div class="divider"></div>'+
+      '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:10px">Reverse image search</div>'+
+      '<div style="display:flex;flex-direction:column;gap:10px">'+
+      links.map(l=>
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+          '<img class="avatar-zoomable" src="'+l.avatar+'" onclick="openAvatarLightbox(\''+l.avatar+'\')" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">'+
+          '<span style="font-size:11px;color:rgba(255,255,255,.4);font-family:\'JetBrains Mono\',monospace">'+l.source+'</span>'+
+          l.engines.map(e=>
+            '<a href="'+e.search_url+'" target="_blank" rel="noopener" style="font-size:11px;padding:3px 9px;border-radius:6px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.7);text-decoration:none;white-space:nowrap">'+e.name+'</a>'
+          ).join('')+
+        '</div>'
+      ).join('')+
+      '</div>';
+
   }else{return;}
 
-  grid.appendChild(card);
+  appendResultCard(grid,card);
 }
 
 /* ════ EXPORT ════ */
@@ -1968,7 +2340,7 @@ async function initSettings(){
   if(!keys) return;
   // Populate fields with masked values
   const fields=["VK_TOKEN",
-                 "GEMINI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"];
+                 "GEMINI_API_KEY","ANTHROPIC_API_KEY","DEEPSEEK_API_KEY","MISTRAL_API_KEY","HIBP_API_KEY"];
   fields.forEach(f=>{
     const el=document.getElementById("sk_"+f);
     if(el && keys[f]) el.placeholder=keys[f]; // show masked value as placeholder
@@ -1980,8 +2352,10 @@ async function initSettings(){
   if(aiSel){
     const prev=aiSel.value;
     if(!prev){
-      if(keys.GEMINI_API_KEY && keys.GEMINI_API_KEY.length>5) aiSel.value="gemini";
+      if(keys.MISTRAL_API_KEY && keys.MISTRAL_API_KEY.length>5) aiSel.value="mistral";
+      else if(keys.GEMINI_API_KEY && keys.GEMINI_API_KEY.length>5) aiSel.value="gemini";
       else if(keys.ANTHROPIC_API_KEY && keys.ANTHROPIC_API_KEY.length>5) aiSel.value="anthropic";
+      else if(keys.DEEPSEEK_API_KEY && keys.DEEPSEEK_API_KEY.length>5) aiSel.value="deepseek";
     }
     toggleAiKey(); // show/hide hint based on current provider + key status
   }
@@ -1994,7 +2368,7 @@ async function initSettings(){
 function updateKeyStatuses(keys){
   const checks={
     "status-vk":  keys.VK_TOKEN,
-    "status-ai":  keys.GEMINI_API_KEY||keys.ANTHROPIC_API_KEY,
+    "status-ai":  keys.GEMINI_API_KEY||keys.ANTHROPIC_API_KEY||keys.DEEPSEEK_API_KEY||keys.MISTRAL_API_KEY,
     "status-hibp":keys.HIBP_API_KEY
   };
   Object.entries(checks).forEach(([id,val])=>{
@@ -2011,7 +2385,7 @@ function updateKeyStatuses(keys){
 async function onSaveSettings(){
   const obj={};
   ["VK_TOKEN",
-   "GEMINI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"].forEach(f=>{
+   "GEMINI_API_KEY","ANTHROPIC_API_KEY","DEEPSEEK_API_KEY","MISTRAL_API_KEY","HIBP_API_KEY"].forEach(f=>{
     const el=document.getElementById("sk_"+f);
     if(el && el.value.trim()) obj[f]=el.value.trim();
   });
@@ -2026,7 +2400,7 @@ async function onSaveSettings(){
     if(aiSel && aiSel.value){
       // Reload page AI config silently
       let newKey="";
-      const keyMap={gemini:"GEMINI_API_KEY",anthropic:"ANTHROPIC_API_KEY"};
+      const keyMap={gemini:"GEMINI_API_KEY",anthropic:"ANTHROPIC_API_KEY",deepseek:"DEEPSEEK_API_KEY",mistral:"MISTRAL_API_KEY"};
       const field=keyMap[aiSel.value];
       if(field && obj[field]) newKey=obj[field];
       if(newKey && aiKeyEl) aiKeyEl.value=newKey;
@@ -2050,6 +2424,15 @@ function closeResults(){
   if(exportBar) exportBar.remove();
   renderedOnce.clear();
   allResults.length=0;
+  const altCard=document.getElementById("altUserCard"), altBox=document.getElementById("altUserBox");
+  if(altCard) altCard.style.display="none";
+  if(altBox){ altBox.style.display="none"; altBox.innerHTML=""; }
+  // Closing mid-search (before runSearch()'s own reset runs) would otherwise
+  // leave these permanently disabled/stuck on "Searching..." — same failure
+  // mode as the missing reset that broke every completed single search.
+  const btn=document.getElementById("searchBtn"), btn2=document.getElementById("searchBtn2");
+  if(btn){btn.classList.remove("loading");btn.textContent=TRANSLATIONS[currentLang].btn_search;btn.disabled=false;}
+  if(btn2){btn2.textContent=TRANSLATIONS[currentLang].btn_search;btn2.disabled=false;}
 }
 
 // On page load
@@ -2093,12 +2476,20 @@ window.addEventListener("pageshow", function(){
     <div class="modal-section">
       <div class="modal-section-title">AI Analysis <span class="key-status missing" id="status-ai">not set</span></div>
       <div class="modal-field">
-        <label>Gemini API Key — <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com ↗</a> (free) (Recommended)</label>
+        <label>Mistral Key — <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai ↗</a> (free tier, works without VPN in RU, has vision for GEOINT) (Recommended)</label>
+        <input class="modal-inp" id="sk_MISTRAL_API_KEY" type="password" placeholder="...">
+      </div>
+      <div class="modal-field">
+        <label>Gemini API Key — <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com ↗</a> (free)</label>
         <input class="modal-inp" id="sk_GEMINI_API_KEY" type="password" placeholder="AIzaSy...">
       </div>
       <div class="modal-field">
         <label>Anthropic (Claude) Key — <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com ↗</a></label>
         <input class="modal-inp" id="sk_ANTHROPIC_API_KEY" type="password" placeholder="sk-ant-...">
+      </div>
+      <div class="modal-field">
+        <label>DeepSeek Key — <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com ↗</a> (cheap, works without VPN in RU)</label>
+        <input class="modal-inp" id="sk_DEEPSEEK_API_KEY" type="password" placeholder="sk-...">
       </div>
     </div>
     <div class="modal-divider"></div>
@@ -2313,6 +2704,43 @@ window.addEventListener('load', () => {
   });
 })();
 
+// ─── See-through desktop sync ────────────────────────────────────────
+// Same origin as the parent hub (127.0.0.1:PORT) means this document shares
+// its localStorage — no cross-document script injection needed, just react
+// to the native 'storage' event the parent's setDesktopTransparent() fires
+// when it writes kiki_desktop_transparent. Mirrors the parent's own
+// html.desktop-transparent CSS so this stays in sync even if this iframe
+// finishes loading after the parent already toggled the setting.
+(function(){
+  function applyTransparent(level){
+    var on = level && level !== 'off';
+    document.documentElement.classList.toggle('desktop-transparent', on);
+    document.documentElement.setAttribute('data-transparent-level', level || 'off');
+  }
+  applyTransparent(localStorage.getItem('kiki_desktop_transparent'));
+  window.addEventListener('storage', function(e){
+    if(e.key === 'kiki_desktop_transparent') applyTransparent(e.newValue);
+  });
+})();
+
+function openAvatarLightbox(url){
+  if(!url) return;
+  var box=document.getElementById('avatarLightbox');
+  if(!box){
+    box=document.createElement('div');
+    box.className='avatar-lightbox';box.id='avatarLightbox';
+    box.innerHTML='<div class="avatar-lightbox-close" onclick="closeAvatarLightbox()">✕</div><img id="avatarLightboxImg">';
+    box.addEventListener('click',function(e){if(e.target===box)closeAvatarLightbox();});
+    document.body.appendChild(box);
+  }
+  document.getElementById('avatarLightboxImg').src=url;
+  box.classList.add('open');
+}
+function closeAvatarLightbox(){
+  var box=document.getElementById('avatarLightbox');
+  if(box) box.classList.remove('open');
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAvatarLightbox();});
 </script>
 </body>
 </html>

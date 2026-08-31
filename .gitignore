@@ -1,6 +1,8 @@
 # Секреты — НИКОГДА не пушить!
 .env
 keys.json
+assistant_history.json
+assistant_sessions/
 *.session
 *.session-journal
 

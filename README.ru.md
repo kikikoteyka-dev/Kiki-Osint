@@ -39,11 +39,13 @@
 
 | Вкладка | Описание |
 |---------|----------|
-| 🔍 **OSINT** | Username / email → цифровой портрет через VK, Maigret (500+ сайтов), HaveIBeenPwned, AI-анализ |
+| 🔍 **OSINT** | Username / email → цифровой портрет через VK, Maigret (500+ сайтов), Telegram, GitHub, HaveIBeenPwned, AI-анализ |
+| 💬 **AI Ассистент** | Чат с Kiki — агент с реальным доступом к инструментам (поиск по никнейму, геолокация фото, статус WiFi Cracker), мультисессионная история, Mistral/DeepSeek |
 | 📶 **WiFi Cracker** | Бросаешь `.pcap` → конвертация → взлом hashcat. Мульти-SSID, терминал в реальном времени |
 | 🐬 **Flipper Zero** | Браузер SD-карты по USB, скачивание `.pcap` прямо на ПК с проверкой EAPOL |
 | ⬇️ **Загрузчик** | Вставь ссылку на видео (YouTube, TikTok и т.д.) → получи метаданные → скачай как MP4 или извлеки MP3 (на базе yt-dlp) |
 | 📍 **GEOINT** | Загрузи фото → извлечение GPS-координат из EXIF, опционально AI-анализ изображения для определения локации |
+| 🙈 **Reveal Text** | Восстановление текста под замазкой на скриншотах — режим по маркерам или Depix (деконволюция Ричардсона-Люси) для гауссова блюра |
 
 ---
 
@@ -166,9 +168,12 @@ python app.py
 | VK Token | [vkhost.github.io](https://vkhost.github.io) → Kate Mobile |
 | Gemini | [aistudio.google.com](https://aistudio.google.com) |
 | Claude | [console.anthropic.com](https://console.anthropic.com) |
+| Mistral | [console.mistral.ai](https://console.mistral.ai) |
+| DeepSeek | [platform.deepseek.com](https://platform.deepseek.com) |
 | HaveIBeenPwned | [haveibeenpwned.com/API/Key](https://haveibeenpwned.com/API/Key) |
 
-> 💡 **Gemini рекомендуется** для AI-анализа в OSINT — у него самый щедрый бесплатный лимит.
+> 💡 **Gemini рекомендуется** для AI-анализа в OSINT/GEOINT (самый щедрый бесплатный лимит);
+> **Mistral рекомендуется** для вкладки AI Assistant.
 
 ---
 
@@ -194,10 +199,10 @@ python app.py
 ошибка сохраняется — проверь интернет-соединение.
 
 **Gemini API: "User location is not supported"**
-→ Геоблокировка Google по региону (например, для IP из РФ). KikiHub обходит и эту проблему
-тем же способом, что и DNS-ошибку выше — резолвя Gemini через xbox-dns.ru на IP, не попадающий
-под геоблок. Если ошибка всё равно появляется — перезапусти приложение (обход резолвится один
-раз при старте и иногда может не сработать из-за нестабильного соединения).
+→ Это региональное ограничение на уровне аккаунта/API-ключа со стороны Google, а не сетевая
+или DNS-проблема — DNS-обход выше её не лечит. Возьми Gemini-ключ с аккаунта, не привязанного
+к ограниченному региону, либо переключи провайдера в Settings на Claude, Mistral или DeepSeek —
+там такой проверки региона нет.
 
 **Flipper не виден / порт не открывается**
 → Закрой qFlipper и любые другие программы, держащие COM-порт. Проверь `pip install pyserial`.

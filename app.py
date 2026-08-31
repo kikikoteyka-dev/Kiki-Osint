@@ -1,14 +1,43 @@
 
 #!/usr/bin/env python3
 """KikiHub — unified app: Kiki OSINT + WiFi Cracker. Port 7777"""
-import os, sys, shutil, subprocess, threading, re, json
+import os, sys, shutil, subprocess, threading, re, json, queue, asyncio, importlib.util, logging
 from pathlib import Path
 from datetime import datetime
+
+# Windows' default console/text-mode encoding is the legacy ANSI codepage
+# (cp1252), not UTF-8. maigret's scan touches non-ASCII site names/response
+# text constantly (Baidu, VK, etc.) — anything downstream that writes text
+# without an explicit encoding (including CPython's own default text mode)
+# throws UnicodeEncodeError the first time a scan hits one, killing it mid-run.
+# errors='replace' means a stray character gets substituted instead of
+# crashing. stdout/stderr can be None in the frozen build (desktop.py detaches
+# the console via FreeConsole()), hence the guard.
+for _stream in (sys.stdout, sys.stderr):
+    if _stream and hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import requests
 import keys_store
+
+# maigret and its heavy async/network deps (aiodns, aiohttp_socks,
+# cloudscraper) used to be imported here at module load — meaning every
+# single app launch paid that cost even if the user never opens the OSINT
+# tab that session. Deferred into search_maigret()/_get_maigret_notify_cls()
+# instead, so it's only paid the first time a username search actually runs.
+
+# maigret logs per-site debug/error lines through this logger as it scans —
+# we get results via the QueryNotify callback instead, so the log output
+# itself is never read. Left unconfigured it falls back to Python's lastResort
+# handler, which writes to stderr using the process's default console
+# encoding — cp1252 on Windows, which throws on non-ASCII site names/URLs and
+# kills the scan mid-run. NullHandler + propagate=False means it never tries
+# to write anywhere, so it can't hit that.
+_maigret_logger = logging.getLogger("maigret")
+_maigret_logger.addHandler(logging.NullHandler())
+_maigret_logger.propagate = False
 
 # generativelanguage.googleapis.com sometimes fails to resolve via Python's own
 # socket.getaddrinfo() even when the OS resolver (nslookup) works fine and a VPN
@@ -93,26 +122,99 @@ def _patched_getaddrinfo(host, *args, **kwargs):
 
 _socket.getaddrinfo = _patched_getaddrinfo
 
-# AI runtime config (updated via /api/keys and /api/config)
-AI_CONFIG = {
-    "provider": "gemini" if keys_store.get("GEMINI_API_KEY") else None,
-    "api_key":  keys_store.get("GEMINI_API_KEY") or None,
-}
+# AI runtime config (updated via /api/keys and /api/config). Mistral is
+# preferred first — it's the only one of these confirmed to work without a
+# VPN from Russia, unlike Gemini (geo-blocked) and Anthropic (also blocked).
+def _bootstrap_ai_config():
+    for provider, field in (("mistral", "MISTRAL_API_KEY"), ("gemini", "GEMINI_API_KEY"),
+                             ("anthropic", "ANTHROPIC_API_KEY"), ("deepseek", "DEEPSEEK_API_KEY")):
+        key = keys_store.get(field)
+        if key:
+            return {"provider": provider, "api_key": key}
+    return {"provider": None, "api_key": None}
+
+AI_CONFIG = _bootstrap_ai_config()
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 HUB_DIR    = BASE_DIR
 OSINT_FE   = os.path.join(BASE_DIR, "frontend")
 OSINT_SRC  = os.path.join(BASE_DIR, "sources")
 
-BASE        = r"C:\HashCat\hashcat-7.1.2"
-HASHCAT_EXE = os.path.join(BASE, "hashcat.exe")
-WORDLIST    = os.path.join(BASE, "rockyou.txt")
-HCXTOOL     = os.path.join(BASE, "hcxpcapngtool.exe")
-TSHARK      = r"C:\Program Files\Wireshark\tshark.exe"
-HASHES_DIR    = os.path.join(BASE, "hashes")
+HASHES_DIR    = os.path.join(BASE_DIR, "hashes")
 DOWNLOADS_DIR = os.path.join(os.path.expanduser("~"), "Downloads")
 TEMP_DIR      = os.path.join(BASE_DIR, "temp")
 os.makedirs(HASHES_DIR, exist_ok=True)
+
+# ════ EXTERNAL TOOL PATHS (hashcat / rockyou.txt / tshark) ═══════════════
+# These used to be one hardcoded path each (C:\HashCat\hashcat-7.1.2\...,
+# C:\Program Files\Wireshark\tshark.exe) — worked on the one machine that
+# path was typed for, silently broken on every clean install where the user
+# put hashcat somewhere else or hasn't installed Wireshark at all, with the
+# only fix being to hand-edit this source file. Now: auto-detect a handful
+# of common install spots + PATH, and if that comes up empty, fall back to a
+# path the user picked once via Settings (persisted in keys.json through
+# keys_store, same file the API keys already live in). Re-detected fresh on
+# every request instead of cached at import time — a user fixing their setup
+# and clicking "re-check" shouldn't need to restart the whole app.
+_HASHCAT_DIR_GLOBS = [r"C:\HashCat\hashcat-*", r"C:\hashcat-*", r"C:\Program Files\hashcat*"]
+_WORDLIST_CANDIDATES = [
+    r"C:\HashCat\rockyou.txt", r"C:\Wordlists\rockyou.txt",
+    r"C:\SecLists\Passwords\Leaked-Databases\rockyou.txt",
+]
+_TSHARK_CANDIDATES = [
+    r"C:\Program Files\Wireshark\tshark.exe",
+    r"C:\Program Files (x86)\Wireshark\tshark.exe",
+]
+
+def _find_hashcat_exe():
+    import glob
+    for pattern in _HASHCAT_DIR_GLOBS:
+        for d in glob.glob(pattern):
+            cand = os.path.join(d, "hashcat.exe")
+            if os.path.isfile(cand):
+                return cand
+    return shutil.which("hashcat") or shutil.which("hashcat.exe")
+
+def _find_wordlist(near=None):
+    # rockyou.txt normally ships in the same folder as hashcat.exe itself
+    # (that's how the hashcat/HashcatGUI installers commonly bundle it) —
+    # check right next to whatever hashcat.exe was actually found before
+    # falling back to the other well-known spots.
+    if near:
+        cand = os.path.join(os.path.dirname(near), "rockyou.txt")
+        if os.path.isfile(cand):
+            return cand
+    for cand in _WORDLIST_CANDIDATES:
+        if os.path.isfile(cand):
+            return cand
+    return None
+
+def _find_tshark_exe():
+    for cand in _TSHARK_CANDIDATES:
+        if os.path.isfile(cand):
+            return cand
+    return shutil.which("tshark") or shutil.which("tshark.exe")
+
+def _resolve_tool_path(field, detector):
+    """field: keys_store field holding a user-picked override.
+    Returns (path_or_None, source) where source is 'manual', 'auto', or None."""
+    override = keys_store.get(field)
+    if override and os.path.isfile(override):
+        return override, "manual"
+    detected = detector()
+    if detected:
+        return detected, "auto"
+    return None, None
+
+def resolve_hashcat():
+    return _resolve_tool_path("HASHCAT_EXE_PATH", _find_hashcat_exe)
+
+def resolve_wordlist():
+    hc_path, _ = resolve_hashcat()
+    return _resolve_tool_path("WORDLIST_PATH", lambda: _find_wordlist(hc_path))
+
+def resolve_tshark():
+    return _resolve_tool_path("TSHARK_PATH", _find_tshark_exe)
 os.makedirs(TEMP_DIR,   exist_ok=True)
 
 app  = Flask(__name__)
@@ -151,15 +253,19 @@ def log_hc(line):
 
 def hc_show(hf):
     """Run --show only returns password if it matches hashes in THIS file"""
+    hashcat_exe, _ = resolve_hashcat()
+    if not hashcat_exe:
+        return None
+    hc_dir = os.path.dirname(hashcat_exe)
     import glob
-    for f in glob.glob(os.path.join(BASE, "show.*")):
+    for f in glob.glob(os.path.join(hc_dir, "show.*")):
         try: os.remove(f)
         except: pass
     try:
         r = subprocess.run(
-            [HASHCAT_EXE, "-m", "22000", hf, "--show"],
+            [hashcat_exe, "-m", "22000", hf, "--show"],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            text=True, cwd=BASE, timeout=20)
+            text=True, cwd=hc_dir, timeout=20)
         for line in r.stdout.splitlines():
             line = line.strip()
             # Format: MIC*AP*STA*SSID:password
@@ -208,6 +314,7 @@ def osint_static(filename):
     return ("Not found", 404)
 
 # ════ OSINT API PROXY ═══════════════════════════════════════
+
 @app.route("/api/keys", methods=["GET"])
 def get_keys():
     k = keys_store.load()
@@ -218,26 +325,39 @@ def get_keys():
         "VK_TOKEN":          mask(k.get("VK_TOKEN","")),
         "GEMINI_API_KEY":    mask(k.get("GEMINI_API_KEY","")),
         "ANTHROPIC_API_KEY": mask(k.get("ANTHROPIC_API_KEY","")),
+        "DEEPSEEK_API_KEY":  mask(k.get("DEEPSEEK_API_KEY","")),
+        "MISTRAL_API_KEY":   mask(k.get("MISTRAL_API_KEY","")),
         "HIBP_API_KEY":      mask(k.get("HIBP_API_KEY","")),
-        "configured":        bool(k.get("VK_TOKEN") or k.get("GEMINI_API_KEY") or k.get("ANTHROPIC_API_KEY"))
+        "configured":        bool(k.get("VK_TOKEN") or k.get("GEMINI_API_KEY") or k.get("ANTHROPIC_API_KEY") or k.get("DEEPSEEK_API_KEY") or k.get("MISTRAL_API_KEY"))
     })
 
 @app.route("/api/keys", methods=["POST"])
 def save_keys_route():
     data = request.json or {}
     k = keys_store.load()
-    for field in ["VK_TOKEN","GEMINI_API_KEY","ANTHROPIC_API_KEY","HIBP_API_KEY"]:
+    for field in ["VK_TOKEN","GEMINI_API_KEY","ANTHROPIC_API_KEY","DEEPSEEK_API_KEY","MISTRAL_API_KEY","HIBP_API_KEY"]:
         if field in data and data[field] and "•" not in data[field]:
             k[field] = data[field]
     keys_store.save(k)
     return jsonify({"ok":True})
 
+_PROVIDER_KEY_FIELD = {
+    "gemini": "GEMINI_API_KEY", "anthropic": "ANTHROPIC_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY", "mistral": "MISTRAL_API_KEY",
+}
+
 @app.route("/api/config", methods=["POST"])
 def osint_set_config():
     data = request.json or {}
-    AI_CONFIG["provider"] = data.get("provider")
-    AI_CONFIG["api_key"]  = data.get("api_key")
-    return jsonify({"status": "ok"})
+    provider = data.get("provider")
+    # api_key is optional — when the caller only knows the provider (e.g. the
+    # hub Settings panel, which never holds a raw key in JS after saving), we
+    # resolve it from keys_store ourselves instead of requiring the frontend
+    # to smuggle the raw key back out of a save it already made.
+    api_key = data.get("api_key") or (keys_store.get(_PROVIDER_KEY_FIELD[provider]) if provider in _PROVIDER_KEY_FIELD else None)
+    AI_CONFIG["provider"] = provider
+    AI_CONFIG["api_key"]  = api_key
+    return jsonify({"status": "ok", "provider": provider, "has_key": bool(api_key)})
 
 @app.route("/api/search/stream", methods=["POST"])
 def osint_search_stream():
@@ -254,10 +374,12 @@ def osint_search_stream():
     ai_lang = data.get("ai_lang", "ru")
 
     req_query_type = data.get("query_type")
-    if req_query_type in ("username", "email", "phone", "both"):
+    if req_query_type in ("username", "email", "phone", "ip", "both"):
         query_type = req_query_type
     elif "@" in query and "." in query.split("@")[-1]:
         query_type = "email"
+    elif re.match(r'^\d{1,3}(\.\d{1,3}){3}$', query):
+        query_type = "ip"
     else:
         query_type = "username"
 
@@ -288,6 +410,11 @@ def osint_search_stream():
             if "vk" in sources:
                 yield from search_vk_phone(query, send, collected)
 
+        elif query_type == "ip":
+            yield from search_ip_info(query, send, collected)
+
+        yield from correlate_avatars(collected, send)
+
         req_ai_provider = data.get("ai_provider", "")
         if not isinstance(req_ai_provider, str):
             req_ai_provider = ""
@@ -295,6 +422,8 @@ def osint_search_stream():
             key_map = {
                 "gemini":    "GEMINI_API_KEY",
                 "anthropic": "ANTHROPIC_API_KEY",
+                "deepseek":  "DEEPSEEK_API_KEY",
+                "mistral":   "MISTRAL_API_KEY",
             }
             ai_key = keys_store.get(key_map.get(req_ai_provider, ""))
             if ai_key:
@@ -314,6 +443,95 @@ def osint_search_stream():
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ─── Avatar cross-correlation ──────────────────────────────
+# Maigret only confirms a username exists on 500+ sites — it never tells you
+# whether the "kiki_ga" on GitHub is the same human as the "kiki_ga" on VK.
+# A shared (or near-identical, re-compressed/re-cropped) profile photo across
+# sources is a much stronger same-person signal than a matching nickname
+# alone, so every source that hands back an avatar URL gets perceptual-hashed
+# and cross-checked against every other one.
+AVATAR_FIELDS = {"vk": "photo", "telegram": "photo", "github": "avatar",
+                  "github_email": "avatar", "gravatar": "avatar"}
+
+REVERSE_IMAGE_ENGINES = [
+    {"name": "Yandex",      "url": "https://yandex.ru/images/search?rpt=imageview&url={u}"},
+    {"name": "Bing",        "url": "https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIIRP&sbisrc=UrlPaste&q=imgurl:{u}"},
+    {"name": "TinEye",      "url": "https://tineye.com/search?url={u}"},
+    {"name": "Google Lens", "url": "https://lens.google.com/uploadbyurl?url={u}"},
+]
+
+def _avatar_phash(url, timeout=6):
+    """Perceptual hash of an avatar image — small edits (recompression,
+    resize, different CDN) still hash close; a different photo doesn't.
+    dhash, not phash: phash needs scipy.fftpack, and scipy is excluded from
+    the PyInstaller build (KikiHub.spec) to keep it slim — dhash only needs
+    PIL + numpy, both already bundled."""
+    try:
+        import imagehash
+        from PIL import Image
+        import io
+        r = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200 or not r.content:
+            return None
+        img = Image.open(io.BytesIO(r.content)).convert("RGB")
+        return str(imagehash.dhash(img))
+    except Exception:
+        return None
+
+def correlate_avatars(collected, send):
+    candidates = []
+    seen_urls = set()
+    for source, field in AVATAR_FIELDS.items():
+        data = collected.get(source)
+        if not isinstance(data, dict):
+            continue
+        url = data.get(field)
+        if url and url.startswith("http") and url not in seen_urls:
+            seen_urls.add(url)
+            candidates.append((source, url))
+    if not candidates:
+        return
+
+    yield send("progress", {"source": "avatar_match", "status": "searching", "msg": "Comparing avatars..."})
+
+    hashes = {}
+    for source, url in candidates:
+        h = _avatar_phash(url)
+        if h:
+            hashes.setdefault(url, {"hash": h, "sources": []})["sources"].append(source)
+
+    import imagehash, urllib.parse
+    urls = list(hashes.keys())
+    used = set()
+    clusters = []
+    for i, u1 in enumerate(urls):
+        if u1 in used:
+            continue
+        group = [u1]
+        h1 = imagehash.hex_to_hash(hashes[u1]["hash"])
+        for u2 in urls[i + 1:]:
+            if u2 in used:
+                continue
+            h2 = imagehash.hex_to_hash(hashes[u2]["hash"])
+            if h1 - h2 <= 8:
+                group.append(u2)
+                used.add(u2)
+        used.add(u1)
+        if len(group) > 1:
+            all_sources = [s for u in group for s in hashes[u]["sources"]]
+            clusters.append({"sources": all_sources, "avatars": group})
+
+    links = [{
+        "source": source, "avatar": url,
+        "engines": [{"name": e["name"], "search_url": e["url"].format(u=urllib.parse.quote(url, safe=""))}
+                    for e in REVERSE_IMAGE_ENGINES],
+    } for source, url in candidates]
+
+    yield send("result", {"source": "avatar_match", "data": {"clusters": clusters, "links": links}})
+    yield send("progress", {"source": "avatar_match", "status": "done",
+                             "msg": f"{len(clusters)} match(es)" if clusters else "No matches"})
 
 
 def fetch_telegram_profile(url):
@@ -418,59 +636,98 @@ def search_vk_phone(query, send, collected=None):
         yield send("progress", {"source": "vk", "status": "error", "msg": str(e)})
 
 
+MAIGRET_BLACKLIST_PREFIXES = ("OP.GG",)
+
+
+_maigret_notify_cls = None
+
+def _get_maigret_notify_cls():
+    """Builds (once) and caches the QueryNotify subclass — deferred behind
+    this factory instead of a module-level class so the maigret.notify/
+    maigret.result imports it needs don't run at app startup."""
+    global _maigret_notify_cls
+    if _maigret_notify_cls is not None:
+        return _maigret_notify_cls
+    from maigret.notify import QueryNotify
+    from maigret.result import MaigretCheckStatus
+
+    class _MaigretQueueNotify(QueryNotify):
+        """Bridges maigret's per-site async callbacks onto a thread-safe queue so
+        the sync SSE generator in search_maigret() can consume them without
+        awaiting — maigret_check() itself runs on a background thread."""
+
+        def __init__(self, result_queue):
+            super().__init__()
+            self.q = result_queue
+            self.checked = 0
+            self.found = 0
+
+        def update(self, result, is_similar=False):
+            self.result = result
+            self.checked += 1
+            if result.status == MaigretCheckStatus.CLAIMED:
+                site_name = result.site_name
+                if not any(site_name.startswith(p) for p in MAIGRET_BLACKLIST_PREFIXES):
+                    self.found += 1
+                    self.q.put(("hit", {"site": site_name, "url": result.site_url_user or ""}))
+            elif self.checked % 20 == 0:
+                self.q.put(("progress", self.found))
+            return result
+
+    _maigret_notify_cls = _MaigretQueueNotify
+    return _maigret_notify_cls
+
+
 def search_maigret(query, limit, send, collected=None):
-    if getattr(sys, "frozen", False):
-        # sys.executable points at the bundled app itself when frozen, not a
-        # real Python interpreter — "[exe] -m maigret" just relaunches the
-        # app instead of running maigret, so this only works from source.
-        msg = "Maigret is unavailable in the packaged build — run from source (python desktop.py) for username search."
-        if collected is not None:
-            collected["maigret"] = {"found": [], "total": 0, "error": msg}
-        yield send("result", {"source": "maigret", "data": {"found": [], "total": 0, "error": msg}})
-        yield send("progress", {"source": "maigret", "status": "error", "msg": msg})
-        return
+    from maigret.sites import MaigretDatabase
+    from maigret.checking import maigret as maigret_check
     label = "all sites" if not limit else f"{limit} sites"
     yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Starting scan ({label})..."})
     try:
-        found_sites = []
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"
-        env["PYTHONIOENCODING"] = "utf-8"
-        cmd = [sys.executable, "-u", "-m", "maigret", query, "--no-color", "--timeout", "10"]
-        if limit and limit > 0:
-            cmd += [f"--top-sites={limit}"]
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            bufsize=1, text=True, encoding="utf-8", errors="replace", env=env
+        db_file = os.path.join(
+            os.path.dirname(importlib.util.find_spec("maigret").origin),
+            "resources", "data.json",
         )
-        checked = 0
-        for line in proc.stdout:
-            line = line.strip()
-            if not line:
-                continue
-            checked += 1
-            if "[+]" in line:
-                parts = line.split("[+]", 1)[-1].strip()
-                site_name, url = (parts.split(": ", 1) if ": " in parts else (parts, ""))
-                site_name = site_name.strip()
-                url = url.strip()
-                MAIGRET_BLACKLIST_PREFIXES = ("OP.GG",)
-                if any(site_name.startswith(p) for p in MAIGRET_BLACKLIST_PREFIXES):
-                    continue
-                found_sites.append({"site": site_name, "url": url})
-                yield send("maigret_hit", {"site": site_name, "url": url, "count": len(found_sites)})
+        db = MaigretDatabase().load_from_path(db_file)
+        top = limit if limit and limit > 0 else sys.maxsize
+        site_data = db.ranked_sites_dict(top=top, id_type="username")
+
+        q = queue.Queue()
+
+        def _run():
+            try:
+                asyncio.run(maigret_check(
+                    username=query,
+                    site_dict=site_data,
+                    logger=logging.getLogger("maigret"),
+                    query_notify=_get_maigret_notify_cls()(q),
+                    timeout=10,
+                    id_type="username",
+                ))
+                q.put(("done", None))
+            except Exception as e:
+                q.put(("error", str(e)))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+        found_sites = []
+        while True:
+            kind, payload = q.get()
+            if kind == "hit":
+                found_sites.append(payload)
+                yield send("maigret_hit", {"site": payload["site"], "url": payload["url"], "count": len(found_sites)})
                 yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Found {len(found_sites)} so far..."})
-                if "Telegram" in site_name and "t.me/" in url:
-                    tg = fetch_telegram_profile(url)
+                if "Telegram" in payload["site"] and "t.me/" in payload["url"]:
+                    tg = fetch_telegram_profile(payload["url"])
                     if tg:
                         yield send("result", {"source": "telegram", "data": tg})
-            elif checked % 20 == 0:
-                yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Scanning... ({len(found_sites)} found)"})
-        try:
-            proc.wait(timeout=300)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+            elif kind == "progress":
+                yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Scanning... ({payload} found)"})
+            elif kind == "error":
+                raise RuntimeError(payload)
+            else:  # "done"
+                break
+
         if collected is not None:
             collected["maigret"] = {"found": found_sites, "total": len(found_sites)}
         yield send("result", {"source": "maigret", "data": {"found": found_sites, "total": len(found_sites)}})
@@ -550,6 +807,47 @@ def search_github(query, send, collected=None):
         yield send("progress", {"source": "github", "status": "done", "msg": "Done"})
     except Exception as e:
         yield send("progress", {"source": "github", "status": "error", "msg": str(e)})
+
+
+def search_ip_info(query, send, collected=None):
+    yield send("progress", {"source": "ip", "status": "searching", "msg": "Looking up IP..."})
+    try:
+        r = requests.get(
+            f"http://ip-api.com/json/{query}",
+            params={"fields": "status,message,country,countryCode,regionName,city,zip,lat,lon,"
+                               "timezone,isp,org,as,reverse,mobile,proxy,hosting,query"},
+            timeout=8
+        )
+        d = r.json()
+        if d.get("status") != "success":
+            yield send("result", {"source": "ip", "data": {"error": d.get("message", "lookup failed")}})
+            yield send("progress", {"source": "ip", "status": "error", "msg": d.get("message", "failed")})
+            return
+        data2 = {
+            "ip":        d.get("query"),
+            "country":   d.get("country"),
+            "country_code": d.get("countryCode"),
+            "region":    d.get("regionName"),
+            "city":      d.get("city"),
+            "zip":       d.get("zip"),
+            "lat":       d.get("lat"),
+            "lon":       d.get("lon"),
+            "timezone":  d.get("timezone"),
+            "isp":       d.get("isp"),
+            "org":       d.get("org"),
+            "asn":       d.get("as"),
+            "reverse_dns": d.get("reverse"),
+            "is_mobile": d.get("mobile", False),
+            "is_proxy":  d.get("proxy", False),
+            "is_hosting": d.get("hosting", False),
+        }
+        if collected is not None:
+            collected["ip"] = data2
+        yield send("result", {"source": "ip", "data": data2})
+        yield send("progress", {"source": "ip", "status": "done", "msg": f"{data2['city'] or '?'}, {data2['country'] or '?'}"})
+    except Exception as e:
+        yield send("result", {"source": "ip", "data": {"error": str(e)}})
+        yield send("progress", {"source": "ip", "status": "error", "msg": str(e)})
 
 
 def search_gravatar(query, send, collected=None):
@@ -896,96 +1194,282 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
                 )
             raise
 
+    elif config["provider"] == "deepseek":
+        try:
+            r = requests.post(
+                "https://api.deepseek.com/chat/completions",
+                headers={"Authorization": f"Bearer {config['api_key']}", "Content-Type": "application/json"},
+                json={"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}]},
+                timeout=60
+            )
+            if r.status_code == 401:
+                raise RuntimeError("DeepSeek API: неверный ключ." if ai_lang == "ru" else "DeepSeek API: invalid key.")
+            if r.status_code == 429:
+                raise RuntimeError("DeepSeek API: превышен лимит запросов." if ai_lang == "ru" else "DeepSeek API: rate limit exceeded.")
+            r.raise_for_status()
+            return {"portrait": r.json()["choices"][0]["message"]["content"]}
+        except requests.RequestException as e:
+            raise RuntimeError(f"DeepSeek API: {e}")
+
+    elif config["provider"] == "mistral":
+        try:
+            r = requests.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {config['api_key']}", "Content-Type": "application/json"},
+                json={"model": MISTRAL_TEXT_MODEL, "messages": [{"role": "user", "content": prompt}]},
+                timeout=120  # a full OSINT-context portrait prompt on mistral-large can genuinely
+                             # take over a minute on the free tier — 60s was clipping real requests
+            )
+            if r.status_code == 401:
+                raise RuntimeError("Mistral API: неверный ключ." if ai_lang == "ru" else "Mistral API: invalid key.")
+            if r.status_code == 429:
+                raise RuntimeError("Mistral API: превышен лимит запросов (free tier — 2 req/min)." if ai_lang == "ru" else "Mistral API: rate limit exceeded (free tier — 2 req/min).")
+            r.raise_for_status()
+            return {"portrait": r.json()["choices"][0]["message"]["content"]}
+        except requests.Timeout:
+            raise RuntimeError(
+                "Mistral API не ответил за 120 секунд — сервер перегружен или сеть подвисла. Попробуй ещё раз."
+                if ai_lang == "ru" else
+                "Mistral API didn't respond within 120s — server overloaded or the connection stalled. Try again."
+            )
+        except requests.RequestException as e:
+            raise RuntimeError(f"Mistral API: {e}")
+
     return {"error": "Unknown provider"}
 
-# ════ HASHCAT API ════════════════════════════════════════════
 
-_WC_MISSING_HTML = """<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-body{{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-background:#04111a;color:#eef2f7;font-family:'JetBrains Mono',monospace}}
-.box{{max-width:480px;padding:36px;border:1px solid rgba(255,255,255,.08);border-radius:16px;
-background:rgba(255,255,255,.03);text-align:center}}
-.box h1{{font-size:15px;letter-spacing:.08em;color:#5cd6ff;margin:0 0 14px;text-transform:uppercase}}
-.box p{{font-size:13px;line-height:1.7;color:rgba(255,255,255,.6);margin:0 0 18px}}
-.box code{{display:block;background:rgba(92,214,255,.08);border:1px solid rgba(92,214,255,.18);
-border-radius:8px;padding:10px 14px;color:#5cd6ff;font-size:12px;word-break:break-all;margin-bottom:18px}}
-.box a{{color:#5cd6ff;text-decoration:none;border-bottom:1px solid rgba(92,214,255,.3)}}
-.box a:hover{{border-color:#5cd6ff}}
-.box .sep{{margin:18px 0;border-top:1px solid rgba(255,255,255,.08)}}
-</style></head><body>
-<div class="box">
-<h1>HashCat не найден</h1>
-<p>Эта вкладка требует HashCat, установленный отдельно — он не входит в KikiHub.</p>
-<code>{path}</code>
-<p>Скачай и распакуй HashCat по этому пути, чтобы включить WiFi Cracker.<br>
-<a href="https://hashcat.net/hashcat/" target="_blank">hashcat.net/hashcat ↗</a></p>
-<div class="sep"></div>
-<h1>HashCat not found</h1>
-<p>This tab requires HashCat installed separately — it isn't bundled with KikiHub.</p>
-<code>{path}</code>
-<p>Download and extract HashCat to the path above to enable WiFi Cracker.<br>
-<a href="https://hashcat.net/hashcat/" target="_blank">hashcat.net/hashcat ↗</a></p>
-</div></body></html>"""
+def _ai_chat_text(config, prompt, ai_lang="ru", max_tokens=500, timeout=120):
+    """Minimal provider-dispatching text completion for small single-shot AI
+    asks (username-guessing) that don't need generate_portrait's OSINT-
+    context-building or its per-provider friendly-error messages — kept
+    separate so those already-verified paths stay untouched."""
+    provider = config.get("provider")
+    api_key = config.get("api_key")
+    if not provider or not api_key:
+        raise RuntimeError("No AI provider configured — set an API key in Settings")
+
+    if provider == "anthropic":
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(model=ANTHROPIC_MODELS[0], max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}])
+        return msg.content[0].text
+
+    if provider == "gemini":
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        resp = client.models.generate_content(model=GEMINI_DEFAULT_MODEL, contents=prompt)
+        return resp.text
+
+    if provider in ("deepseek", "mistral"):
+        url = "https://api.deepseek.com/chat/completions" if provider == "deepseek" else "https://api.mistral.ai/v1/chat/completions"
+        model = "deepseek-chat" if provider == "deepseek" else MISTRAL_TEXT_MODEL
+        r = requests.post(url,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+            timeout=timeout)
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
+
+    raise RuntimeError(f"Unknown provider: {provider}")
 
 
-@app.route("/wc/")
-@app.route("/wc")
-def wc_index():
-    """Serve wificracker HTML — reads from wifi_cracker.py"""
-    import importlib.util
-    wc_path = r"C:\HashCat\hashcat-7.1.2\wifi_cracker.py"
-    if not os.path.exists(wc_path):
-        from flask import make_response
-        return make_response(_WC_MISSING_HTML.format(path=wc_path), 200, {"Content-Type": "text/html; charset=utf-8"})
+@app.route("/api/search/suggest_users", methods=["POST"])
+def suggest_alt_users():
+    """Given the frontend's already-collected result set for one identity,
+    ask the AI for OTHER usernames the same person plausibly uses — grounded
+    in actual cross-references/patterns in the data, not free-associated
+    guessing. Powers the 'Search another user's account' button."""
+    data = request.json or {}
+    query = (data.get("query") or "").strip()
+    results = data.get("results") or []
+    ai_provider = data.get("ai_provider") or ""
+    ai_lang = data.get("ai_lang", "ru")
+    if not query:
+        return jsonify({"error": "no query"}), 400
+    if not isinstance(results, list):
+        return jsonify({"error": "results must be a list"}), 400
+
+    key_map = {"gemini": "GEMINI_API_KEY", "anthropic": "ANTHROPIC_API_KEY",
+               "deepseek": "DEEPSEEK_API_KEY", "mistral": "MISTRAL_API_KEY"}
+    api_key = keys_store.get(key_map.get(ai_provider, "")) if ai_provider in key_map else None
+    if not api_key:
+        return jsonify({"error": "No AI provider configured — set an API key in Settings"}), 400
+
+    context_parts = []
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        src, d = r.get("source"), r.get("data")
+        if not isinstance(d, dict) or d.get("error"):
+            continue
+        if src == "vk":
+            context_parts.append(f"VK: name={d.get('name')}, domain={d.get('domain')}, city={d.get('city')}, "
+                                  f"status={d.get('status')}, groups={d.get('groups', [])[:15]}")
+        elif src == "telegram":
+            context_parts.append(f"Telegram: name={d.get('name')}, username=@{d.get('username')}, bio={d.get('bio')}")
+        elif src in ("github", "github_email"):
+            context_parts.append(f"GitHub: username={d.get('username')}, bio={d.get('bio')}, "
+                                  f"blog={d.get('blog')}, company={d.get('company')}")
+        elif src == "gravatar":
+            context_parts.append(f"Gravatar: username={d.get('username')}, urls={d.get('urls', [])}, "
+                                  f"accounts={[a.get('title') for a in d.get('accounts', [])]}")
+        elif src == "maigret":
+            sites = [s.get("site") for s in d.get("found", [])]
+            context_parts.append(f"Confirmed accounts on: {', '.join(sites[:40])}")
+
+    if not context_parts:
+        return jsonify({"candidates": []})
+
+    lang_instruction = "Отвечай строго на русском." if ai_lang == "ru" else "Respond strictly in English."
+    prompt = (
+        f"You are an OSINT analyst. The person searched under the username/identity '{query}' was found on "
+        f"the platforms below. Extract OTHER usernames/handles this same person plausibly uses, split into two "
+        f"confidence tiers.\n\n"
+        f"TIER 'confirmed': ONLY where the gathered data gives an EXPLICIT textual reason — a handle literally "
+        f"written in a bio, a blog URL, an 'also on X as Y' mention, or a name that already appears verbatim as "
+        f"a confirmed account on another platform.\n\n"
+        f"TIER 'guess': semantic/thematic inference from the person's name, bio, groups, or existing handle — "
+        f"e.g. a bio saying 'Meow' or a cat emoji implies a cat-themed persona, so a handle like "
+        f"'{{base}}_koteyka' or '{{base}}_cat' is a reasonable guess even with no literal text match; a handle "
+        f"root that already evokes an animal/character (e.g. 'Kiki' evoking a cat) is itself a valid thematic "
+        f"seed. Combine the known name/handle with the inferred theme the way real people actually pick "
+        f"usernames (underscore-joined, transliterated or original language, no invented random digits/suffixes "
+        f"that carry no meaning). Each guess must cite the specific theme it's derived from. Do NOT produce "
+        f"guesses that are just random character/number permutations with no thematic or textual basis — those "
+        f"are noise, not hypotheses.\n\n"
+        f"Gathered data:\n" + "\n".join(f"- {p}" for p in context_parts) + "\n\n"
+        f'Respond with ONLY raw JSON (no markdown, no other text): '
+        f'{{"confirmed": [{{"username": "handle", "reason": "short phrase citing exactly where this came from"}}], '
+        f'"guess": [{{"username": "handle", "reason": "short phrase naming the theme/signal this was inferred from"}}]}}, '
+        f"max 5 items per tier. Empty arrays if there's nothing to report in a tier.\n{lang_instruction}"
+    )
+
     try:
-        with open(wc_path, encoding="utf-8") as f:
-            src = f.read()
-        # Extract HTML between HTML = r""" and closing """
-        start = src.index('HTML = r"""') + len('HTML = r"""')
-        end   = src.rindex('"""', start)
-        html  = src[start:end]
-        # Fix API paths: ensure /api/hc/ prefix (avoid double-prefix)
-        for ep in ["pick","analyze","crack","stop","log","running","status"]:
-            # Replace /api/ep -> /api/hc/ep (only if not already /api/hc/)
-            html = html.replace(f"'/api/hc/{ep}'",  f"__SAFE_{ep}__")
-            html = html.replace(f'"/api/hc/{ep}"',  f'__SAFE2_{ep}__')
-            html = html.replace(f"'/api/hc/{ep}?",  f'__SAFE3_{ep}__')
-            html = html.replace(f'"/api/hc/{ep}?',  f'__SAFE4_{ep}__')
-            html = html.replace(f"'/api/{ep}'",      f"'/api/hc/{ep}'")
-            html = html.replace(f'"/api/{ep}"',      f'"/api/hc/{ep}"')
-            html = html.replace(f"'/api/{ep}?",      f"'/api/hc/{ep}?")
-            html = html.replace(f'"/api/{ep}?',      f'"/api/hc/{ep}?')
-            html = html.replace(f"__SAFE_{ep}__",   f"'/api/hc/{ep}'")
-            html = html.replace(f"__SAFE2_{ep}__",  f'"/api/hc/{ep}"')
-            html = html.replace(f"__SAFE3_{ep}__",  f"'/api/hc/{ep}?")
-            html = html.replace(f"__SAFE4_{ep}__",  f'"/api/hc/{ep}?')
-        from flask import make_response
-        return make_response(html, 200, {"Content-Type": "text/html; charset=utf-8"})
+        text = _ai_chat_text({"provider": ai_provider, "api_key": api_key}, prompt, ai_lang, max_tokens=500)
+        text = text.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+            text = re.sub(r"\n?```$", "", text)
+        raw = json.loads(text)
+
+        def _extract(items):
+            out = []
+            for item in items or []:
+                if isinstance(item, dict):
+                    u = str(item.get("username") or "").strip().lstrip("@")
+                    reason = str(item.get("reason") or "").strip()
+                elif isinstance(item, str):
+                    u, reason = item.strip().lstrip("@"), ""
+                else:
+                    continue
+                if u and u.lower() != query.lower():
+                    out.append({"username": u, "reason": reason})
+            return out[:5]
+
+        if isinstance(raw, dict):
+            confirmed = _extract(raw.get("confirmed"))
+            guess = _extract(raw.get("guess"))
+        else:
+            # tolerate a bare array from a model that ignores the tiered shape
+            confirmed = _extract(raw)
+            guess = []
+        return jsonify({"confirmed": confirmed, "guess": guess})
+    except requests.Timeout:
+        msg = ("AI не ответил за 120 секунд — сервер перегружен. Попробуй ещё раз."
+               if ai_lang == "ru" else
+               "AI didn't respond within 120s — server overloaded. Try again.")
+        return jsonify({"error": msg}), 500
     except Exception as e:
-        return f"Error loading wificracker: {e}", 500
+        return jsonify({"error": str(e)}), 500
+
+
+# ════ HASHCAT API ════════════════════════════════════════════
+# The WiFi Cracker UI itself is baked into index.html now (#panel-hc) —
+# used to be read at runtime from an external wifi_cracker.py the user had
+# to drop next to hashcat.exe (string-extracted HTML, served through
+# /wc/'s own route, loaded via <iframe>). No more external-file dependency
+# or /wc/ route needed; the endpoints below are all that's left, and the
+# frontend already calls them directly at their real /api/hc/* paths.
 
 @app.route("/api/hc/status")
 def hc_status():
+    hc_path, hc_src = resolve_hashcat()
+    wl_path, wl_src = resolve_wordlist()
+    ts_path, ts_src = resolve_tshark()
     return jsonify({
-        "hashcat": os.path.exists(HASHCAT_EXE),
-        "rockyou": os.path.exists(WORDLIST),
+        "hashcat": bool(hc_path), "hashcat_path": hc_path, "hashcat_source": hc_src,
+        "rockyou": bool(wl_path), "rockyou_path": wl_path, "rockyou_source": wl_src,
         "hcxtool": True,
-        "tshark":  os.path.exists(TSHARK),
-        "base":    BASE,
+        "tshark":  bool(ts_path), "tshark_path": ts_path, "tshark_source": ts_src,
     })
+
+@app.route("/api/hc/wsl_status")
+def hc_wsl_status():
+    # Distinguishes "WSL itself isn't installed" from "WSL is fine but
+    # hcxtools was never apt-installed inside the distro" — the fix is a
+    # different command in each case, so the frontend needs to know which.
+    try:
+        r = subprocess.run(["wsl", "--status"], capture_output=True, timeout=8,
+                            creationflags=subprocess.CREATE_NO_WINDOW)
+        wsl_installed = r.returncode == 0
+    except Exception:
+        wsl_installed = False
+    hcxtools_installed = False
+    if wsl_installed:
+        try:
+            r = subprocess.run(["wsl", "sh", "-c", "command -v hcxpcapngtool"],
+                                capture_output=True, timeout=8,
+                                creationflags=subprocess.CREATE_NO_WINDOW)
+            hcxtools_installed = r.returncode == 0 and bool(r.stdout.strip())
+        except Exception:
+            hcxtools_installed = False
+    return jsonify({"wsl": wsl_installed, "hcxtools": hcxtools_installed})
+
+# GET/POST /api/hc/tool_paths — the Settings panel's "Browse..." flow: the
+# frontend gets the real path from window.pywebview.api.pick_file(kind) (a
+# native dialog — see desktop.py's Api.pick_file) and POSTs it here to save
+# as this field's manual override, which _resolve_tool_path() then prefers
+# over auto-detection on every future check.
+_TOOL_PATH_FIELDS = {"hashcat": "HASHCAT_EXE_PATH", "wordlist": "WORDLIST_PATH", "tshark": "TSHARK_PATH"}
 
 @app.route("/api/hc/pick")
 def hc_pick():
-    script="import tkinter as tk\nfrom tkinter import filedialog\nroot=tk.Tk();root.withdraw();root.wm_attributes('-topmost',True)\np=filedialog.askopenfilename(title='Select PCAP',filetypes=[('PCAP','*.pcap *.pcapng *.cap'),('All','*.*')])\nprint(p or '',end='')\n"
-    tmp=os.path.join(BASE,"_picker.py")
-    with open(tmp,"w") as f: f.write(script)
-    try: r=subprocess.run(["python",tmp],capture_output=True,text=True,timeout=60); path=r.stdout.strip()
-    except: path=""
-    finally:
-        try: os.remove(tmp)
-        except: pass
-    return jsonify({"path":path})
+    # The WiFi Cracker panel's "click to browse" (see index.html's wcPick())
+    # used to write a temp tkinter script and run it via
+    # `subprocess.run(["python", tmp])` — works only if a standalone Python
+    # happens to be on PATH, which a machine set up to run the frozen exe
+    # specifically won't have. The desktop window's own pywebview instance
+    # already has a real native file dialog living in this same process
+    # (see desktop.py's Api.pick_file, used by the Settings panel); calling
+    # it directly here needs no scripting runtime and no temp files.
+    try:
+        import webview
+        window = webview.windows[0]
+        result = window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            file_types=("Capture files (*.pcap;*.pcapng;*.cap)", "All files (*.*)"))
+        path = (result[0] if isinstance(result, (list, tuple)) else result) if result else ""
+    except Exception:
+        # Not running under the desktop window (e.g. the dev-server-in-a-
+        # browser path) — no native dialog host to marshal the call to.
+        path = ""
+    return jsonify({"path": path})
+
+@app.route("/api/hc/tool_paths", methods=["POST"])
+def hc_set_tool_path():
+    data = request.json or {}
+    kind = data.get("kind")
+    path = (data.get("path") or "").strip()
+    field = _TOOL_PATH_FIELDS.get(kind)
+    if not field:
+        return jsonify({"ok": False, "error": f"unknown kind: {kind}"}), 400
+    if path and not os.path.isfile(path):
+        return jsonify({"ok": False, "error": "file not found"}), 400
+    k = keys_store.load()
+    k[field] = path
+    keys_store.save(k)
+    return jsonify({"ok": True})
 
 @app.route("/api/hc/analyze", methods=["POST"])
 def hc_analyze():
@@ -997,9 +1481,10 @@ def hc_analyze():
     log("sys",f"TARGET  {Path(pcap).name}")
     log("sys",f"SIZE    {os.path.getsize(pcap)//1024} KB")
     result={"ok":True,"eapol":0,"ssid":"—","bssid":"—","ssids":[],"hash_file":None,"error":None}
-    if os.path.exists(TSHARK):
+    tshark_exe, _ = resolve_tshark()
+    if tshark_exe:
         try:
-            r=subprocess.run([TSHARK,"-r",pcap,"-Y","eapol","-T","fields","-e","frame.number"],
+            r=subprocess.run([tshark_exe,"-r",pcap,"-Y","eapol","-T","fields","-e","frame.number"],
                              capture_output=True,text=True,timeout=30)
             lines=[l for l in r.stdout.strip().split("\n") if l.strip()]
             result["eapol"]=len(lines)
@@ -1084,10 +1569,14 @@ def hc_crack():
     data=request.json or {}
     hf=data.get("hash_file","").strip()
     if not hf or not os.path.exists(hf): return jsonify({"ok":False,"error":"hash file not found"})
+    hashcat_exe, _ = resolve_hashcat()
+    if not hashcat_exe:
+        return jsonify({"ok":False,"error":"hashcat.exe not found — set its path in Settings"})
+    hc_dir = os.path.dirname(hashcat_exe)
     all_wl=[]
-    for fn in os.listdir(BASE):
+    for fn in os.listdir(hc_dir):
         if fn.lower().endswith(".txt") and fn.lower()!="show.log":
-            fp=os.path.join(BASE,fn)
+            fp=os.path.join(hc_dir,fn)
             if fn.lower()=="rockyou.txt": all_wl.insert(0,fp)
             else: all_wl.append(fp)
     if not all_wl: return jsonify({"ok":False,"error":"no wordlists"})
@@ -1101,8 +1590,8 @@ def hc_crack():
             # Check potfile first — log found passwords but DON'T stop
             found_in_pot = []
             try:
-                show0=subprocess.run([HASHCAT_EXE,"-m","22000",hf,"--show"],
-                    capture_output=True,text=True,cwd=BASE)
+                show0=subprocess.run([hashcat_exe,"-m","22000",hf,"--show"],
+                    capture_output=True,text=True,cwd=hc_dir)
                 for line in show0.stdout.strip().splitlines():
                     line=line.strip()
                     if line.count(":")>=4:
@@ -1122,9 +1611,9 @@ def hc_crack():
                     if _stop_requested: log("warn","stopped by user")
                     break
                 log("sys",f"trying: {Path(wl).name}")
-                cmd=[HASHCAT_EXE,"-m","22000",hf,wl,"--status","--status-timer=4","--force","-o",cracked]
+                cmd=[hashcat_exe,"-m","22000",hf,wl,"--status","--status-timer=4","--force","-o",cracked]
                 try:
-                    _proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1,cwd=BASE)
+                    _proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1,cwd=hc_dir)
                     for line in _proc.stdout:
                         if _stop_requested:
                             _proc.terminate()
@@ -1134,7 +1623,7 @@ def hc_crack():
                     # Wait for lock files to be released
                     import glob, time as _t
                     for _ in range(20):
-                        locks=glob.glob(os.path.join(BASE,"hashcat.pid"))+glob.glob(os.path.join(BASE,"*.pid"))
+                        locks=glob.glob(os.path.join(hc_dir,"hashcat.pid"))+glob.glob(os.path.join(hc_dir,"*.pid"))
                         if not locks: break
                         _t.sleep(0.3)
                 except Exception as e: log("err",str(e)); break
@@ -1143,8 +1632,8 @@ def hc_crack():
                     break
                 # Check --show after each wordlist
                 try:
-                    show=subprocess.run([HASHCAT_EXE,"-m","22000",hf,"--show"],
-                        capture_output=True,text=True,cwd=BASE)
+                    show=subprocess.run([hashcat_exe,"-m","22000",hf,"--show"],
+                        capture_output=True,text=True,cwd=hc_dir)
                     for line in show.stdout.strip().splitlines():
                         line=line.strip()
                         if line.count(":")>=4:
@@ -1179,24 +1668,6 @@ def hc_log():
 def hc_running():
     running = _running or bool(_proc and _proc.poll() is None)
     return jsonify({"running": running, "password": _password})
-
-# ════ OSINT BACKEND SUBPROCESS ══════════════════════════════
-
-
-def start_wificrack():
-    """Start wificrack on port 5555"""
-    try:
-        import socket
-        s = socket.socket()
-        s.settimeout(0.3)
-        if s.connect_ex(("127.0.0.1", 5555)) != 0:
-            subprocess.Popen(
-                ["python", r"C:\HashCat\hashcat-7.1.2\wifi_cracker.py"],
-                cwd=r"C:\HashCat\hashcat-7.1.2",
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-        s.close()
-    except: pass
 
 # ════ FLIPPER ZERO ══════════════════════════════════════════
 
@@ -1326,6 +1797,15 @@ def _flip_rpc(port, msg_bytes, timeout=60):
             except: break
     return resps
 
+def _flip_err(e):
+    """Windows raises bare PermissionError(13) both when another process
+    (qFlipper, Flipper Mobile) already holds the port exclusively AND when
+    a Bluetooth-SPP virtual COM port has no live RFCOMM connection behind
+    it — either way the raw exception text is meaningless to the user."""
+    if isinstance(e, PermissionError):
+        return "Порт занят другим приложением или Flipper сейчас не подключён по Bluetooth. Закрой qFlipper/Flipper Mobile и проверь подключение."
+    return str(e)
+
 # ─── Flipper endpoints ──────────────────────────────────────
 @app.route("/api/flipper/ports")
 def flipper_ports():
@@ -1338,7 +1818,7 @@ def flipper_ports():
             ports.append({"port":p.device,"desc":desc,"mfr":mfr,"likely":likely})
         ports.sort(key=lambda x:(0 if x["likely"] else 1,x["port"]))
         return jsonify({"ok":True,"ports":ports})
-    except Exception as e: return jsonify({"ok":False,"error":str(e),"ports":[]})
+    except Exception as e: return jsonify({"ok":False,"error":_flip_err(e),"ports":[]})
 
 @app.route("/api/flipper/list")
 def flipper_list_ep():
@@ -1366,7 +1846,7 @@ def flipper_list_ep():
                 files.append({"name":nm,"size":0,"is_dir":True})
         files.sort(key=lambda x:(0 if x["is_dir"] else 1,x["name"].lower()))
         return jsonify({"ok":True,"files":files,"path":path})
-    except Exception as e: return jsonify({"ok":False,"error":str(e),"files":[]})
+    except Exception as e: return jsonify({"ok":False,"error":_flip_err(e),"files":[]})
 
 @app.route("/api/flipper/readtest")
 def flipper_readtest():
@@ -1386,7 +1866,7 @@ def flipper_readtest():
             "hex_first_100":raw[:100].hex(),
             "text_first_200":raw[:200].decode('utf-8','replace')
         })
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+    except Exception as e: return jsonify({"ok":False,"error":_flip_err(e)}),500
 
 @app.route("/api/flipper/stat")
 def flipper_stat_ep():
@@ -1402,7 +1882,7 @@ def flipper_stat_ep():
             raw=s.read_all()
         text=raw.decode('utf-8',errors='replace')
         return jsonify({"ok":True,"raw":text,"lines":text.splitlines()})
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+    except Exception as e: return jsonify({"ok":False,"error":_flip_err(e)}),500
 
 @app.route("/api/flipper/save")
 def flipper_save_ep():
@@ -1416,7 +1896,7 @@ def flipper_save_ep():
         data=_flipper_read_binary(port, path)
         with open(local_path,"wb") as f: f.write(data)
         return jsonify({"ok":True,"local_path":local_path,"filename":filename,"size":len(data)})
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+    except Exception as e: return jsonify({"ok":False,"error":_flip_err(e)}),500
 
 @app.route("/api/flipper/file")
 def flipper_file_ep():
@@ -1447,7 +1927,7 @@ def flipper_download_ep():
         data=_flipper_read_binary(port, path)
         return send_file(io.BytesIO(data),as_attachment=True,
                         download_name=filename,mimetype="application/octet-stream")
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+    except Exception as e: return jsonify({"ok":False,"error":_flip_err(e)}),500
 
 # ════ DOWNLOADER API (yt-dlp) ════════════════════════════════
 
@@ -1640,6 +2120,15 @@ def _parse_ai_json(text):
 
 GEMINI_DEFAULT_MODEL = "gemini-flash-latest"
 ANTHROPIC_MODELS = ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
+# mistral-large-latest 403s ("tier_not_allowed") on a key with no billing —
+# confirmed live. Back to large as default now that billing's being set up;
+# if it 403s again, drop back to small/medium (both confirmed reachable
+# free) rather than guessing at the tier again.
+MISTRAL_TEXT_MODEL = "mistral-large-latest"
+# Standalone "pixtral-*" model names are gone from Mistral's catalog as of
+# 2026 — vision got folded straight into the main large/medium/small line,
+# confirmed live against /v1/models' capabilities.vision flag.
+MISTRAL_VISION_MODELS = ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"]
 
 def geoint_ai_guess(image_bytes, config, ai_lang="ru", model=None):
     lang_instruction = {
@@ -1673,6 +2162,41 @@ def geoint_ai_guess(image_bytes, config, ai_lang="ru", model=None):
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
                 {"type": "text", "text": prompt}]}])
         return _parse_ai_json(msg.content[0].text)
+
+    if config["provider"] == "mistral":
+        import base64
+        b64 = base64.b64encode(image_bytes).decode()
+        try:
+            r = requests.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {config['api_key']}", "Content-Type": "application/json"},
+                json={
+                    "model": model or MISTRAL_VISION_MODELS[0],
+                    "messages": [{"role": "user", "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": f"data:image/jpeg;base64,{b64}"},
+                    ]}],
+                },
+                timeout=60,
+            )
+            if r.status_code == 401:
+                raise RuntimeError("Mistral API: неверный ключ." if ai_lang == "ru" else "Mistral API: invalid key.")
+            if r.status_code == 429:
+                raise RuntimeError(
+                    "Mistral API: превышен лимит запросов (free tier — 2 req/min). Подожди немного."
+                    if ai_lang == "ru" else
+                    "Mistral API: rate limit exceeded (free tier — 2 req/min). Wait a bit."
+                )
+            r.raise_for_status()
+            return _parse_ai_json(r.json()["choices"][0]["message"]["content"])
+        except requests.Timeout:
+            raise RuntimeError(
+                "Mistral API не ответил за 60 секунд — сервер перегружен или сеть подвисла. Попробуй ещё раз."
+                if ai_lang == "ru" else
+                "Mistral API didn't respond within 60s — server overloaded or the connection stalled. Try again."
+            )
+        except requests.RequestException as e:
+            raise RuntimeError(f"Mistral API: {e}")
 
     if config["provider"] == "gemini":
         from google import genai
@@ -1756,6 +2280,8 @@ def geoint_models():
     provider = AI_CONFIG.get("provider")
     if provider == "anthropic":
         return jsonify({"provider": "anthropic", "models": ANTHROPIC_MODELS, "default": ANTHROPIC_MODELS[0]})
+    if provider == "mistral":
+        return jsonify({"provider": "mistral", "models": MISTRAL_VISION_MODELS, "default": MISTRAL_VISION_MODELS[0]})
     if provider == "gemini":
         if not AI_CONFIG.get("api_key"):
             return jsonify({"error": "no API key configured"}), 400
@@ -1796,16 +2322,10 @@ def geoint_models():
     return jsonify({"provider": None, "models": [], "default": None})
 
 
-@app.route("/api/geoint/analyze", methods=["POST"])
-def geoint_analyze():
-    if "photo" not in request.files:
-        return jsonify({"error": "no file"}), 400
-    image_bytes = request.files["photo"].read()
+def _geoint_analyze_core(image_bytes, ai_lang="ru", model=None):
+    """EXIF+AI geolocation analysis on raw image bytes — shared by the HTTP
+    route (multipart upload) and the assistant tool (reads a local file)."""
     result = {}
-
-    ai_lang = request.form.get("ai_lang", "ru")
-    model = request.form.get("model") or None
-
     try:
         from PIL import Image
         from PIL.ExifTags import GPSTAGS
@@ -1838,8 +2358,16 @@ def geoint_analyze():
                     result["ai_location_error"] = str(ge)
         except Exception as e:
             result["ai_error"] = str(e)
+    return result
 
-    return jsonify(result)
+@app.route("/api/geoint/analyze", methods=["POST"])
+def geoint_analyze():
+    if "photo" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    image_bytes = request.files["photo"].read()
+    ai_lang = request.form.get("ai_lang", "ru")
+    model = request.form.get("model") or None
+    return jsonify(_geoint_analyze_core(image_bytes, ai_lang, model))
 
 
 def _deg_to_dms_rational(deg_float):
@@ -2048,6 +2576,274 @@ def unredact_depix():
         return jsonify({"ok": True, "image": _b64.b64encode(buf.getvalue()).decode()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
+# ════ AI ASSISTANT ═════════════════════════════════════════
+# Agentic chat that can actually drive the app (tool calling), not just
+# answer questions about it. Starting with Mistral + DeepSeek — both speak
+# the same OpenAI-style tools/tool_calls dialect, so one call path covers
+# both; Anthropic/Gemini use different SDKs/shapes and come in a follow-up.
+_ASST_APP_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else BASE_DIR
+ASSISTANT_SESSIONS_DIR = os.path.join(_ASST_APP_DIR, "assistant_sessions")
+os.makedirs(ASSISTANT_SESSIONS_DIR, exist_ok=True)
+
+ASSISTANT_TOOLS = [
+    {"type": "function", "function": {
+        "name": "geoint_analyze_photo",
+        "description": "Analyze a local photo for EXIF GPS coordinates and an AI-guessed shooting location based on visual clues (architecture, signage, vegetation, etc).",
+        "parameters": {"type": "object", "properties": {
+            "file_path": {"type": "string", "description": "Absolute path to the image file on disk."}
+        }, "required": ["file_path"]},
+    }},
+    {"type": "function", "function": {
+        "name": "wifi_status",
+        "description": "Check whether the WiFi Cracker tool's dependencies (hashcat, rockyou wordlist, tshark) are found and where.",
+        "parameters": {"type": "object", "properties": {}},
+    }},
+    {"type": "function", "function": {
+        "name": "osint_search_username",
+        "description": "Search a username/handle across VK, Telegram, GitHub, and dozens of other platforms (via Maigret) to find matching profiles. Defaults to a full search (all sources, Maigret checking 500 sites) — do NOT lower maigret_limit just because the username looks common/popular; only narrow it down when the user explicitly asks for a faster/lighter search.",
+        "parameters": {"type": "object", "properties": {
+            "username": {"type": "string", "description": "The username/handle to search for, without the @."},
+            "maigret_limit": {"type": "integer", "description": "How many sites Maigret checks. Defaults to 500 (full search). Only lower this if the user explicitly asks for speed over coverage."},
+            "sources": {"type": "array", "items": {"type": "string", "enum": ["vk", "telegram", "github", "maigret"]}, "description": "Which sources to run. Defaults to all four. Only restrict this if the user explicitly asks to check just one/some platforms."}
+        }, "required": ["username"]},
+    }},
+]
+ASSISTANT_GATED_TOOLS = set()  # e.g. {"wifi_crack"} once that tool lands
+
+def _assistant_session_path(sid):
+    # sid comes from the client (URL/body) — scrub to a bare filename-safe
+    # token before it ever touches a path, since it's used directly below.
+    safe = re.sub(r"[^a-zA-Z0-9_]", "", sid or "")
+    if not safe:
+        raise ValueError("bad session id")
+    return os.path.join(ASSISTANT_SESSIONS_DIR, safe + ".json")
+
+def _assistant_new_session_id():
+    return datetime.now().strftime("%Y%m%d%H%M%S%f")
+
+def _assistant_load_session(sid):
+    try:
+        with open(_assistant_session_path(sid), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        return None
+
+def _assistant_save_session(sess):
+    sess["updated"] = datetime.now().isoformat()
+    with open(_assistant_session_path(sess["id"]), "w", encoding="utf-8") as f:
+        json.dump(sess, f, indent=2, ensure_ascii=False)
+
+def _assistant_list_sessions():
+    out = []
+    for fn in os.listdir(ASSISTANT_SESSIONS_DIR):
+        if not fn.endswith(".json"): continue
+        try:
+            with open(os.path.join(ASSISTANT_SESSIONS_DIR, fn), "r", encoding="utf-8") as f:
+                d = json.load(f)
+            out.append({"id": d.get("id"), "title": d.get("title") or "New chat", "updated": d.get("updated", "")})
+        except Exception:
+            pass
+    out.sort(key=lambda s: s["updated"], reverse=True)
+    return out
+
+def _osint_username_search_core(username, maigret_limit=500, sources=None):
+    """Runs the same VK/Telegram/GitHub/Maigret checks as the Kiki OSINT tab's
+    SSE stream, but synchronously — the assistant tool loop needs one plain
+    result, not a progress stream. Defaults to the full sweep (matches the
+    manual tab); the AI can narrow sources/maigret_limit only when the user
+    explicitly asks for a lighter/faster search."""
+    if sources is None:
+        sources = ["vk", "telegram", "github", "maigret"]
+    def noop_send(event, payload):
+        return None
+    collected = {}
+    if "vk" in sources:
+        for _ in search_vk_username(username, noop_send, collected): pass
+    if "telegram" in sources:
+        for _ in search_telegram(username, noop_send, collected): pass
+    if "github" in sources:
+        for _ in search_github(username, noop_send, collected): pass
+    if "maigret" in sources:
+        for _ in search_maigret(username, maigret_limit, noop_send, collected): pass
+        # Maigret's own site catalog carries more than one checker entry for
+        # some platforms (different URL patterns for the same service), so a
+        # raw hit list can list the same profile URL twice — collapse those
+        # before handing results to the model, instead of relying on it to
+        # notice and caveat the duplicate in its answer.
+        if "maigret" in collected:
+            seen_urls = set()
+            deduped = []
+            for hit in collected["maigret"].get("found", []):
+                url = hit.get("url")
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                deduped.append(hit)
+            collected["maigret"] = {"found": deduped, "total": len(deduped)}
+    return collected
+
+def _assistant_run_tool(name, args):
+    """Executes one tool call and returns a JSON-serializable result. Kept
+    separate from the provider call loop so gating logic doesn't have to
+    know anything about tool internals."""
+    try:
+        if name == "geoint_analyze_photo":
+            fp = args.get("file_path", "")
+            if not fp or not os.path.isfile(fp):
+                return {"error": "file not found: " + fp}
+            with open(fp, "rb") as f:
+                image_bytes = f.read()
+            return _geoint_analyze_core(image_bytes, args.get("ai_lang", "ru"))
+        if name == "wifi_status":
+            hc_path, hc_src = resolve_hashcat()
+            wl_path, wl_src = resolve_wordlist()
+            ts_path, ts_src = resolve_tshark()
+            return {
+                "hashcat": bool(hc_path), "hashcat_path": hc_path,
+                "rockyou": bool(wl_path), "rockyou_path": wl_path,
+                "tshark": bool(ts_path), "tshark_path": ts_path,
+            }
+        if name == "osint_search_username":
+            username = (args.get("username") or "").strip().lstrip("@")
+            if not username:
+                return {"error": "no username given"}
+            maigret_limit = args.get("maigret_limit") or 500
+            sources = args.get("sources") or None
+            return _osint_username_search_core(username, maigret_limit=maigret_limit, sources=sources)
+        return {"error": "unknown tool: " + name}
+    except Exception as e:
+        return {"error": str(e)}
+
+ASSISTANT_SYSTEM_PROMPT = (
+    "You are Kiki, the in-app assistant for KikiHub — an OSINT/security toolkit "
+    "with tabs for username/email OSINT search (Kiki OSINT), photo geolocation "
+    "(GEOINT), WiFi handshake cracking (WiFi Cracker), a video/media downloader, "
+    "hidden-text reveal (Reveal Text), and Flipper Zero integration.\n\n"
+    "You only have THREE real tools right now: geoint_analyze_photo (needs a local "
+    "file path), wifi_status, and osint_search_username (searches a username across "
+    "VK/Telegram/GitHub/Maigret). osint_search_username defaults to a full search "
+    "(all sources, Maigret at 500 sites) — never shrink it just because a username "
+    "looks common; only narrow sources/maigret_limit if the user explicitly asks for "
+    "something faster or more targeted. Everything else above is knowledge, not "
+    "capability — you can explain what those tabs do and how to use them "
+    "manually, but you cannot run them yourself yet. Never say 'I can run X' for "
+    "a tab you have no tool for; say what tool you actually have, or point the "
+    "user at the tab to do it by hand. Keep answers short and concrete.\n\n"
+    "After osint_search_username: don't dump every raw hit as a wall of links. "
+    "Lead with the strongest 3-5 matches (name, platform, one identifying detail "
+    "each) as a short list, then a single line noting how many more low-confidence "
+    "Maigret hits exist without listing them all — offer to list the rest only if "
+    "asked. Never paste a raw avatar/CDN URL inline; just say a photo was found."
+)
+
+_ASST_PROVIDER_DEFAULTS = {
+    # Back to large now that billing's being set up — see MISTRAL_TEXT_MODEL's
+    # comment above for the same 403 story if it needs reverting again.
+    "mistral":  {"base_url": "https://api.mistral.ai/v1/chat/completions", "model": "mistral-large-latest", "key_field": "MISTRAL_API_KEY"},
+    "deepseek": {"base_url": "https://api.deepseek.com/chat/completions",  "model": "deepseek-chat",         "key_field": "DEEPSEEK_API_KEY"},
+}
+
+def _assistant_call_openai_style(provider, messages):
+    cfg = _ASST_PROVIDER_DEFAULTS[provider]
+    api_key = keys_store.get(cfg["key_field"])
+    if not api_key:
+        raise RuntimeError(f"No API key configured for {provider} — add one in Settings")
+    r = requests.post(cfg["base_url"],
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": cfg["model"], "messages": messages, "tools": ASSISTANT_TOOLS},
+        timeout=60)
+    if r.status_code == 401:
+        raise RuntimeError(f"{provider}: invalid API key")
+    if r.status_code == 429:
+        raise RuntimeError(f"{provider}: rate limited, try again shortly")
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]
+
+@app.route("/api/assistant/sessions")
+def assistant_sessions():
+    return jsonify({"sessions": _assistant_list_sessions()})
+
+@app.route("/api/assistant/sessions", methods=["POST"])
+def assistant_sessions_create():
+    sess = {"id": _assistant_new_session_id(), "title": "New chat", "messages": []}
+    _assistant_save_session(sess)
+    return jsonify({"ok": True, "id": sess["id"], "title": sess["title"]})
+
+@app.route("/api/assistant/sessions/<sid>", methods=["DELETE"])
+def assistant_sessions_delete(sid):
+    try:
+        os.remove(_assistant_session_path(sid))
+    except FileNotFoundError:
+        pass
+    except ValueError:
+        return jsonify({"error": "bad session id"}), 400
+    return jsonify({"ok": True})
+
+@app.route("/api/assistant/history")
+def assistant_history():
+    sess = _assistant_load_session(request.args.get("session_id", ""))
+    return jsonify({"messages": sess["messages"] if sess else []})
+
+@app.route("/api/assistant/chat", methods=["POST"])
+def assistant_chat():
+    data = request.json or {}
+    user_text = (data.get("message") or "").strip()
+    provider = data.get("provider", "mistral")
+    session_id = data.get("session_id", "")
+    if provider not in _ASST_PROVIDER_DEFAULTS:
+        return jsonify({"error": "unsupported provider: " + provider}), 400
+    if not user_text:
+        return jsonify({"error": "empty message"}), 400
+    sess = _assistant_load_session(session_id)
+    if not sess:
+        return jsonify({"error": "unknown session — create one first"}), 400
+
+    lang_instruction = "Always reply in the same language the user's message is written in — match their language exactly, message by message."
+    history = sess["messages"]
+    api_messages = [{"role": "system", "content": ASSISTANT_SYSTEM_PROMPT + " " + lang_instruction}]
+    api_messages += [{"role": m["role"], "content": m.get("content", "")} for m in history if m["role"] in ("user", "assistant")]
+    api_messages.append({"role": "user", "content": user_text})
+    history.append({"role": "user", "content": user_text, "ts": ts()})
+    # First message in a fresh session doubles as its title, same as every
+    # chat product does — nothing to type twice, nothing to name up front.
+    if sess.get("title", "New chat") == "New chat":
+        sess["title"] = (user_text[:48] + "…") if len(user_text) > 48 else user_text
+    # Persist right away — the try/except below only saved on a successful
+    # reply, so a provider error (a 403, a timeout) silently dropped the
+    # user's own message and the title update along with it. Save now,
+    # save again once the reply lands.
+    _assistant_save_session(sess)
+
+    tool_log = []
+    try:
+        # Agentic loop: model may ask for tools repeatedly before giving a
+        # final text answer. Capped so a confused model can't loop forever.
+        for _ in range(4):
+            msg = _assistant_call_openai_style(provider, api_messages)
+            tool_calls = msg.get("tool_calls")
+            if not tool_calls:
+                final_text = msg.get("content", "") or "(no response)"
+                history.append({"role": "assistant", "content": final_text, "tools": tool_log, "ts": ts()})
+                _assistant_save_session(sess)
+                return jsonify({"ok": True, "reply": final_text, "tools": tool_log, "title": sess["title"]})
+            api_messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": tool_calls})
+            for call in tool_calls:
+                fn = call["function"]["name"]
+                try:
+                    fn_args = json.loads(call["function"].get("arguments") or "{}")
+                except Exception:
+                    fn_args = {}
+                result = _assistant_run_tool(fn, fn_args)
+                tool_log.append({"name": fn, "args": fn_args, "result": result})
+                api_messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": json.dumps(result)})
+        history.append({"role": "assistant", "content": "(stopped after too many tool calls)", "tools": tool_log, "ts": ts()})
+        _assistant_save_session(sess)
+        return jsonify({"ok": True, "reply": "(stopped after too many tool calls)", "tools": tool_log, "title": sess["title"]})
+    except Exception as e:
+        return jsonify({"error": str(e), "tools": tool_log}), 500
 
 
 if __name__=="__main__":
