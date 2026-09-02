@@ -671,7 +671,7 @@ def _get_maigret_notify_cls():
                     self.found += 1
                     self.q.put(("hit", {"site": site_name, "url": result.site_url_user or ""}))
             elif self.checked % 20 == 0:
-                self.q.put(("progress", self.found))
+                self.q.put(("progress", {"found": self.found, "checked": self.checked}))
             return result
 
     _maigret_notify_cls = _MaigretQueueNotify
@@ -722,7 +722,12 @@ def search_maigret(query, limit, send, collected=None):
                     if tg:
                         yield send("result", {"source": "telegram", "data": tg})
             elif kind == "progress":
-                yield send("progress", {"source": "maigret", "status": "searching", "msg": f"Scanning... ({payload} found)"})
+                yield send("progress", {
+                    "source": "maigret", "status": "searching",
+                    "msg": f"Scanning... ({payload['found']} found, {payload['checked']} checked)",
+                    "found": payload["found"], "checked": payload["checked"],
+                    "total": top if top != sys.maxsize else None,
+                })
             elif kind == "error":
                 raise RuntimeError(payload)
             else:  # "done"
@@ -2685,6 +2690,43 @@ def _osint_username_search_core(username, maigret_limit=500, sources=None):
             collected["maigret"] = {"found": deduped, "total": len(deduped)}
     return collected
 
+def _osint_username_search_core_stream(username, maigret_limit=500, sources=None):
+    """Generator twin of _osint_username_search_core — for the one source
+    that actually has a meaningful multi-step scan (Maigret checking up to
+    500 sites), yields ('progress', {found, checked, total}) tuples as they
+    happen instead of going dark until the whole thing finishes. Ends with
+    a ('result', collected) tuple carrying the same shape the plain version
+    returns. search_maigret()'s own `send` callback normally builds an SSE
+    string; here it just hands back the raw (event, payload) tuple instead,
+    since search_maigret only ever yields whatever `send` returns."""
+    if sources is None:
+        sources = ["vk", "telegram", "github", "maigret"]
+    def raw_send(event, payload):
+        return (event, payload)
+    collected = {}
+    if "vk" in sources:
+        for _ in search_vk_username(username, raw_send, collected): pass
+    if "telegram" in sources:
+        for _ in search_telegram(username, raw_send, collected): pass
+    if "github" in sources:
+        for _ in search_github(username, raw_send, collected): pass
+    if "maigret" in sources:
+        for ev in search_maigret(username, maigret_limit, raw_send, collected):
+            event, payload = ev
+            if event == "progress" and payload.get("source") == "maigret" and "checked" in payload:
+                yield ("progress", {"found": payload["found"], "checked": payload["checked"], "total": payload["total"]})
+        if "maigret" in collected:
+            seen_urls = set()
+            deduped = []
+            for hit in collected["maigret"].get("found", []):
+                url = hit.get("url")
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                deduped.append(hit)
+            collected["maigret"] = {"found": deduped, "total": len(deduped)}
+    yield ("result", collected)
+
 def _assistant_run_tool(name, args):
     """Executes one tool call and returns a JSON-serializable result. Kept
     separate from the provider call loop so gating logic doesn't have to
@@ -2732,11 +2774,14 @@ ASSISTANT_SYSTEM_PROMPT = (
     "manually, but you cannot run them yourself yet. Never say 'I can run X' for "
     "a tab you have no tool for; say what tool you actually have, or point the "
     "user at the tab to do it by hand. Keep answers short and concrete.\n\n"
-    "After osint_search_username: don't dump every raw hit as a wall of links. "
-    "Lead with the strongest 3-5 matches (name, platform, one identifying detail "
-    "each) as a short list, then a single line noting how many more low-confidence "
-    "Maigret hits exist without listing them all — offer to list the rest only if "
-    "asked. Never paste a raw avatar/CDN URL inline; just say a photo was found."
+    "After osint_search_username: list every matched platform/site the tool "
+    "returned, not just a handful — the user wants the full picture, not a teaser "
+    "with an offer to expand. VK/Telegram/GitHub hits first with full available "
+    "detail (name, bio, etc), then every Maigret site hit as a plain list (name + "
+    "link). Only skip listing individually if there are genuinely dozens of near-"
+    "duplicate low-signal hits (e.g. 40+ generic forum profiles) — group those as "
+    "one line, but never do that to the first 20-30 results. Never paste a raw "
+    "avatar/CDN URL inline; just say a photo was found."
 )
 
 _ASST_PROVIDER_DEFAULTS = {
@@ -2801,49 +2846,77 @@ def assistant_chat():
     if not sess:
         return jsonify({"error": "unknown session — create one first"}), 400
 
-    lang_instruction = "Always reply in the same language the user's message is written in — match their language exactly, message by message."
-    history = sess["messages"]
-    api_messages = [{"role": "system", "content": ASSISTANT_SYSTEM_PROMPT + " " + lang_instruction}]
-    api_messages += [{"role": m["role"], "content": m.get("content", "")} for m in history if m["role"] in ("user", "assistant")]
-    api_messages.append({"role": "user", "content": user_text})
-    history.append({"role": "user", "content": user_text, "ts": ts()})
-    # First message in a fresh session doubles as its title, same as every
-    # chat product does — nothing to type twice, nothing to name up front.
-    if sess.get("title", "New chat") == "New chat":
-        sess["title"] = (user_text[:48] + "…") if len(user_text) > 48 else user_text
-    # Persist right away — the try/except below only saved on a successful
-    # reply, so a provider error (a 403, a timeout) silently dropped the
-    # user's own message and the title update along with it. Save now,
-    # save again once the reply lands.
-    _assistant_save_session(sess)
+    def generate():
+        def send(event, payload):
+            return f"data: {json.dumps({'event': event, 'data': payload}, ensure_ascii=False)}\n\n"
 
-    tool_log = []
-    try:
-        # Agentic loop: model may ask for tools repeatedly before giving a
-        # final text answer. Capped so a confused model can't loop forever.
-        for _ in range(4):
-            msg = _assistant_call_openai_style(provider, api_messages)
-            tool_calls = msg.get("tool_calls")
-            if not tool_calls:
-                final_text = msg.get("content", "") or "(no response)"
-                history.append({"role": "assistant", "content": final_text, "tools": tool_log, "ts": ts()})
-                _assistant_save_session(sess)
-                return jsonify({"ok": True, "reply": final_text, "tools": tool_log, "title": sess["title"]})
-            api_messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": tool_calls})
-            for call in tool_calls:
-                fn = call["function"]["name"]
-                try:
-                    fn_args = json.loads(call["function"].get("arguments") or "{}")
-                except Exception:
-                    fn_args = {}
-                result = _assistant_run_tool(fn, fn_args)
-                tool_log.append({"name": fn, "args": fn_args, "result": result})
-                api_messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": json.dumps(result)})
-        history.append({"role": "assistant", "content": "(stopped after too many tool calls)", "tools": tool_log, "ts": ts()})
+        lang_instruction = "Always reply in the same language the user's message is written in — match their language exactly, message by message."
+        history = sess["messages"]
+        api_messages = [{"role": "system", "content": ASSISTANT_SYSTEM_PROMPT + " " + lang_instruction}]
+        api_messages += [{"role": m["role"], "content": m.get("content", "")} for m in history if m["role"] in ("user", "assistant")]
+        api_messages.append({"role": "user", "content": user_text})
+        history.append({"role": "user", "content": user_text, "ts": ts()})
+        # First message in a fresh session doubles as its title, same as every
+        # chat product does — nothing to type twice, nothing to name up front.
+        if sess.get("title", "New chat") == "New chat":
+            sess["title"] = (user_text[:48] + "…") if len(user_text) > 48 else user_text
+        # Persist right away — a provider error (a 403, a timeout) further
+        # down would otherwise silently drop the user's own message and the
+        # title update along with it. Save now, save again once the reply lands.
         _assistant_save_session(sess)
-        return jsonify({"ok": True, "reply": "(stopped after too many tool calls)", "tools": tool_log, "title": sess["title"]})
-    except Exception as e:
-        return jsonify({"error": str(e), "tools": tool_log}), 500
+
+        tool_log = []
+        try:
+            # Agentic loop: model may ask for tools repeatedly before giving a
+            # final text answer. Capped so a confused model can't loop forever.
+            for _ in range(4):
+                msg = _assistant_call_openai_style(provider, api_messages)
+                tool_calls = msg.get("tool_calls")
+                if not tool_calls:
+                    final_text = msg.get("content", "") or "(no response)"
+                    history.append({"role": "assistant", "content": final_text, "tools": tool_log, "ts": ts()})
+                    _assistant_save_session(sess)
+                    yield send("done", {"ok": True, "reply": final_text, "tools": tool_log, "title": sess["title"]})
+                    return
+                api_messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": tool_calls})
+                for call in tool_calls:
+                    fn = call["function"]["name"]
+                    try:
+                        fn_args = json.loads(call["function"].get("arguments") or "{}")
+                    except Exception:
+                        fn_args = {}
+                    yield send("tool_start", {"name": fn, "args": fn_args})
+                    if fn == "osint_search_username" and (fn_args.get("username") or "").strip():
+                        # Only tool with a meaningful multi-step scan (Maigret,
+                        # up to 500 sites) — stream real found/checked progress
+                        # instead of leaving the UI dark for the whole run.
+                        username = fn_args["username"].strip().lstrip("@")
+                        result = None
+                        try:
+                            for kind, payload in _osint_username_search_core_stream(
+                                username,
+                                maigret_limit=fn_args.get("maigret_limit") or 500,
+                                sources=fn_args.get("sources") or None,
+                            ):
+                                if kind == "progress":
+                                    yield send("tool_progress", {"name": fn, **payload})
+                                else:
+                                    result = payload
+                        except Exception as e:
+                            result = {"error": str(e)}
+                    else:
+                        result = _assistant_run_tool(fn, fn_args)
+                    tool_log.append({"name": fn, "args": fn_args, "result": result})
+                    yield send("tool_done", {"name": fn, "args": fn_args, "result": result})
+                    api_messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": json.dumps(result)})
+            history.append({"role": "assistant", "content": "(stopped after too many tool calls)", "tools": tool_log, "ts": ts()})
+            _assistant_save_session(sess)
+            yield send("done", {"ok": True, "reply": "(stopped after too many tool calls)", "tools": tool_log, "title": sess["title"]})
+        except Exception as e:
+            yield send("error", {"error": str(e), "tools": tool_log})
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 if __name__=="__main__":

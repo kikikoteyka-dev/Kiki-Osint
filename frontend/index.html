@@ -43,6 +43,10 @@
   --ease-in-out:cubic-bezier(0.77,0,0.175,1);
   --ease-drawer:cubic-bezier(0.32,0.72,0,1);
   --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+  /* One grounded elevation shadow, tinted to the panel's own dark bg
+     instead of the accent — shared across every card so hover elevation
+     means the same thing everywhere instead of drifting per-component. */
+  --sh-card:0 12px 28px -16px rgba(2,7,12,.6);
 }
 
 html,body{height:100%;overflow:hidden}
@@ -100,9 +104,6 @@ html.desktop-transparent[data-transparent-level="heavy"] body{
 /* Scan line */
 @keyframes scanMove    {0%{transform:translateY(-100vh)}100%{transform:translateY(100vh)}}
 
-/* Glass orb pulse for active states */
-@keyframes glowPulse   {0%,100%{box-shadow:var(--g-sh),0 0 14px var(--a3)}50%{box-shadow:var(--g-sh2),0 0 32px var(--a2)}}
-
 /* Border gradient rotate */
 @keyframes borderSpin  {0%{background-position:0% 0%}100%{background-position:400% 0%}}
 @keyframes lineGlow    {0%,100%{opacity:.28}50%{opacity:.85}}
@@ -117,10 +118,6 @@ html.desktop-transparent[data-transparent-level="heavy"] body{
 @keyframes ripple{
   0%{transform:scale(0.95);opacity:0}
   100%{transform:scale(4);opacity:0}
-}
-@keyframes inputGlow{
-  0%,100%{box-shadow:0 0 0 3px rgba(92,214,255,.12),var(--g-sh),var(--g-spec)}
-  50%{box-shadow:0 0 0 4px rgba(92,214,255,.22),var(--g-sh2),var(--g-spec)}
 }
 @keyframes btnShimmer{
   0%{background-position:200% center}
@@ -504,7 +501,7 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
   position:relative;overflow:hidden;
 }
 .card:last-child{margin-bottom:0}
-.card:hover{border-color:rgba(92,214,255,.2);background:rgba(92,214,255,.05);transform:translateY(-2px);box-shadow:0 12px 28px -16px rgba(92,214,255,.35)}
+.card:hover{border-color:rgba(92,214,255,.2);background:rgba(92,214,255,.05);transform:translateY(-2px);box-shadow:var(--sh-card)}
 .card.hl{border-color:rgba(92,214,255,.18);background:rgba(92,214,255,.06)}
 .card::before{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
@@ -601,9 +598,9 @@ select option{background:#04111a;color:#eef2f7}
 .rcard{
   background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.06);border-radius:var(--r);padding:22px;
-  animation:fadeUp .38s ease;transition:border-color .2s,background .2s;position:relative;overflow:hidden;
+  animation:fadeUp .38s ease;transition:border-color .2s,background .2s,box-shadow .2s;position:relative;overflow:hidden;
 }
-.rcard:hover{border-color:rgba(92,214,255,.2);background:rgba(92,214,255,.05)}
+.rcard:hover{border-color:rgba(92,214,255,.2);background:rgba(92,214,255,.05);box-shadow:var(--sh-card)}
 .rcard.err{border-color:rgba(255,60,85,.2);background:rgba(255,40,70,.05)}
 /* Was applied as a class with no matching rule at all — the AI portrait
    card rendered as one more single-column cell instead of the full-width
@@ -680,7 +677,7 @@ a.site-chip:active{transform:translateY(-1px) scale(.96);transition-duration:90m
 .ai-ul li::before{content:'›';color:#9c8fff;font-size:16px;line-height:1.4;flex-shrink:0}
 .ai-disclaimer-block{margin-top:24px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,170,0,.18);background:rgba(255,150,0,.04)}
 .ai-disc-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(90deg,rgba(255,150,0,.12),rgba(255,100,0,.06));border-bottom:1px solid rgba(255,170,0,.15)}
-.ai-disc-icon{font-size:16px;flex-shrink:0}
+.ai-disc-icon{flex-shrink:0;color:rgba(255,190,60,.9);display:flex}
 .ai-disc-title{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;color:rgba(255,190,60,.9)}
 .ai-disc-items{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
 .ai-disc-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.65;color:rgba(255,220,160,.75)}
@@ -1042,7 +1039,7 @@ void main(){
             </select>
           </div>
           <div id="aiKeyHint" style="display:none;font-size:12px;color:rgba(255,200,80,.8);font-family:'JetBrains Mono',monospace;margin-top:5px">
-            ⚠ No key saved — open <a href="#" onclick="openSettings();return false;" style="color:#5cd6ff">⚙ Settings</a>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1.5px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> No key saved — open <a href="#" onclick="openSettings();return false;" style="color:#5cd6ff"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1.5px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg> Settings</a>
           </div>
           <select class="hf-ai-sel" id="aiLang" style="margin-top:10px">
             <option value="ru">🇷🇺 Русский</option>
@@ -1064,7 +1061,7 @@ void main(){
   </div>
   <div class="card" id="altUserCard" style="margin-bottom:10px;display:none">
     <div class="sec-title">Alt accounts</div>
-    <button class="btn btn-g" id="altUserBtn" onclick="searchAltUsers()" style="width:100%;font-size:13px;padding:10px;margin-top:0">🔍 Search another user's account</button>
+    <button class="btn btn-g" id="altUserBtn" onclick="searchAltUsers()" style="width:100%;font-size:13px;padding:10px;margin-top:0"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2.5px"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/></svg> Search another user's account</button>
     <div id="altUserBox" style="display:none;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
   </div>
   <div class="card" style="margin-bottom:10px">
@@ -1746,6 +1743,46 @@ function appendResultCard(grid, card){
   else grid.appendChild(card);
 }
 
+// Replaces the 32px ✓/✗ emoji that used to stand in for a real icon on
+// the single-result account cards (Microsoft, ProtonMail, Google, X) —
+// an emoji filling an icon slot is the canonical "missing icon system"
+// tell, and it sat right next to the hub's own disciplined stroke-2 SVG
+// icons everywhere else.
+var ICONS={
+  settings:{body:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/>'},
+  save:{vb:'0 0 256 256',fill:true,body:'<path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Zm-42.34-61.66a8,8,0,0,1,0,11.32l-24,24a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L120,164.69V120a8,8,0,0,1,16,0v44.69l10.34-10.35A8,8,0,0,1,157.66,154.34Z"/>'},
+  search:{body:'<circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/>'},
+  user:{body:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'},
+  telegram:{vb:'0 0 192 192',body:'<path stroke-width="12" d="M23.073 88.132s65.458-26.782 88.16-36.212c8.702-3.772 38.215-15.843 38.215-15.843s13.621-5.28 12.486 7.544c-.379 5.281-3.406 23.764-6.433 43.756-4.54 28.291-9.459 59.221-9.459 59.221s-.756 8.676-7.188 10.185c-6.433 1.509-17.027-5.281-18.919-6.79-1.513-1.132-28.377-18.106-38.214-26.404-2.649-2.263-5.676-6.79.378-12.071 13.621-12.447 29.891-27.913 39.728-37.72 4.54-4.527 9.081-15.089-9.837-2.264-26.864 18.483-53.35 35.835-53.35 35.835s-6.053 3.772-17.404.377c-11.351-3.395-24.594-7.921-24.594-7.921s-9.08-5.659 6.433-11.693Z"/>'},
+  star:{body:'<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>'},
+  package:{body:'<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/>'},
+  calendarDays:{body:'<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M8 13h.01"/><path d="M12 13h.01"/><path d="M16 13h.01"/><path d="M8 17h.01"/><path d="M12 17h.01"/><path d="M16 17h.01"/>'},
+  server:{body:'<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>'},
+  smartphone:{body:'<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'},
+  mapPin:{body:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'},
+  flag:{body:'<path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/>'},
+  triangleAlert:{body:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'},
+  keyRound:{body:'<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>'},
+  shieldAlert:{body:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/>'},
+  image:{body:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'}
+};
+function icon(key,size,color){
+  var ic=ICONS[key]; if(!ic) return '';
+  size=size||14;
+  var attrs=ic.fill
+    ? 'fill="currentColor" stroke="none"'
+    : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  return '<svg viewBox="'+(ic.vb||'0 0 24 24')+'" width="'+size+'" height="'+size+'" '+attrs+' style="display:inline-block;vertical-align:-'+(size*0.15).toFixed(1)+'px'+(color?';color:'+color:'')+'">'+ic.body+'</svg>';
+}
+function statusIcon(ok, color){
+  var glyph = ok ? '<path d="M8 12l3 3 5-6"/>' : '<path d="M9 9l6 6M15 9l-6 6"/>';
+  return '<span style="width:28px;height:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:'+color+'">'
+    + '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/>'+glyph+'</svg></span>';
+}
+function lockIcon(color){
+  return '<span style="width:28px;height:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:'+color+'">'
+    + '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></span>';
+}
 function renderResult(d){
   const cont=document.getElementById("results");
   let grid=cont.querySelector(".rgrid");
@@ -1772,7 +1809,7 @@ function renderResult(d){
         '<div style="margin-top:14px;font-size:14px;color:rgba(255,255,255,.55);line-height:1.6">'+
         'API key required &mdash; get it at<br>'+
         '<a href="https://haveibeenpwned.com/API/Key" target="_blank" style="color:#ff6b6b;text-decoration:none;font-family:\'JetBrains Mono\',monospace;font-size:13px">haveibeenpwned.com/API/Key</a>'+
-        '<br><span style="font-size:12px;color:rgba(255,255,255,.3)">Then add it in ⚙ Settings</span></div>';
+        '<br><span style="font-size:12px;color:rgba(255,255,255,.3)">Then add it in '+icon('settings',12)+' Settings</span></div>';
       appendResultCard(grid,card);return;
     }
     card.className="rcard err";
@@ -1782,7 +1819,7 @@ function renderResult(d){
 
   if(src==="vk"){
     card.className="rcard rcard-vk";
-    const avatar=data.photo?'<img class="vk-av avatar-zoomable" src="'+data.photo+'" onclick="openAvatarLightbox(\''+data.photo+'\')">':'<div class="vk-av vk-av-empty">👤</div>';
+    const avatar=data.photo?'<img class="vk-av avatar-zoomable" src="'+data.photo+'" onclick="openAvatarLightbox(\''+data.photo+'\')">':'<div class="vk-av vk-av-empty">'+icon('user',36,'#5cd6ff')+'</div>';
     const idStr=data.domain?"@"+data.domain:data.id?"id"+data.id:"";
     card.innerHTML=
       '<div class="rbadge rb-vk">VK</div>'+
@@ -1804,11 +1841,11 @@ function renderResult(d){
       (data.education&&data.education.length?'<div class="divider"></div><div class="fld"><div class="fld-k">Education</div><div class="fld-v">'+data.education.join(", ")+'</div></div>':'')+
       (data.groups&&data.groups.length?'<div class="divider"></div><div class="fld-k" style="margin-bottom:6px">Groups</div><div class="tag-list">'+data.groups.map(g=>'<span class="tag">'+g+'</span>').join("")+'</div>':'')+
       (data.posts&&data.posts.length?'<div class="divider"></div><div class="fld-k" style="margin-bottom:8px">Recent posts</div>'+data.posts.slice(0,3).map(p=>'<div class="vk-post">'+p.substring(0,200)+(p.length>200?"…":"")+'</div>').join(""):'')+
-      (data.closed?'<div class="closed-badge">🔒 Closed profile</div>':'');
+      (data.closed?'<div class="closed-badge">'+lockIcon('rgba(255,200,100,.7)')+' Closed profile</div>':'');
 
   }else if(src==="telegram"){
     card.className="rcard rcard-tg";
-    const av=data.photo?'<img class="tg-av avatar-zoomable" src="'+data.photo+'" onclick="openAvatarLightbox(\''+data.photo+'\')">':'<div class="tg-av tg-av-ph">✈</div>';
+    const av=data.photo?'<img class="tg-av avatar-zoomable" src="'+data.photo+'" onclick="openAvatarLightbox(\''+data.photo+'\')">':'<div class="tg-av tg-av-ph">'+icon('telegram',34,'#5cd6ff')+'</div>';
     card.innerHTML=
       av+
       '<div class="tg-name">'+(data.name||data.username||"—")+'</div>'+
@@ -1911,8 +1948,8 @@ function renderResult(d){
       '<div class="hit-s">@'+data.username+(data.location?' · '+data.location:'')+'</div>'+
       (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
       '<div style="display:flex;gap:16px;margin:10px 0;font-size:13px;color:rgba(92,214,255,.8);font-family:\'JetBrains Mono\',monospace">'+
-        '<span>⭐ '+data.followers+' followers</span>'+
-        '<span>📦 '+data.public_repos+' repos</span>'+
+        '<span>'+icon('star',13)+' '+data.followers+' followers</span>'+
+        '<span>'+icon('package',13)+' '+data.public_repos+' repos</span>'+
       '</div>'+
       '<div class="divider"></div>'+
       '<a href="'+data.url+'" target="_blank" class="tg-link">Open GitHub ↗</a>';
@@ -1920,7 +1957,7 @@ function renderResult(d){
   }else if(src==="email_domain"){
     const mx=(data.mx||[]).slice(0,3);
     const dispBadge=data.disposable
-      ?'<span style="color:#ff6b6b;font-size:11px;margin-left:8px">⚠ DISPOSABLE</span>'
+      ?'<span style="color:#ff6b6b;font-size:11px;margin-left:8px">'+icon('triangleAlert',11)+' DISPOSABLE</span>'
       :'<span style="color:#00e596;font-size:11px;margin-left:8px">✓ real domain</span>';
     const typeBadge=data.account_type==="personal/free"
       ?'<span style="background:rgba(0,229,150,.1);color:#00e596;border:1px solid rgba(0,229,150,.2);padding:2px 8px;border-radius:6px;font-size:11px">Personal / Free</span>'
@@ -1948,14 +1985,14 @@ function renderResult(d){
       '<div class="hit-s">@'+data.username+(data.location?' · '+data.location:'')+'</div>'+
       (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
       '<div style="display:flex;gap:16px;margin:10px 0;font-size:13px;color:rgba(92,214,255,.8);font-family:\'JetBrains Mono\',monospace">'+
-        '<span>⭐ '+data.followers+' followers</span>'+
-        '<span>📦 '+data.public_repos+' repos</span>'+
-        (data.created_at?'<span>📅 '+data.created_at+'</span>':'')+
+        '<span>'+icon('star',13)+' '+data.followers+' followers</span>'+
+        '<span>'+icon('package',13)+' '+data.public_repos+' repos</span>'+
+        (data.created_at?'<span>'+icon('calendarDays',13)+' '+data.created_at+'</span>':'')+
       '</div>'+
       (repos.length?'<div class="divider"></div><ul class="rlist">'+
         repos.map(r=>'<li><a href="'+r.url+'" target="_blank" style="color:#5cd6ff">'+r.name+'</a>'+
           (r.lang?' <span style="color:rgba(255,255,255,.4);font-size:11px">['+r.lang+']</span>':'')+
-          (r.stars?' <span style="color:rgba(255,200,0,.7)">⭐'+r.stars+'</span>':'')+
+          (r.stars?' <span style="color:rgba(255,200,0,.7)">'+icon('star',11)+r.stars+'</span>':'')+
         '</li>').join("")+'</ul>':'')+
       '<div class="divider"></div>'+
       '<a href="'+data.url+'" target="_blank" class="tg-link">Open GitHub ↗</a>';
@@ -1963,9 +2000,9 @@ function renderResult(d){
   }else if(src==="ip"){
     card.className="rcard";
     const flags=[];
-    if(data.is_proxy)   flags.push({t:"⚠ Proxy/VPN",c:"#ff6b6b"});
-    if(data.is_hosting) flags.push({t:"☁ Hosting/DC",c:"#f0c040"});
-    if(data.is_mobile)  flags.push({t:"📱 Mobile",c:"#6eb4ff"});
+    if(data.is_proxy)   flags.push({t:icon('shieldAlert',11)+" Proxy/VPN",c:"#ff6b6b"});
+    if(data.is_hosting) flags.push({t:icon('server',11)+" Hosting/DC",c:"#f0c040"});
+    if(data.is_mobile)  flags.push({t:icon('smartphone',11)+" Mobile",c:"#6eb4ff"});
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(100,200,255,.08);color:#6eb4ff;border-color:rgba(100,200,255,.2)">IP Geolocation</div>'+
       '<div class="hit-n" style="font-size:18px">'+(data.ip||"—")+'</div>'+
@@ -1990,7 +2027,7 @@ function renderResult(d){
       (data.avatar?'<img class="avatar-zoomable" src="'+data.avatar+'" onclick="openAvatarLightbox(\''+data.avatar+'\')" style="width:64px;height:64px;border-radius:50%;margin:8px 0;border:2px solid rgba(92,214,255,.3)">':'')+
       '<div class="hit-n">'+(data.name||data.username||"—")+'</div>'+
       (data.bio?'<div style="font-size:13px;color:rgba(255,255,255,.55);margin:8px 0">'+data.bio+'</div>':'')+
-      (data.location?'<div style="font-size:13px;color:rgba(255,255,255,.4)">📍 '+data.location+'</div>':'')+
+      (data.location?'<div style="font-size:13px;color:rgba(255,255,255,.4)">'+icon('mapPin',13)+' '+data.location+'</div>':'')+
       (accs.length?'<div class="divider"></div><div style="font-size:12px;color:rgba(92,214,255,.6);margin-bottom:6px">Linked accounts</div><ul class="rlist">'+
         accs.map(a=>'<li><a href="'+a.url+'" target="_blank" style="color:#5cd6ff">'+a.title+'</a></li>').join("")+'</ul>':'')+
       (urls.length?'<div class="divider"></div><ul class="rlist">'+
@@ -2003,11 +2040,11 @@ function renderResult(d){
     const repColor={high:"#00e596",medium:"#f0c040",low:"#ff6b6b",none:"rgba(255,255,255,.35)"}[rep]||"rgba(255,255,255,.35)";
     const repIcon={high:"●",medium:"◑",low:"○",none:"–"}[rep]||"–";
     const flags=[];
-    if(data.suspicious)       flags.push({t:"⚠ Suspicious",c:"#ff6b6b"});
-    if(data.spam)             flags.push({t:"⚑ Spam",c:"#ff6b6b"});
-    if(data.malicious_activity) flags.push({t:"☣ Malicious",c:"#ff6b6b"});
-    if(data.credentials_leaked) flags.push({t:"🔑 Creds leaked",c:"#f0c040"});
-    if(data.data_breach)      flags.push({t:"💥 Breach",c:"#f0c040"});
+    if(data.suspicious)       flags.push({t:icon('triangleAlert',11)+" Suspicious",c:"#ff6b6b"});
+    if(data.spam)             flags.push({t:icon('flag',11)+" Spam",c:"#ff6b6b"});
+    if(data.malicious_activity) flags.push({t:icon('triangleAlert',11)+" Malicious",c:"#ff6b6b"});
+    if(data.credentials_leaked) flags.push({t:icon('keyRound',11)+" Creds leaked",c:"#f0c040"});
+    if(data.data_breach)      flags.push({t:icon('shieldAlert',11)+" Breach",c:"#f0c040"});
     const profiles=data.profiles||[];
     card.className="rcard";
     card.innerHTML=
@@ -2034,7 +2071,7 @@ function renderResult(d){
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(0,120,215,.12);color:#00aff0;border-color:rgba(0,120,215,.3)">Microsoft</div>'+
       '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
-        '<span style="font-size:32px">'+(exists?"✓":"✗")+'</span>'+
+        statusIcon(exists, exists?"#00e596":"rgba(255,255,255,.4)")+
         '<div>'+
           '<div style="font-size:16px;font-weight:600;color:'+(exists?"#00e596":"rgba(255,255,255,.4)")+'">'+
             (exists?"Account found":"No account")+'</div>'+
@@ -2048,7 +2085,7 @@ function renderResult(d){
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(109,74,255,.12);color:#9b7ff4;border-color:rgba(109,74,255,.3)">ProtonMail</div>'+
       '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
-        '<span style="font-size:32px">'+(exists?"🔒":"✗")+'</span>'+
+        (exists?lockIcon("#9b7ff4"):statusIcon(false,"rgba(255,255,255,.4)"))+
         '<div>'+
           '<div style="font-size:16px;font-weight:600;color:'+(exists?"#9b7ff4":"rgba(255,255,255,.4)")+'">'+
             (exists?"ProtonMail account found":"Not a ProtonMail address")+'</div>'+
@@ -2068,7 +2105,7 @@ function renderResult(d){
       '<div class="rbadge" style="background:rgba(255,255,255,.06);color:#e8eaed;border-color:rgba(255,255,255,.15)">Google</div>'+
       '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
         (data.photo?'<img src="'+data.photo+'" style="width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.2)">':
-          '<span style="font-size:32px">'+(exists?"✓":"✗")+'</span>')+
+          statusIcon(exists, exists?"#e8eaed":"rgba(255,255,255,.4)"))+
         '<div>'+
           '<div style="font-size:16px;font-weight:600;color:'+(exists?"#e8eaed":"rgba(255,255,255,.4)")+'">'+
             (data.name||( exists?"Google account found":"No Google account"))+'</div>'+
@@ -2086,7 +2123,7 @@ function renderResult(d){
     card.innerHTML=
       '<div class="rbadge" style="background:rgba(0,0,0,.2);color:#e7e9ea;border-color:rgba(255,255,255,.15)">𝕏 / Twitter</div>'+
       '<div style="margin-top:14px;display:flex;align-items:center;gap:12px">'+
-        '<span style="font-size:32px">'+(exists?"✓":"✗")+'</span>'+
+        statusIcon(exists, exists?"#e7e9ea":"rgba(255,255,255,.4)")+
         '<div>'+
           '<div style="font-size:16px;font-weight:600;color:'+(exists?"#e7e9ea":"rgba(255,255,255,.4)")+'">'+
             (exists?"Account registered":"No X/Twitter account")+'</div>'+
@@ -2157,7 +2194,7 @@ function renderResult(d){
     const dt = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
     html+=`<div class="ai-disclaimer-block">
       <div class="ai-disc-header">
-        <span class="ai-disc-icon">⚠</span>
+        <span class="ai-disc-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
         <span class="ai-disc-title">${dt.disc_title}</span>
       </div>
       <div class="ai-disc-items">
@@ -2184,7 +2221,7 @@ function renderResult(d){
     const links=data.links||[];
     if(!links.length)return;
     card.innerHTML=
-      '<div class="rbadge" style="background:rgba(92,214,255,.1);color:#5cd6ff;border-color:rgba(92,214,255,.25)">🖼 Avatar Match</div>'+
+      '<div class="rbadge" style="background:rgba(92,214,255,.1);color:#5cd6ff;border-color:rgba(92,214,255,.25)">'+icon('image',12)+' Avatar Match</div>'+
       (clusters.length?clusters.map(c=>
         '<div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
           '<div style="display:flex">'+c.avatars.map((u,i)=>
@@ -2223,10 +2260,10 @@ function showExportBar(query){
   const ts=new Date().toISOString().slice(0,19).replace("T","_").replace(/:/g,"-");
   const filename=`kiki_osint_${query}_${ts}`;
   bar.innerHTML=
-    '<span class="export-label">📦 '+allResults.length+' sources · '+query+'</span>'+
+    '<span class="export-label">'+icon('package',12)+' '+allResults.length+' sources · '+query+'</span>'+
     '<button class="export-btn" id="btnCopyJson" onclick="exportCopyJson()">⧉ Copy JSON</button>'+
-    '<button class="export-btn" id="btnExportTxt" onclick="exportTxt(\''+filename+'\')">↓ Export TXT</button>'+
-    '<button class="export-btn" id="btnExportJson" onclick="exportJson(\''+filename+'\')">↓ Export JSON</button>';
+    '<button class="export-btn" id="btnExportTxt" onclick="exportTxt(\''+filename+'\')">'+icon('save',12)+' Export TXT</button>'+
+    '<button class="export-btn" id="btnExportJson" onclick="exportJson(\''+filename+'\')">'+icon('save',12)+' Export JSON</button>';
   const results=document.getElementById("results");
   stage.insertBefore(bar, results);
 }
@@ -2462,7 +2499,7 @@ window.addEventListener("pageshow", function(){
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal-box">
-    <div class="modal-title"><span class="modal-title-icon">⚙</span> API Keys &amp; Settings</div>
+    <div class="modal-title"><span class="modal-title-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-4px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></span> API Keys &amp; Settings</div>
     <div class="modal-sub">Keys saved in keys.json locally — never sent anywhere except the respective API.</div>
     <div class="modal-section">
       <div class="modal-section-title">VKontakte <span class="key-status missing" id="status-vk">not set</span></div>
@@ -2502,7 +2539,7 @@ window.addEventListener("pageshow", function(){
       </div>
     </div>
     <div class="modal-actions">
-      <button class="modal-btn-save" onclick="onSaveSettings()">💾 Save Keys</button>
+      <button class="modal-btn-save" onclick="onSaveSettings()"><svg viewBox="0 0 256 256" width="15" height="15" fill="currentColor" style="display:inline-block;vertical-align:-2.5px"><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Zm-42.34-61.66a8,8,0,0,1,0,11.32l-24,24a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L120,164.69V120a8,8,0,0,1,16,0v44.69l10.34-10.35A8,8,0,0,1,157.66,154.34Z"/></svg> Save Keys</button>
       <button class="modal-btn-cancel" onclick="closeSettings()">Cancel</button>
     </div>
     <div class="modal-saved-badge" id="savedBadge">✓ Keys saved to keys.json</div>
@@ -2533,16 +2570,6 @@ document.querySelectorAll('input[type=range]').forEach(r => {
   };
   r.addEventListener('input', update);
   update();
-});
-
-// ── Input focus glow pulse ────────────────────────────────────────────────
-document.querySelectorAll('.hf-inp, .modal-inp').forEach(inp => {
-  inp.addEventListener('focus', function() {
-    this.style.animation = 'inputGlow 2s ease-in-out infinite';
-  });
-  inp.addEventListener('blur', function() {
-    this.style.animation = '';
-  });
 });
 
 // ── Stats counter animation ────────────────────────────────────────────────
