@@ -625,7 +625,13 @@ html[data-nav-style="rail"].desktop-transparent .panel.leaving{transition:paddin
    whole section (that felt like boxes-in-boxes stacked against the
    settings-card's own border). The centered weight is what's supposed to
    carry the separation now, not a card surface. */
-.settings-section{margin-bottom:28px}
+.settings-section{margin-bottom:28px;display:none}
+.settings-section.active{display:block}
+.settings-cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--g-bd2)}
+.settings-cat-btn{width:44px;height:44px;flex-shrink:0;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--g-bg);border:1px solid var(--g-bd);color:var(--t3);cursor:pointer;transition:background .18s var(--ease-out),border-color .18s var(--ease-out),color .18s var(--ease-out)}
+.settings-cat-btn svg{width:20px;height:20px;flex-shrink:0}
+.settings-cat-btn:hover{color:var(--t1);border-color:var(--g-bd-h)}
+.settings-cat-btn.active{background:color-mix(in srgb,var(--a) 15%,transparent);color:var(--a);border-color:rgba(92,214,255,.3)}
 .settings-section:last-of-type{margin-bottom:0}
 .settings-section-head{position:relative;display:flex;align-items:center;justify-content:center;padding-bottom:12px;margin-bottom:18px;border-bottom:1px solid var(--g-bd2)}
 .settings-section-title{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--t1);font-family:'JetBrains Mono',monospace;font-weight:800}
@@ -3353,8 +3359,17 @@ document.addEventListener("pointermove",(e)=>{
 <div class="panel" id="panel-settings">
   <div class="settings-card">
     <div class="settings-title" id="s-title">Settings</div>
+    <div class="settings-cats" id="settings-cats">
+      <button class="settings-cat-btn" data-cat="interface" onclick="setSettingsCategory('interface')" title="Interface"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V96H40V56ZM40,112H96v88H40Zm176,88H112V112H216v88Z"/></svg></button>
+      <button class="settings-cat-btn" data-cat="background" onclick="setSettingsCategory('background')" title="Background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button>
+      <button class="settings-cat-btn" data-cat="indicators" onclick="setSettingsCategory('indicators')" title="Indicators"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></button>
+      <button class="settings-cat-btn" data-cat="transparency" onclick="setSettingsCategory('transparency')" title="Transparency"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Zm23.88,0L128,126.74,208.12,80,128,33.26Z"/></svg></button>
+      <button class="settings-cat-btn" data-cat="sliders" onclick="setSettingsCategory('sliders')" title="Sliders &amp; Cards"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M176,80a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H184A8,8,0,0,1,176,80ZM40,88H144v16a8,8,0,0,0,16,0V56a8,8,0,0,0-16,0V72H40a8,8,0,0,0,0,16Zm176,80H120a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16ZM88,144a8,8,0,0,0-8,8v16H40a8,8,0,0,0,0,16H80v16a8,8,0,0,0,16,0V152A8,8,0,0,0,88,144Z"/></svg></button>
+      <button class="settings-cat-btn" data-cat="ai" onclick="setSettingsCategory('ai')" title="AI &amp; API Keys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></button>
+      <button class="settings-cat-btn" data-cat="tools" onclick="setSettingsCategory('tools')" title="WiFi Cracker Tools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></button>
+    </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-interface">Interface</span><button class="preview-hide-btn" id="settings-section-toggle-interface" onclick="toggleSettingsSection('interface')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-interface">Interface</span></div>
       <div class="settings-section-body" id="settings-section-interface">
     <div class="setting-row"><div class="setting-label" id="s-ui-lang-label">Interface Language</div>
       <div class="ui-lang-switch">
@@ -3387,7 +3402,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-background">Background</span><button class="preview-hide-btn" id="settings-section-toggle-background" onclick="toggleSettingsSection('background')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-background">Background</span></div>
       <div class="settings-section-body" id="settings-section-background">
     <div class="setting-row" style="align-items:flex-start"><div class="setting-label" id="s-bg-label">Background</div>
       <div style="width:100%">
@@ -3436,7 +3451,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-indicators">Indicators</span><button class="preview-hide-btn" id="settings-section-toggle-indicators" onclick="toggleSettingsSection('indicators')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-indicators">Indicators</span></div>
       <div class="settings-section-body" id="settings-section-indicators">
     <div class="setting-row"><div class="setting-label" id="s-loader-style-label">Loading Indicator</div>
       <div style="width:100%">
@@ -3505,7 +3520,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-transparency">Transparency</span><button class="preview-hide-btn" id="settings-section-toggle-transparency" onclick="toggleSettingsSection('transparency')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-transparency">Transparency</span></div>
       <div class="settings-section-body" id="settings-section-transparency">
     <div class="setting-row"><div class="setting-label" id="s-transparent-label">See-through desktop</div>
       <div class="seg-switch" id="s-transparent">
@@ -3523,7 +3538,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-sliders">Sliders &amp; Cards</span><button class="preview-hide-btn" id="settings-section-toggle-sliders" onclick="toggleSettingsSection('sliders')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-sliders">Sliders &amp; Cards</span></div>
       <div class="settings-section-body" id="settings-section-sliders">
     <div class="setting-row"><div class="setting-label" id="s-slider-style-label">Slider Style</div>
       <div style="width:100%">
@@ -3563,16 +3578,16 @@ document.addEventListener("pointermove",(e)=>{
         <button class="seg-btn" data-val="on" onclick="setCardGlass(true)">Glass</button>
       </div>
     </div>
-      </div>
-    </div>
     <div class="setting-row"><div class="setting-label" id="s-debug-label">Debug Mode</div>
       <div class="seg-switch" id="s-debug">
         <button class="seg-btn" data-val="off" onclick="setDebugMode(false)">Off</button>
         <button class="seg-btn" data-val="on" onclick="setDebugMode(true)">On</button>
       </div>
     </div>
+      </div>
+    </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-ai">AI &amp; API Keys</span><button class="preview-hide-btn" id="settings-section-toggle-ai" onclick="toggleSettingsSection('ai')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-ai">AI &amp; API Keys</span></div>
       <div class="settings-section-body" id="settings-section-ai">
     <div class="setting-row"><div class="setting-label" id="s-vk-label">VK Token</div><input class="setting-inp" id="s-vk" placeholder="vk1.a.xxx..."></div>
     <div class="setting-row"><div class="setting-label" id="s-mistral-label">Mistral API (Recommended)</div><input class="setting-inp" id="s-mistral" placeholder="..."></div>
@@ -3598,7 +3613,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-tools">WiFi Cracker Tools</span><button class="preview-hide-btn" id="settings-section-toggle-tools" onclick="toggleSettingsSection('tools')" title="Show/hide section">−</button></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-tools">WiFi Cracker Tools</span></div>
       <div class="settings-section-body" id="settings-section-tools">
         <div class="setting-row"><div class="setting-label"><span id="s-tool-hashcat-label">Hashcat</span> <span class="tool-path-status" id="tp-hashcat-status"></span></div>
           <div style="display:flex;gap:8px">
@@ -6142,29 +6157,21 @@ function setSliderStyle(style){
   // slider right now instead of waiting for that.
   document.querySelectorAll('input[type=range].ur-range').forEach(urUpdateTrack);
 }
-function toggleSettingsSection(name){
-  var body = document.getElementById('settings-section-'+name);
-  var btn = document.getElementById('settings-section-toggle-'+name);
-  if(!body || !btn) return;
-  var collapsed = !body.classList.contains('collapsed');
-  body.classList.toggle('collapsed', collapsed);
-  btn.textContent = collapsed ? '+' : '−';
-  localStorage.setItem('kiki_settings_section_'+name, collapsed ? '1' : '0');
+function setSettingsCategory(cat){
+  // Inlined rather than a module-level array — see initSettingsSections'
+  // own comment for why (call-site ordering hazard with a top-level var).
+  ['interface','background','indicators','transparency','sliders','ai','tools'].forEach(function(name){
+    var body = document.getElementById('settings-section-'+name);
+    var wrap = body ? body.closest('.settings-section') : null;
+    if(wrap) wrap.classList.toggle('active', name === cat);
+  });
+  document.querySelectorAll('.settings-cat-btn').forEach(function(b){
+    b.classList.toggle('active', b.dataset.cat === cat);
+  });
+  localStorage.setItem('kiki_settings_cat', cat);
 }
 function initSettingsSections(){
-  // Inlined rather than a module-level array: initLoaderPrefs calls this
-  // immediately at parse time, before its own place in file load order —
-  // a top-level `var` here would still be hoisted-but-unassigned (undefined)
-  // at that point. An array literal inside the function body has no such
-  // ordering hazard, since it's only evaluated when the function actually runs.
-  ['interface','background','indicators','transparency','sliders','ai'].forEach(function(name){
-    var body = document.getElementById('settings-section-'+name);
-    var btn = document.getElementById('settings-section-toggle-'+name);
-    if(!body || !btn) return;
-    var collapsed = localStorage.getItem('kiki_settings_section_'+name) === '1';
-    body.classList.toggle('collapsed', collapsed);
-    btn.textContent = collapsed ? '+' : '−';
-  });
+  setSettingsCategory(localStorage.getItem('kiki_settings_cat') || 'interface');
 }
 function toggleSliderStylePreview(){
   var wrap = document.getElementById('slider-style-preview-wrap-inner');
