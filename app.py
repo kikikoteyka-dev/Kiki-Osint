@@ -1884,6 +1884,76 @@ def _flip_err(e):
         return "Порт занят другим приложением или Flipper сейчас не подключён по Bluetooth. Закрой qFlipper/Flipper Mobile и проверь подключение."
     return str(e)
 
+def _flipper_pick_port():
+    """Auto-pick a COM port for the assistant's Flipper tools — the tab's
+    own selection lives in the browser's localStorage, invisible to the
+    backend, so the model can't be expected to know/guess a port number.
+    Prefers whatever flipper_ports() would flag as 'likely'."""
+    if not _SERIAL_OK:
+        return None, "pyserial not installed"
+    ports = list(serial.tools.list_ports.comports())
+    def is_likely(p):
+        desc = ((p.description or "") + (p.manufacturer or "")).lower()
+        return any(x in desc for x in ["flipper", "stm32 virtual", "stm32 usb", "0483:5740", "usb serial", "usb-serial"])
+    likely = [p for p in ports if is_likely(p)]
+    chosen = likely[0] if likely else (ports[0] if ports else None)
+    if not chosen:
+        return None, "no serial ports found — is a Flipper Zero connected?"
+    return chosen.device, None
+
+def _flipper_list_core(port, path="/ext"):
+    with serial.Serial(port, 115200, timeout=2) as s:
+        _tm.sleep(0.8); s.reset_input_buffer()
+        s.write(f"storage list {path}\r\n".encode())
+        _tm.sleep(2.5); raw = s.read_all().decode("utf-8", errors="replace")
+    files = []; seen = set()
+    for line in raw.splitlines():
+        t = line.strip()
+        if t.startswith("[F]"):
+            p2 = t.split(); nm = p2[1] if len(p2) > 1 else ""
+            if not nm or nm in seen: continue
+            seen.add(nm)
+            try: sz = int(p2[2].rstrip("b")) if len(p2) > 2 else 0
+            except: sz = 0
+            files.append({"name": nm, "size": sz, "is_dir": False})
+        elif t.startswith("[D]"):
+            p2 = t.split(); nm = p2[1] if len(p2) > 1 else ""
+            if not nm or nm in seen: continue
+            seen.add(nm)
+            files.append({"name": nm, "size": 0, "is_dir": True})
+    files.sort(key=lambda x: (0 if x["is_dir"] else 1, x["name"].lower()))
+    return files
+
+_FLIPPER_TEXT_EXTS = (".sub", ".nfc", ".ir", ".rfid", ".txt", ".shd", ".ibtn")
+
+def _flipper_browse_tool(path):
+    port, err = _flipper_pick_port()
+    if err: return {"error": err}
+    try:
+        files = _flipper_list_core(port, path or "/ext")
+        return {"path": path or "/ext", "port": port, "files": files}
+    except Exception as e:
+        return {"error": _flip_err(e)}
+
+def _flipper_read_capture_tool(path):
+    if not path:
+        return {"error": "path required"}
+    port, err = _flipper_pick_port()
+    if err: return {"error": err}
+    try:
+        data = _flipper_read_binary(port, path)
+    except Exception as e:
+        return {"error": _flip_err(e)}
+    ext = ("." + path.rsplit(".", 1)[-1].lower()) if "." in path else ""
+    if ext in _FLIPPER_TEXT_EXTS:
+        text = data.decode("utf-8", errors="replace")
+        return {"path": path, "size": len(data), "format": "text", "content": text[:4000]}
+    if ext == ".pcap":
+        return {"path": path, "size": len(data), "format": "pcap",
+                "note": "This is a binary WiFi handshake capture — send it to the WiFi Cracker tab (or ask the user to use 'Send to WC' from Flipper Zero) to actually analyze/crack it; raw pcap bytes aren't something to interpret as text."}
+    return {"path": path, "size": len(data), "format": "binary",
+            "note": "Unrecognized binary format — can't usefully interpret raw bytes as text."}
+
 # ─── Flipper endpoints ──────────────────────────────────────
 @app.route("/api/flipper/ports")
 def flipper_ports():
@@ -1905,24 +1975,7 @@ def flipper_list_ep():
     path=request.args.get("path","/ext").strip()
     if not port: return jsonify({"ok":False,"error":"no port","files":[]})
     try:
-        with serial.Serial(port,115200,timeout=2) as s:
-            _tm.sleep(0.8); s.reset_input_buffer()
-            s.write(f"storage list {path}\r\n".encode())
-            _tm.sleep(2.5); raw=s.read_all().decode("utf-8",errors="replace")
-        files=[]; seen=set()
-        for line in raw.splitlines():
-            t=line.strip()
-            if t.startswith("[F]"):
-                p2=t.split(); nm=p2[1] if len(p2)>1 else ""
-                if not nm or nm in seen: continue; seen.add(nm)
-                try: sz=int(p2[2].rstrip("b")) if len(p2)>2 else 0
-                except: sz=0
-                files.append({"name":nm,"size":sz,"is_dir":False})
-            elif t.startswith("[D]"):
-                p2=t.split(); nm=p2[1] if len(p2)>1 else ""
-                if not nm or nm in seen: continue; seen.add(nm)
-                files.append({"name":nm,"size":0,"is_dir":True})
-        files.sort(key=lambda x:(0 if x["is_dir"] else 1,x["name"].lower()))
+        files = _flipper_list_core(port, path)
         return jsonify({"ok":True,"files":files,"path":path})
     except Exception as e: return jsonify({"ok":False,"error":_flip_err(e),"files":[]})
 
@@ -2688,6 +2741,20 @@ ASSISTANT_TOOLS = [
             "sources": {"type": "array", "items": {"type": "string", "enum": ["vk", "telegram", "github", "maigret"]}, "description": "Which sources to run. Defaults to all four. Only restrict this if the user explicitly asks to check just one/some platforms."}
         }, "required": ["username"]},
     }},
+    {"type": "function", "function": {
+        "name": "flipper_browse",
+        "description": "List files/folders on a connected Flipper Zero's SD card at a given path. Auto-detects the COM port — the user doesn't need to have one selected in the Flipper Zero tab first.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string", "description": "SD card path to list. Defaults to '/ext' (the root of the external SD card) if omitted."}
+        }},
+    }},
+    {"type": "function", "function": {
+        "name": "flipper_read_capture",
+        "description": "Read one file off a connected Flipper Zero's SD card and return its content for analysis. Works well for Sub-GHz (.sub), NFC (.nfc), Infrared (.ir), RFID (.rfid) and other Flipper Format text files — you'll get the actual key/value content (frequency, protocol, etc) to interpret. Binary formats like .pcap can't be read as text this way — point the user at WiFi Cracker's 'Send to WC' instead for those.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string", "description": "Full SD card path to the file, e.g. '/ext/subghz/my_capture.sub'. Use flipper_browse first to find the exact path if you don't already know it."}
+        }, "required": ["path"]},
+    }},
 ]
 ASSISTANT_GATED_TOOLS = set()  # e.g. {"wifi_crack"} once that tool lands
 
@@ -2828,6 +2895,10 @@ def _assistant_run_tool(name, args):
             maigret_limit = args.get("maigret_limit") or 500
             sources = args.get("sources") or None
             return _osint_username_search_core(username, maigret_limit=maigret_limit, sources=sources)
+        if name == "flipper_browse":
+            return _flipper_browse_tool(args.get("path"))
+        if name == "flipper_read_capture":
+            return _flipper_read_capture_tool(args.get("path"))
         return {"error": "unknown tool: " + name}
     except Exception as e:
         return {"error": str(e)}
@@ -2873,9 +2944,17 @@ ASSISTANT_SYSTEM_PROMPT = (
     "Mistral/Gemini/Anthropic/DeepSeek, HIBP, GitHub) lives here, saved to "
     "keys.json locally, never sent anywhere but the respective API. Also nav "
     "style (Dock/Rail), app theme, and background.\n\n"
-    "You only have THREE real tools right now: geoint_analyze_photo (needs a local "
-    "file path), wifi_status, and osint_search_username (searches a username across "
-    "VK/Telegram/GitHub/Maigret). osint_search_username defaults to a full search "
+    "You have FIVE real tools right now: geoint_analyze_photo (needs a local "
+    "file path), wifi_status, osint_search_username, flipper_browse, and "
+    "flipper_read_capture. flipper_browse lists files on a connected Flipper "
+    "Zero's SD card (auto-detects the port, no need to ask the user for one) — "
+    "use it to find a capture's exact path if the user doesn't give one. "
+    "flipper_read_capture reads a .sub/.nfc/.ir/.rfid file and hands you its "
+    "real Flipper Format content (frequency, protocol, UID, etc) to actually "
+    "interpret — say what the signal/card most likely is, don't just repeat "
+    "the raw key/value lines back. It can't meaningfully read .pcap (binary) — "
+    "point the user at WiFi Cracker's 'Send to WC' for those instead. "
+    "osint_search_username defaults to a full search "
     "(all sources, Maigret at 500 sites) — never shrink it just because a username "
     "looks common; only narrow sources/maigret_limit if the user explicitly asks for "
     "something faster or more targeted. Everything else above is knowledge, not "
@@ -2884,8 +2963,13 @@ ASSISTANT_SYSTEM_PROMPT = (
     "above; never say 'I can run X' for a tab you have no tool for. If something "
     "isn't working (no results, an error, a missing dependency), your first move "
     "is diagnosing against what you know above — wrong tab, missing API key, "
-    "HashCat not installed, wrong Reveal Text mode — before shrugging. Keep "
-    "answers short and concrete.\n\n"
+    "HashCat not installed, wrong Reveal Text mode — before shrugging.\n\n"
+    "Write like a person answering in chat, not like you're generating a wiki "
+    "page. Default to plain short paragraphs or a tight list — no headers, no "
+    "bold-every-noun, no horizontal rules, no restating the question as a "
+    "section title. A troubleshooting answer needs the 2-3 steps that actually "
+    "matter, not a numbered rundown of every conceivable cause with a table at "
+    "the end. If the honest answer is one sentence, give one sentence.\n\n"
     "After osint_search_username: your job is to run the search AND analyze what "
     "came back, not just repeat it as a list of links. The tool result carries an "
     "`ai_analysis` field when one could be generated — a synthesis correlating the "
@@ -2953,6 +3037,23 @@ def assistant_history():
     sess = _assistant_load_session(request.args.get("session_id", ""))
     return jsonify({"messages": sess["messages"] if sess else []})
 
+def _assistant_device_info():
+    """fastfetch output for the FIRST message of a new session only — gives
+    the model real ambient context (OS, CPU/GPU, free disk, battery) instead
+    of it guessing or asking. Silently returns None if fastfetch isn't
+    installed or errors — this is a nice-to-have, never worth failing the
+    chat over."""
+    try:
+        r = subprocess.run(
+            ["fastfetch", "--pipe", "--logo", "none", "--structure",
+             "os:host:kernel:uptime:cpu:gpu:memory:disk:localip:battery"],
+            capture_output=True, text=True, timeout=5
+        )
+        out = r.stdout.strip()
+        return out or None
+    except Exception:
+        return None
+
 @app.route("/api/assistant/chat", methods=["POST"])
 def assistant_chat():
     data = request.json or {}
@@ -2974,6 +3075,12 @@ def assistant_chat():
         lang_instruction = "Always reply in the same language the user's message is written in — match their language exactly, message by message."
         history = sess["messages"]
         api_messages = [{"role": "system", "content": ASSISTANT_SYSTEM_PROMPT + " " + lang_instruction}]
+        if not history:
+            device_info = _assistant_device_info()
+            if device_info:
+                api_messages.append({"role": "system", "content":
+                    "[Background device info — for your own context, not something to recite "
+                    "back to the user unless they actually ask about their system]\n" + device_info})
         api_messages += [{"role": m["role"], "content": m.get("content", "")} for m in history if m["role"] in ("user", "assistant")]
         api_messages.append({"role": "user", "content": user_text})
         history.append({"role": "user", "content": user_text, "ts": ts()})
