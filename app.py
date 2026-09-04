@@ -1098,8 +1098,23 @@ def search_email_hibp(query, send, collected=None):
         yield send("progress", {"source": "hibp", "status": "error", "msg": str(e)})
 
 
+def _fetch_avatar_bytes(url, timeout=8):
+    """Best-effort image fetch for cross-referencing avatars in generate_portrait
+    — returns None on any failure so a slow/dead CDN link never blocks the
+    whole portrait, it just means that platform's avatar isn't in the compare."""
+    if not url:
+        return None
+    try:
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
+        return r.content
+    except Exception:
+        return None
+
 def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
     context_parts = []
+    avatar_images = []  # [(label, bytes)] — real photos to actually show the model,
+                         # not just tell it "there's an avatar" and let it guess.
 
     if collected:
         if "vk" in collected and "error" not in collected["vk"]:
@@ -1108,11 +1123,23 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
                                   f"followers={vk.get('followers')}, bdate={vk.get('bdate')}, sex={vk.get('sex')}, "
                                   f"last_seen={vk.get('last_seen')}, education={vk.get('education')}, "
                                   f"groups={vk.get('groups', [])[:10]}, posts={vk.get('posts', [])[:3]}, closed={vk.get('closed')}")
+            img = _fetch_avatar_bytes(vk.get("photo"))
+            if img:
+                avatar_images.append(("VK avatar", img))
 
         if "telegram" in collected and "error" not in collected["telegram"]:
             tg = collected["telegram"]
             context_parts.append(f"Telegram profile: name={tg.get('name')}, username=@{tg.get('username')}, "
                                   f"bio={tg.get('bio')}, subscribers={tg.get('subscribers')}")
+            img = _fetch_avatar_bytes(tg.get("photo"))
+            if img:
+                avatar_images.append(("Telegram avatar", img))
+
+        if "github" in collected and "error" not in collected["github"]:
+            gh = collected["github"]
+            img = _fetch_avatar_bytes(gh.get("avatar"))
+            if img:
+                avatar_images.append(("GitHub avatar", img))
 
         if "maigret" in collected:
             sites = [s["site"] for s in collected["maigret"].get("found", [])]
@@ -1138,43 +1165,81 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
         "en": "Respond strictly in English.",
     }.get(ai_lang, "Respond strictly in English.")
 
+    # DeepSeek's chat API has no vision support here — never claim a photo is
+    # attached for a provider that will never actually receive the bytes.
+    vision_capable = config.get("provider") in ("anthropic", "mistral", "gemini")
+    effective_images = avatar_images if vision_capable else []
+    if effective_images:
+        photo_note = (
+            f"\n\nПрикреплены реальные фото аватарок ({', '.join(l for l, _ in avatar_images)}) — "
+            "посмотри на них по-настоящему: похожи ли это на одного и того же человека (лицо, "
+            "стиль, окружение)? Не пиши ничего про внешность/пол/возраст для аккаунтов, чьё фото "
+            "НЕ приложено — там у тебя просто нет данных, это будет угадайка, а не анализ."
+            if ai_lang == "ru" else
+            f"\n\nReal avatar photos are attached ({', '.join(l for l, _ in avatar_images)}) — actually "
+            "look at them: do they plausibly show the same person (face, style, setting)? Don't state "
+            "anything about appearance/gender/age for accounts whose photo is NOT attached — you have "
+            "no data there, and that would be a guess dressed up as analysis."
+        )
+    else:
+        photo_note = (
+            "\n\nНи одной фотографии профиля не приложено к этому анализу — не выдумывай, как выглядит "
+            "человек, его пол или возраст. Если хочешь упомянуть аватар, скажи только 'аватар есть' или "
+            "'аватара нет', без домыслов о содержимом."
+            if ai_lang == "ru" else
+            "\n\nNo profile photo was attached to this analysis — do not invent what the person looks "
+            "like, their gender, or age. If you mention an avatar at all, say only 'an avatar exists' "
+            "or 'no avatar', never guess what's in it."
+        )
+
     caveat = (
         "ВАЖНО: В конце анализа обязательно добавь раздел '⚠ Важная оговорка' где укажи, что "
-        "не все найденные аккаунты могут принадлежать одному человеку — на разных платформах "
-        "один и тот же никнейм мог быть занят разными людьми. Указывай уверенность только для "
-        "тех платформ, где есть прямые совпадения (аватар, биография, стиль). Это ОБЯЗАТЕЛЬНАЯ часть анализа."
+        "не все найденные аккаунты могут принадлежать одному человеку — один и тот же никнейм на "
+        "рандомном форуме/сервисе из списка Maigret совпадает ЧАЩЕ ВСЕГО ПРОСТО ПО СЛУЧАЙНОСТИ, "
+        "особенно для короткого или частого никнейма — это НЕ доказательство, а лишь наводка. "
+        "Высокую уверенность выражай только там, где есть прямое подтверждение (совпадающее фото, "
+        "совпадающий текст био, явная перекрёстная ссылка между аккаунтами) — не потому что "
+        "никнейм совпал на 30 сайтах подряд. Это ОБЯЗАТЕЛЬНАЯ часть анализа."
         if ai_lang == "ru" else
         "IMPORTANT: At the end of your analysis, add a section '⚠ Important Disclaimer' stating that "
-        "not all found accounts may belong to the same person — the same username could be registered "
-        "by different people on different platforms. Only express high confidence for platforms with "
-        "direct cross-references (avatar, bio, writing style). This section is MANDATORY."
+        "not all found accounts belong to the same person — a matching username on a random forum/"
+        "service from the Maigret list is MOST OFTEN JUST COINCIDENCE, especially for a short or "
+        "common handle — that's a lead, not proof. Only express high confidence where there's direct "
+        "corroboration (matching photo, matching bio text, an explicit cross-link between accounts) — "
+        "not because the username happened to match on 30 sites in a row. This section is MANDATORY."
     )
     if context_parts:
         data_section = "\n".join(f"- {p}" for p in context_parts)
         prompt = (f"You are an OSINT analyst. Based on the following gathered data about {type_label}, "
                   f"write a concise analytical portrait: personality traits, online behavior, geographic hints, "
                   f"risk assessment, and interesting patterns.\n\nGathered data:\n{data_section}\n\n"
-                  f"{lang_instruction} {caveat}")
+                  f"{lang_instruction} {caveat}{photo_note}")
     else:
         prompt = (f"You are an OSINT analyst. Write a brief analytical portrait for {type_label}. "
                   f"Include likely platforms, geographic hints, behavioral patterns, and risk assessment. "
-                  f"{lang_instruction} {caveat}")
+                  f"{lang_instruction} {caveat}{photo_note}")
 
     if config["provider"] == "anthropic":
-        import anthropic
+        import anthropic, base64
         client = anthropic.Anthropic(api_key=config["api_key"])
+        content = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                    "data": base64.b64encode(img).decode()}} for _, img in avatar_images]
+        content.append({"type": "text", "text": prompt})
         msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}])
+            messages=[{"role": "user", "content": content}])
         return {"portrait": msg.content[0].text}
 
     elif config["provider"] == "gemini":
         try:
             from google import genai
+            from google.genai import types
         except ImportError:
             return {"error": "google-genai not installed. Run: py -m pip install google-genai"}
         try:
             client = genai.Client(api_key=config["api_key"])
-            resp = client.models.generate_content(model=GEMINI_DEFAULT_MODEL, contents=prompt)
+            contents = [types.Part.from_bytes(data=img, mime_type="image/jpeg") for _, img in avatar_images]
+            contents.append(prompt)
+            resp = client.models.generate_content(model=GEMINI_DEFAULT_MODEL, contents=contents)
             return {"portrait": resp.text}
         except Exception as e:
             msg = str(e)
@@ -1218,10 +1283,18 @@ def generate_portrait(query, query_type, config, collected=None, ai_lang="ru"):
 
     elif config["provider"] == "mistral":
         try:
+            if avatar_images:
+                import base64
+                content = [{"type": "text", "text": prompt}]
+                for _, img in avatar_images:
+                    content.append({"type": "image_url", "image_url": f"data:image/jpeg;base64,{base64.b64encode(img).decode()}"})
+                mistral_body = {"model": MISTRAL_VISION_MODELS[0], "messages": [{"role": "user", "content": content}]}
+            else:
+                mistral_body = {"model": MISTRAL_TEXT_MODEL, "messages": [{"role": "user", "content": prompt}]}
             r = requests.post(
                 "https://api.mistral.ai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {config['api_key']}", "Content-Type": "application/json"},
-                json={"model": MISTRAL_TEXT_MODEL, "messages": [{"role": "user", "content": prompt}]},
+                json=mistral_body,
                 timeout=120  # a full OSINT-context portrait prompt on mistral-large can genuinely
                              # take over a minute on the free tier — 60s was clipping real requests
             )
@@ -2760,28 +2833,76 @@ def _assistant_run_tool(name, args):
         return {"error": str(e)}
 
 ASSISTANT_SYSTEM_PROMPT = (
-    "You are Kiki, the in-app assistant for KikiHub — an OSINT/security toolkit "
-    "with tabs for username/email OSINT search (Kiki OSINT), photo geolocation "
-    "(GEOINT), WiFi handshake cracking (WiFi Cracker), a video/media downloader, "
-    "hidden-text reveal (Reveal Text), and Flipper Zero integration.\n\n"
+    "You are Kiki, the in-app assistant for KikiHub — an OSINT/security toolkit. "
+    "Your whole point is knowing this app cold and walking the user through it — "
+    "not vague pointers like 'check the settings', but the actual field names, "
+    "buttons, and order of steps, like someone who built the thing. Here is what "
+    "every tab actually does:\n\n"
+    "**Kiki OSINT** — username/email search across VK, Telegram, GitHub, and "
+    "Maigret (500+ sites). Pick search type (Username/Email), set sources and "
+    "Maigret's site limit via the slider, hit Search. Results land in a grid: VK/"
+    "Telegram/GitHub cards with full profile detail, HIBP breach results (needs "
+    "its own API key in Settings, ~$3.50/mo), a Maigret site-chip grid, and an "
+    "AI-generated portrait (needs a provider key in Settings — Mistral/DeepSeek "
+    "work without a VPN in Russia, Gemini is region-blocked without one). "
+    "'Search another user's account' below the results re-runs the same search "
+    "for a second/related nickname. Export TXT/JSON or copy raw JSON from the "
+    "bar under the results.\n"
+    "**WiFi Cracker** — cracks a captured WPA handshake. Needs HashCat installed "
+    "separately (defaults to C:\\HashCat\\hashcat-7.1.2\\) plus a rockyou "
+    "wordlist; tshark is optional and only used for deeper pcap inspection. "
+    "Flow: browse or paste a .pcap path → Analyze pcap extracts SSID/BSSID/EAPOL/"
+    "hash (needs at least 2 EAPOL handshakes captured) → Run hashcat attack "
+    "against rockyou. Live output streams in the STDOUT panel on the right.\n"
+    "**GEOINT** — Choose a photo, then Analyze: pulls GPS straight from EXIF if "
+    "present, otherwise (or in addition) asks the configured AI to guess the "
+    "shooting location from visual clues (architecture, signage, plants), "
+    "labeled high/medium/low confidence — always tell the user to verify an AI "
+    "guess, never state it as fact. EXIF Spoofer (a toggle in the same tab) "
+    "writes fake lat/lon/camera-make/model into a copy of the photo, or strips "
+    "EXIF entirely, for a downloadable output.\n"
+    "**Reveal Text** — recovers text hidden by amateur redaction, not real "
+    "blur/pixelation. Modes: Marker, Depix, iPhone Marker, Blur/WA, Highlighter, "
+    "Custom — pick the one matching how the original was covered. This does not "
+    "reverse a proper Gaussian blur or a fully opaque box; set expectations.\n"
+    "**Downloader** — paste a video/audio URL (YouTube, TikTok, Instagram, X, "
+    "etc, via yt-dlp) and pick Download video or Download MP3.\n"
+    "**Flipper Zero** — browses a connected Flipper's SD card over serial; pick "
+    "its COM port from the dropdown (Refresh ports if it's not listed).\n"
+    "**Settings** — every API key (VK Service Token, Telegram API ID/hash, "
+    "Mistral/Gemini/Anthropic/DeepSeek, HIBP, GitHub) lives here, saved to "
+    "keys.json locally, never sent anywhere but the respective API. Also nav "
+    "style (Dock/Rail), app theme, and background.\n\n"
     "You only have THREE real tools right now: geoint_analyze_photo (needs a local "
     "file path), wifi_status, and osint_search_username (searches a username across "
     "VK/Telegram/GitHub/Maigret). osint_search_username defaults to a full search "
     "(all sources, Maigret at 500 sites) — never shrink it just because a username "
     "looks common; only narrow sources/maigret_limit if the user explicitly asks for "
     "something faster or more targeted. Everything else above is knowledge, not "
-    "capability — you can explain what those tabs do and how to use them "
-    "manually, but you cannot run them yourself yet. Never say 'I can run X' for "
-    "a tab you have no tool for; say what tool you actually have, or point the "
-    "user at the tab to do it by hand. Keep answers short and concrete.\n\n"
-    "After osint_search_username: list every matched platform/site the tool "
-    "returned, not just a handful — the user wants the full picture, not a teaser "
-    "with an offer to expand. VK/Telegram/GitHub hits first with full available "
-    "detail (name, bio, etc), then every Maigret site hit as a plain list (name + "
-    "link). Only skip listing individually if there are genuinely dozens of near-"
-    "duplicate low-signal hits (e.g. 40+ generic forum profiles) — group those as "
-    "one line, but never do that to the first 20-30 results. Never paste a raw "
-    "avatar/CDN URL inline; just say a photo was found."
+    "capability yet — for WiFi Cracker/GEOINT's spoofer/Reveal Text/Downloader/"
+    "Flipper Zero, walk the user through doing it by hand using the exact steps "
+    "above; never say 'I can run X' for a tab you have no tool for. If something "
+    "isn't working (no results, an error, a missing dependency), your first move "
+    "is diagnosing against what you know above — wrong tab, missing API key, "
+    "HashCat not installed, wrong Reveal Text mode — before shrugging. Keep "
+    "answers short and concrete.\n\n"
+    "After osint_search_username: your job is to run the search AND analyze what "
+    "came back, not just repeat it as a list of links. The tool result carries an "
+    "`ai_analysis` field when one could be generated — a synthesis correlating the "
+    "hits (shared avatar across platforms, likely real name, location, confidence "
+    "signals). Lead your answer with that synthesis in your own words: who this "
+    "probably is, what's confirmed vs speculative, what stands out. VK/Telegram/"
+    "GitHub hits still get their own concrete detail (name, bio, photo) since "
+    "that's high-signal, not noise. For the raw Maigret site list, mention the "
+    "count and name only the handful that are actually identity-relevant "
+    "(social/professional profiles) — don't enumerate 30+ generic forum/service "
+    "hits unless the user explicitly asks to see the full list. Never paste a raw "
+    "avatar/CDN URL inline; just say a photo was found.\n\n"
+    "If the username search comes back thin (little or nothing found) or the "
+    "conversation gives you a plausible alternate spelling — dots/underscores "
+    "swapped, a common numeric suffix, a first.last variant, a real name to try "
+    "as a handle — call osint_search_username again for your best 1-2 guesses "
+    "without waiting to be asked. Say in your answer which variants you tried."
 )
 
 _ASST_PROVIDER_DEFAULTS = {
@@ -2902,6 +3023,26 @@ def assistant_chat():
                                     yield send("tool_progress", {"name": fn, **payload})
                                 else:
                                     result = payload
+                            # Give the model the same synthesized writeup the
+                            # Kiki OSINT tab itself generates — cross-platform
+                            # avatar correlation plus an AI read of the hits —
+                            # instead of making it reason over a raw JSON dump
+                            # cold. Reuses whatever provider/key is already
+                            # driving this chat, so no separate config needed.
+                            if result and any(k in result for k in ("vk", "telegram", "github", "maigret")):
+                                try:
+                                    for _ in correlate_avatars(result, lambda *a, **k: None):
+                                        pass
+                                    ai_key = keys_store.get(_ASST_PROVIDER_DEFAULTS[provider]["key_field"])
+                                    if ai_key:
+                                        portrait = generate_portrait(
+                                            username, "username",
+                                            {"provider": provider, "api_key": ai_key},
+                                            result, "ru")
+                                        if portrait.get("portrait"):
+                                            result["ai_analysis"] = portrait["portrait"]
+                                except Exception:
+                                    pass
                         except Exception as e:
                             result = {"error": str(e)}
                     else:
