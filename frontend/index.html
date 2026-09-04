@@ -440,8 +440,23 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
 }
 .hf-ai-sel:focus{border-color:rgba(92,214,255,.32)}
 .hf-ai-sel option{background:#04111a;color:#eef2f7}
+/* Custom dropdown replacing the native <select> visually — a hidden native
+   <select> (same id, kept in the DOM) still holds the real value so every
+   existing .value read elsewhere in this file keeps working unchanged. */
+.asst-dd{position:relative}
+.asst-dd-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:var(--t2);font-family:'Hanken Grotesk',sans-serif;font-size:15px;padding:13px 18px;cursor:pointer;transition:border-color .2s,background .2s,color .2s}
+.asst-dd-trigger:hover{color:var(--t1)}
+.asst-dd.open .asst-dd-trigger{color:var(--a);border-color:rgba(92,214,255,.32)}
+.asst-dd-trigger svg{width:14px;height:14px;flex-shrink:0;transition:transform .2s var(--ease-out)}
+.asst-dd.open .asst-dd-trigger svg{transform:rotate(180deg)}
+.asst-dd-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;background:rgba(8,17,26,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(92,214,255,.16);border-radius:10px;padding:4px;box-shadow:0 12px 28px -8px rgba(0,0,0,.45);z-index:20;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.98);transform-origin:top;transition:opacity .16s var(--ease-out),transform .16s var(--ease-out),visibility 0s linear .16s;max-height:260px;overflow-y:auto}
+.asst-dd.open .asst-dd-menu{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition:opacity .16s var(--ease-out),transform .16s var(--ease-out),visibility 0s}
+.asst-dd-opt{padding:9px 14px;border-radius:7px;font-family:'Hanken Grotesk',sans-serif;font-size:14px;color:var(--t2);white-space:nowrap;cursor:pointer;transition:background .12s var(--ease-out),color .12s var(--ease-out)}
+.asst-dd-opt:hover{background:rgba(255,255,255,.06);color:var(--t1)}
+.asst-dd-opt.selected{background:rgba(92,214,255,.14);color:var(--a)}
 .ai-select-wrap{position:relative}
 .ai-select-wrap .hf-ai-sel{padding-left:46px}
+.ai-select-wrap .asst-dd-trigger{padding-left:46px}
 .ai-select-wrap .provider-icon{
   position:absolute;left:16px;top:50%;transform:translateY(-50%);
   width:18px;height:18px;background:var(--a);pointer-events:none;
@@ -1030,21 +1045,44 @@ void main(){
         <div class="ai-body" id="aiBody">
           <div class="ai-select-wrap">
             <span class="provider-icon" id="providerIcon"></span>
-            <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()">
+            <select class="hf-ai-sel" id="aiProvider" onchange="toggleAiKey()" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;padding:0">
               <option value="" data-i18n="ai_disabled">— disabled —</option>
               <option value="mistral">Mistral (Recommended)</option>
               <option value="anthropic">Claude (Anthropic)</option>
               <option value="gemini">Gemini (Google)</option>
               <option value="deepseek">DeepSeek</option>
             </select>
+            <div class="asst-dd" id="aiProvider-dd" data-mirror="aiProvider" data-onchange="toggleAiKey">
+              <button class="asst-dd-trigger" type="button" onclick="asstDdToggle('aiProvider-dd')">
+                <span class="asst-dd-label" data-i18n="ai_disabled">— disabled —</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="asst-dd-menu">
+                <div class="asst-dd-opt selected" data-val="" data-i18n="ai_disabled" onclick="asstDdChoose('aiProvider-dd',this)">— disabled —</div>
+                <div class="asst-dd-opt" data-val="mistral" onclick="asstDdChoose('aiProvider-dd',this)">Mistral (Recommended)</div>
+                <div class="asst-dd-opt" data-val="anthropic" onclick="asstDdChoose('aiProvider-dd',this)">Claude (Anthropic)</div>
+                <div class="asst-dd-opt" data-val="gemini" onclick="asstDdChoose('aiProvider-dd',this)">Gemini (Google)</div>
+                <div class="asst-dd-opt" data-val="deepseek" onclick="asstDdChoose('aiProvider-dd',this)">DeepSeek</div>
+              </div>
+            </div>
           </div>
           <div id="aiKeyHint" style="display:none;font-size:12px;color:rgba(255,200,80,.8);font-family:'JetBrains Mono',monospace;margin-top:5px">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1.5px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> No key saved — open <a href="#" onclick="openSettings();return false;" style="color:#5cd6ff"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1.5px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg> Settings</a>
           </div>
-          <select class="hf-ai-sel" id="aiLang" style="margin-top:10px">
+          <select class="hf-ai-sel" id="aiLang" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;padding:0">
             <option value="ru">🇷🇺 Русский</option>
             <option value="en" selected>🇬🇧 English</option>
           </select>
+          <div class="asst-dd" id="aiLang-dd" data-mirror="aiLang" style="margin-top:10px">
+            <button class="asst-dd-trigger" type="button" onclick="asstDdToggle('aiLang-dd')">
+              <span class="asst-dd-label">🇬🇧 English</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="asst-dd-menu">
+              <div class="asst-dd-opt" data-val="ru" onclick="asstDdChoose('aiLang-dd',this)">🇷🇺 Русский</div>
+              <div class="asst-dd-opt selected" data-val="en" onclick="asstDdChoose('aiLang-dd',this)">🇬🇧 English</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1165,9 +1203,11 @@ function setLang(lang){
   // Sync aiProvider first option
   const aiSel = document.getElementById("aiProvider");
   if(aiSel && aiSel.options[0]) aiSel.options[0].textContent = t["ai_disabled"];
+  asstDdSync('aiProvider-dd', aiSel ? aiSel.value : '');
   // Sync aiLang to match site lang
   const aiLangSel = document.getElementById("aiLang");
   if(aiLangSel) aiLangSel.value = lang;
+  asstDdSync('aiLang-dd', lang);
   // Update buttons
   document.getElementById("langRU").classList.toggle("active", lang==="ru");
   document.getElementById("langEN").classList.toggle("active", lang==="en");
@@ -1401,6 +1441,38 @@ function toggleAiEnabled(){
   if(body) body.classList.toggle("collapsed", !enabled);
 }
 
+// Custom dropdown mirroring a hidden native <select> (see .asst-dd CSS
+// comment) — every existing document.getElementById(id).value read
+// elsewhere in this file keeps working since the real <select> stays live.
+function asstDdToggle(id){
+  var dd = document.getElementById(id);
+  var wasOpen = dd.classList.contains('open');
+  document.querySelectorAll('.asst-dd.open').forEach(function(d){ d.classList.remove('open'); });
+  if(!wasOpen) dd.classList.add('open');
+}
+function asstDdSync(id, val){
+  var dd = document.getElementById(id);
+  if(!dd) return;
+  var opt = dd.querySelector('.asst-dd-opt[data-val="'+val+'"]');
+  var label = dd.querySelector('.asst-dd-label');
+  if(label) label.textContent = opt ? opt.textContent : val;
+  dd.querySelectorAll('.asst-dd-opt').forEach(function(o){ o.classList.toggle('selected', o.dataset.val === val); });
+}
+function asstDdChoose(id, optEl){
+  var val = optEl.dataset.val;
+  asstDdSync(id, val);
+  var dd = document.getElementById(id);
+  dd.classList.remove('open');
+  var mirror = dd.dataset.mirror;
+  if(mirror){ var sel = document.getElementById(mirror); if(sel) sel.value = val; }
+  var fn = dd.dataset.onchange;
+  if(fn && typeof window[fn] === 'function') window[fn]();
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.asst-dd')){
+    document.querySelectorAll('.asst-dd.open').forEach(function(d){ d.classList.remove('open'); });
+  }
+});
 function updateProviderIcon(provider){
   const icon = document.getElementById("providerIcon");
   if(!icon) return;
@@ -2393,6 +2465,7 @@ async function initSettings(){
       else if(keys.GEMINI_API_KEY && keys.GEMINI_API_KEY.length>5) aiSel.value="gemini";
       else if(keys.ANTHROPIC_API_KEY && keys.ANTHROPIC_API_KEY.length>5) aiSel.value="anthropic";
       else if(keys.DEEPSEEK_API_KEY && keys.DEEPSEEK_API_KEY.length>5) aiSel.value="deepseek";
+      asstDdSync('aiProvider-dd', aiSel.value);
     }
     toggleAiKey(); // show/hide hint based on current provider + key status
   }

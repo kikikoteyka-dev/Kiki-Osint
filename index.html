@@ -880,7 +880,7 @@ select.setting-inp{cursor:pointer}
 .tool-row{display:flex;gap:10px;margin-bottom:14px}
 .tool-row .setting-inp{flex:1}
 .tool-row select.setting-inp{flex:initial;cursor:pointer}
-.tool-row select.geo-lang-sel{flex:0 0 90px;width:90px}
+.tool-row .geo-lang-sel{flex:0 0 90px;width:90px}
 .tool-row select.setting-inp option{background:var(--bg)}
 .geo-file-wrap{flex:1;display:flex;align-items:center;gap:0;background:var(--g-bg);border:1px solid var(--g-bd2);border-radius:var(--r2);cursor:pointer;overflow:hidden;transition:border-color .2s ease,background .2s ease;min-width:0}
 .geo-file-wrap:hover{border-color:rgba(92,214,255,.35);background:rgba(92,214,255,.05)}
@@ -1157,9 +1157,8 @@ input[type=range].ur-range:active::-moz-range-thumb{width:9px}
 .flip-dot.spin{background:var(--a);animation:pulse .8s ease-in-out infinite}
 .flip-conn-txt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em}
 .flip-toolbar{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--g-bd);flex-shrink:0}
-.flip-port-sel{flex:1;background:var(--g-bg);border:1px solid var(--g-bd2);border-radius:var(--r2);padding:7px 10px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;cursor:pointer;transition:border-color .2s,background .2s}
-.flip-port-sel:focus{border-color:rgba(92,214,255,.35);background:rgba(92,214,255,.05)}
-.flip-port-sel option{background:var(--bg)}
+.flip-port-sel{flex:1}
+.flip-port-sel .asst-dd-trigger{width:100%;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px}
 .flip-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--r2);border:1px solid var(--g-bd2);background:var(--g-bg);cursor:pointer;color:var(--t2);transition:border-color .2s ease,background .2s ease,color .2s ease,transform .15s cubic-bezier(.23,1,.32,1);flex-shrink:0;font-size:14px}
 .flip-btn:hover{border-color:var(--g-bd-h);background:rgba(92,214,255,.05);color:var(--a)}
 .flip-btn:active{transform:scale(.93)}
@@ -2996,9 +2995,15 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="flip-toolbar">
-      <select class="flip-port-sel" id="flip-port-sel" onchange="flipPortChange()">
-        <option value="">— select COM port —</option>
-      </select>
+      <div class="asst-dd flip-port-sel" id="flip-port-dd" data-onchange="flipPortChange">
+        <button class="asst-dd-trigger" onclick="asstDdToggle('flip-port-dd')">
+          <span class="asst-dd-label">— select COM port —</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="asst-dd-menu" id="flip-port-menu">
+          <div class="asst-dd-opt selected" data-val="" onclick="asstDdChoose('flip-port-dd',this)">— select COM port —</div>
+        </div>
+      </div>
       <button class="flip-btn" onclick="flipLoadPorts()" title="Refresh ports">↺</button>
       <button class="flip-btn" onclick="flipRefresh()" title="Refresh current folder">⟳</button>
     </div>
@@ -3082,15 +3087,25 @@ document.addEventListener("pointermove",(e)=>{
         <span class="geo-file-btn" id="geo-file-btn">Choose file</span>
         <span class="geo-file-name" id="geo-file-name">No file chosen</span>
       </div>
-      <select class="setting-inp geo-lang-sel" id="geo-ai-lang" onchange="setAiLang(this.value)">
-        <option value="ru">RU</option>
-        <option value="en">EN</option>
-      </select>
+      <div class="asst-dd geo-lang-sel" id="geo-ai-lang-dd" data-onchange="setAiLang">
+        <button class="asst-dd-trigger" onclick="asstDdToggle('geo-ai-lang-dd')" style="width:100%;justify-content:space-between">
+          <span class="asst-dd-label">RU</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="asst-dd-menu">
+          <div class="asst-dd-opt selected" data-val="ru" onclick="asstDdChoose('geo-ai-lang-dd',this)">RU</div>
+          <div class="asst-dd-opt" data-val="en" onclick="asstDdChoose('geo-ai-lang-dd',this)">EN</div>
+        </div>
+      </div>
     </div>
     <div class="tool-row">
-      <select class="setting-inp" id="geo-model-sel" onchange="geoModelChange(this.value)">
-        <option value="">Loading models…</option>
-      </select>
+      <div class="asst-dd" id="geo-model-dd" data-onchange="geoModelChange" style="width:100%">
+        <button class="asst-dd-trigger" onclick="asstDdToggle('geo-model-dd')" style="width:100%;justify-content:space-between">
+          <span class="asst-dd-label">Loading models…</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="asst-dd-menu" id="geo-model-menu" style="width:100%"></div>
+      </div>
     </div>
     <button class="setting-btn" id="geo-btn" onclick="geoAnalyze()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
@@ -3297,7 +3312,7 @@ document.addEventListener("pointermove",(e)=>{
         <span class="asst-hdr-title" id="asst-title-lbl">Kiki Assistant</span>
         <span class="asst-hdr-sub" id="asst-hdr-sub">2 tools ready</span>
       </div>
-      <div class="asst-dd" id="asst-provider-dd">
+      <div class="asst-dd" id="asst-provider-dd" data-onchange="asstSetProvider">
         <button class="asst-dd-trigger" onclick="asstDdToggle('asst-provider-dd')">
           <span class="asst-dd-label">Mistral</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -3569,10 +3584,16 @@ document.addEventListener("pointermove",(e)=>{
       <span id="s-keys-privacy-note" style="font-size:11.5px;line-height:1.5;color:var(--t2)">Keys are stored locally on this device and never leave it.</span>
     </div>
     <div class="setting-row"><div class="setting-label" id="s-ai-lang-label">AI Response Language</div>
-      <select class="setting-inp" id="s-ai-lang" onchange="setAiLang(this.value)">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
-      </select>
+      <div class="asst-dd" id="s-ai-lang-dd" data-onchange="setAiLang">
+        <button class="asst-dd-trigger" onclick="asstDdToggle('s-ai-lang-dd')">
+          <span class="asst-dd-label">Русский</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="asst-dd-menu">
+          <div class="asst-dd-opt selected" data-val="ru" onclick="asstDdChoose('s-ai-lang-dd',this)">Русский</div>
+          <div class="asst-dd-opt" data-val="en" onclick="asstDdChoose('s-ai-lang-dd',this)">English</div>
+        </div>
+      </div>
     </div>
       </div>
     </div>
@@ -3891,9 +3912,8 @@ function setUiLang(lang){
 // ─── AI response language (separate from UI language) ────
 function setAiLang(lang){
   localStorage.setItem('kiki_ai_lang', lang);
-  var geoSel=document.getElementById('geo-ai-lang'), sSel=document.getElementById('s-ai-lang');
-  if(geoSel) geoSel.value = lang;
-  if(sSel) sSel.value = lang;
+  asstDdSync('geo-ai-lang-dd', lang);
+  asstDdSync('s-ai-lang-dd', lang);
 }
 setAiLang(localStorage.getItem('kiki_ai_lang') || 'ru');
 function setDockLang(lang){
@@ -4940,7 +4960,7 @@ async function saveSettings(){
     if(active){
       await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:active[0]})});
       geoModelsLoaded=false;
-      if(document.getElementById('geo-model-sel')) geoLoadModels();
+      if(document.getElementById('geo-model-dd')) geoLoadModels();
     }
     Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el)el.value=''});
     sw('osint');
@@ -5258,27 +5278,27 @@ function geoLoadModels(){
   // time" symptom). Now the second call bails out immediately, synchronously.
   if(geoModelsLoaded) return;
   geoModelsLoaded=true;
-  var sel=document.getElementById('geo-model-sel');
-  if(!sel) return;
+  var menu=document.getElementById('geo-model-menu');
+  var label=document.querySelector('#geo-model-dd .asst-dd-label');
+  if(!menu) return;
   fetch('/api/geoint/models').then(function(r){return r.json()}).then(function(d){
     var models=d.models||[];
     if(!models.length){
-      sel.innerHTML='<option value="">'+(d.provider?'No models found':'No AI provider configured')+'</option>';
+      menu.innerHTML='';
+      if(label) label.textContent=d.provider?'No models found':'No AI provider configured';
       return;
     }
     var saved=localStorage.getItem('kiki_geo_model');
     var pick=(saved && models.indexOf(saved)!==-1) ? saved : (d.default||models[0]);
-    sel.innerHTML='';
-    models.forEach(function(m){
-      var opt=document.createElement('option');
-      opt.value=m; opt.textContent=m;
-      if(m===pick) opt.selected=true;
-      sel.appendChild(opt);
-    });
+    menu.innerHTML=models.map(function(m){
+      return '<div class="asst-dd-opt'+(m===pick?' selected':'')+'" data-val="'+m+'" onclick="asstDdChoose(\'geo-model-dd\',this)">'+m+'</div>';
+    }).join('');
+    if(label) label.textContent=pick;
     localStorage.setItem('kiki_geo_model', pick);
   }).catch(function(){
     geoModelsLoaded=false;
-    sel.innerHTML='<option value="">Failed to load models</option>';
+    menu.innerHTML='';
+    if(label) label.textContent='Failed to load models';
   });
 }
 
@@ -5407,8 +5427,10 @@ function asstDdSync(id, val){
 function asstDdChoose(id, optEl){
   var val = optEl.dataset.val;
   asstDdSync(id, val);
-  document.getElementById(id).classList.remove('open');
-  if(id === 'asst-provider-dd') asstSetProvider(val);
+  var dd = document.getElementById(id);
+  dd.classList.remove('open');
+  var fn = dd.dataset.onchange;
+  if(fn && typeof window[fn] === 'function') window[fn](val);
 }
 document.addEventListener('click', function(e){
   if(!e.target.closest('.asst-dd')){
@@ -5707,18 +5729,17 @@ function flipInit(){
 async function flipLoadPorts(){
   try{
     var r=await fetch('/api/flipper/ports'),d=await r.json();
-    var sel=document.getElementById('flip-port-sel');
-    if(!sel) return;
-    sel.innerHTML='<option value="">— select COM port —</option>';
+    var menu=document.getElementById('flip-port-menu');
+    if(!menu) return;
+    var items=['<div class="asst-dd-opt'+(flipCurPort?'':' selected')+'" data-val="" onclick="asstDdChoose(\'flip-port-dd\',this)">— select COM port —</div>'];
     if(d.ports&&d.ports.length){
       d.ports.forEach(function(p){
-        var opt=document.createElement('option');
-        opt.value=p.port;
-        opt.textContent=p.port+(p.desc&&p.desc!==p.port?' — '+p.desc:'')+(p.likely?' [flipper]':'');
-        if(p.port===flipCurPort) opt.selected=true;
-        sel.appendChild(opt);
+        var label=p.port+(p.desc&&p.desc!==p.port?' — '+p.desc:'')+(p.likely?' [flipper]':'');
+        items.push('<div class="asst-dd-opt'+(p.port===flipCurPort?' selected':'')+'" data-val="'+p.port+'" onclick="asstDdChoose(\'flip-port-dd\',this)">'+label+'</div>');
       });
     }
+    menu.innerHTML=items.join('');
+    asstDdSync('flip-port-dd', flipCurPort||'');
     if(!d.ok && d.error){
       flipSetStatus('err','pyserial missing');
       flipShowBody('<div class="flip-warn">'+d.error+'<br>Run: pip install pyserial</div>');
@@ -5728,10 +5749,8 @@ async function flipLoadPorts(){
   }catch(e){flipSetStatus('err','fetch failed')}
 }
 
-function flipPortChange(){
-  var sel=document.getElementById('flip-port-sel');
-  if(!sel) return;
-  flipCurPort=sel.value;
+function flipPortChange(v){
+  flipCurPort=v||'';
   if(flipCurPort) localStorage.setItem('kiki_flip_port',flipCurPort);
   if(flipCurPort) flipBrowse(flipCurPath);
   else flipSetStatus('','disconnected');
