@@ -640,7 +640,7 @@ html[data-nav-style="rail"].desktop-transparent .panel.leaving{transition:paddin
    --tab-dir (1 = moving right through the icon row, -1 = moving left). */
 .settings-section.leaving{opacity:0;transform:translateX(calc(var(--tab-dir, 1) * -10px))}
 .settings-section.entering{opacity:0;transform:translateX(calc(var(--tab-dir, 1) * 10px))}
-.settings-cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--g-bd2)}
+.settings-cats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--g-bd2)}
 .settings-cat-btn{width:44px;height:44px;flex-shrink:0;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--g-bg);border:1px solid var(--g-bd);color:var(--t3);cursor:pointer;transition:background .18s var(--ease-out),border-color .18s var(--ease-out),color .18s var(--ease-out)}
 .settings-cat-btn svg{width:20px;height:20px;flex-shrink:0}
 /* Bounding-box-centered isn't the same as optically centered: the filled
