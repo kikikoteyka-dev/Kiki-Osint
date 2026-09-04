@@ -3366,7 +3366,7 @@ document.addEventListener("pointermove",(e)=>{
       <button class="settings-cat-btn" data-cat="transparency" onclick="setSettingsCategory('transparency')" title="Transparency"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M230.91,172A8,8,0,0,1,228,182.91l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,36,169.09l92,53.65,92-53.65A8,8,0,0,1,230.91,172ZM220,121.09l-92,53.65L36,121.09A8,8,0,0,0,28,134.91l96,56a8,8,0,0,0,8.06,0l96-56A8,8,0,1,0,220,121.09ZM24,80a8,8,0,0,1,4-6.91l96-56a8,8,0,0,1,8.06,0l96,56a8,8,0,0,1,0,13.82l-96,56a8,8,0,0,1-8.06,0l-96-56A8,8,0,0,1,24,80Zm23.88,0L128,126.74,208.12,80,128,33.26Z"/></svg></button>
       <button class="settings-cat-btn" data-cat="sliders" onclick="setSettingsCategory('sliders')" title="Sliders &amp; Cards"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M176,80a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H184A8,8,0,0,1,176,80ZM40,88H144v16a8,8,0,0,0,16,0V56a8,8,0,0,0-16,0V72H40a8,8,0,0,0,0,16Zm176,80H120a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16ZM88,144a8,8,0,0,0-8,8v16H40a8,8,0,0,0,0,16H80v16a8,8,0,0,0,16,0V152A8,8,0,0,0,88,144Z"/></svg></button>
       <button class="settings-cat-btn" data-cat="ai" onclick="setSettingsCategory('ai')" title="AI &amp; API Keys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></button>
-      <button class="settings-cat-btn" data-cat="tools" onclick="setSettingsCategory('tools')" title="WiFi Cracker Tools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></button>
+      <button class="settings-cat-btn" data-cat="tools" onclick="setSettingsCategory('tools')" title="Advanced"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M144,92a12,12,0,1,1,12,12A12,12,0,0,1,144,92ZM100,80a12,12,0,1,0,12,12A12,12,0,0,0,100,80Zm116,64A87.76,87.76,0,0,1,213,167l22.24,9.72A8,8,0,0,1,232,192a7.89,7.89,0,0,1-3.2-.67L207.38,182a88,88,0,0,1-158.76,0L27.2,191.33A7.89,7.89,0,0,1,24,192a8,8,0,0,1-3.2-15.33L43,167A87.76,87.76,0,0,1,40,144v-8H16a8,8,0,0,1,0-16H40v-8a87.76,87.76,0,0,1,3-23L20.8,79.33a8,8,0,1,1,6.4-14.66L48.62,74a88,88,0,0,1,158.76,0l21.42-9.36a8,8,0,0,1,6.4,14.66L213,89.05a87.76,87.76,0,0,1,3,23v8h24a8,8,0,0,1,0,16H216ZM56,120H200v-8a72,72,0,0,0-144,0Zm64,95.54V136H56v8A72.08,72.08,0,0,0,120,215.54ZM200,144v-8H136v79.54A72.08,72.08,0,0,0,200,144Z"/></svg></button>
     </div>
     <div class="settings-section">
       <div class="settings-section-head"><span class="settings-section-title" id="s-sec-interface">Interface</span></div>
@@ -3578,12 +3578,6 @@ document.addEventListener("pointermove",(e)=>{
         <button class="seg-btn" data-val="on" onclick="setCardGlass(true)">Glass</button>
       </div>
     </div>
-    <div class="setting-row"><div class="setting-label" id="s-debug-label">Debug Mode</div>
-      <div class="seg-switch" id="s-debug">
-        <button class="seg-btn" data-val="off" onclick="setDebugMode(false)">Off</button>
-        <button class="seg-btn" data-val="on" onclick="setDebugMode(true)">On</button>
-      </div>
-    </div>
       </div>
     </div>
     <div class="settings-section">
@@ -3613,7 +3607,7 @@ document.addEventListener("pointermove",(e)=>{
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-tools">WiFi Cracker Tools</span></div>
+      <div class="settings-section-head"><span class="settings-section-title" id="s-sec-tools">Advanced</span></div>
       <div class="settings-section-body" id="settings-section-tools">
         <div class="setting-row"><div class="setting-label"><span id="s-tool-hashcat-label">Hashcat</span> <span class="tool-path-status" id="tp-hashcat-status"></span></div>
           <div style="display:flex;gap:8px">
@@ -3639,6 +3633,18 @@ document.addEventListener("pointermove",(e)=>{
             <code class="tool-wsl-cmd" id="tool-wsl-cmd"></code>
             <button class="setting-btn" style="width:auto;white-space:nowrap;padding:0 14px;margin-top:0" id="tool-wsl-copy-btn" onclick="copyWslCmd()">Copy</button>
           </div>
+        </div>
+        <div class="setting-row"><div class="setting-label" id="s-debug-label">Debug Mode</div>
+          <div class="seg-switch" id="s-debug">
+            <button class="seg-btn" data-val="off" onclick="setDebugMode(false)">Off</button>
+            <button class="seg-btn" data-val="on" onclick="setDebugMode(true)">On</button>
+          </div>
+        </div>
+        <div class="setting-row"><div class="setting-label" id="s-report-bug-label">Report a Bug</div>
+          <button class="setting-btn" id="s-report-bug-btn" style="margin-top:0" onclick="window.open('https://github.com/kikikoteyka-dev/Kiki-Osint/issues/new?labels=bug&amp;title=%5BBug%5D%20','_blank')">Open on GitHub</button>
+        </div>
+        <div class="setting-row"><div class="setting-label" id="s-send-feedback-label">Send Feedback</div>
+          <button class="setting-btn" id="s-send-feedback-btn" style="margin-top:0" onclick="window.open('https://github.com/kikikoteyka-dev/Kiki-Osint/issues/new?title=%5BFeedback%5D%20','_blank')">Open on GitHub</button>
         </div>
       </div>
     </div>
@@ -3738,8 +3744,9 @@ var TOOL_LABELS = {
        sSliderSnapLabel:'Snapping', sDebugLabel:'Debug Mode', sFirstRunLabel:'First-run Setup', sRunSetupBtn:'Run setup again',
        sSecInterface:'Interface', sSecBackground:'Background', sSecIndicators:'Indicators',
        sSecTransparency:'Transparency', sSecSliders:'Sliders & Cards', sSecAi:'AI & API Keys',
-       sSecTools:'WiFi Cracker Tools', sToolHashcat:'Hashcat', sToolWordlist:'Wordlist (rockyou.txt)',
+       sSecTools:'Advanced', sToolHashcat:'Hashcat', sToolWordlist:'Wordlist (rockyou.txt)',
        sToolTshark:'Wireshark (tshark)', sBrowse:'Browse…',
+       sReportBugLabel:'Report a Bug', sSendFeedbackLabel:'Send Feedback', sOpenOnGithub:'Open on GitHub',
        sToolFoundAuto:'found automatically', sToolFoundManual:'set manually', sToolMissing:'not found',
        sWslMissing:'WSL isn’t installed — needed to convert captured handshakes.',
        sWslInstallCmd:'wsl --install (then restart the PC)',
@@ -3784,8 +3791,9 @@ var TOOL_LABELS = {
        sSliderSnapLabel:'Привязка', sDebugLabel:'Режим отладки', sFirstRunLabel:'Настройка при первом запуске', sRunSetupBtn:'Запустить настройку снова',
        sSecInterface:'Интерфейс', sSecBackground:'Фон', sSecIndicators:'Индикаторы',
        sSecTransparency:'Прозрачность', sSecSliders:'Слайдеры и карточки', sSecAi:'AI и API-ключи',
-       sSecTools:'Инструменты WiFi Cracker', sToolHashcat:'Hashcat', sToolWordlist:'Словарь (rockyou.txt)',
+       sSecTools:'Дополнительно', sToolHashcat:'Hashcat', sToolWordlist:'Словарь (rockyou.txt)',
        sToolTshark:'Wireshark (tshark)', sBrowse:'Обзор…',
+       sReportBugLabel:'Сообщить о баге', sSendFeedbackLabel:'Оставить отзыв', sOpenOnGithub:'Открыть на GitHub',
        sToolFoundAuto:'найден автоматически', sToolFoundManual:'указан вручную', sToolMissing:'не найден',
        sWslMissing:'WSL не установлен — нужен для конвертации перехваченных хендшейков.',
        sWslInstallCmd:'wsl --install (затем перезагрузи ПК)',
@@ -3849,6 +3857,10 @@ function setToolLang(lang){
   document.getElementById('s-sec-tools').textContent = t.sSecTools;
   document.getElementById('s-tool-hashcat-label').textContent = t.sToolHashcat;
   document.getElementById('s-tool-wordlist-label').textContent = t.sToolWordlist;
+  document.getElementById('s-report-bug-label').textContent = t.sReportBugLabel;
+  document.getElementById('s-send-feedback-label').textContent = t.sSendFeedbackLabel;
+  document.getElementById('s-report-bug-btn').textContent = t.sOpenOnGithub;
+  document.getElementById('s-send-feedback-btn').textContent = t.sOpenOnGithub;
   document.getElementById('s-tool-tshark-label').textContent = t.sToolTshark;
   ['hashcat','wordlist','tshark'].forEach(function(k){
     var btn = document.getElementById('tp-'+k+'-browse');
