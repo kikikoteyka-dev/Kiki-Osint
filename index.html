@@ -108,6 +108,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .asst-dd.open .asst-dd-trigger svg{transform:rotate(180deg)}
 .asst-dd-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;background:rgba(22,42,58,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(92,214,255,.16);border-radius:var(--r2);padding:4px;box-shadow:0 12px 28px -8px rgba(0,0,0,.45);z-index:20;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.98);transform-origin:top left;transition:opacity .16s var(--ease-out),transform .16s var(--ease-out),visibility 0s linear .16s}
 .asst-dd.open .asst-dd-menu{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition:opacity .16s var(--ease-out),transform .16s var(--ease-out),visibility 0s}
+/* Any ancestor with overflow:hidden (e.g. .settings-card, clipped for its
+   own rounded corners) clips a menu that opens downward near its bottom
+   edge — invisible, and clicks fall through to whatever real content sits
+   underneath. asstDdToggle measures available space and adds this class
+   to flip the menu upward instead when there isn't room below. */
+.asst-dd.drop-up .asst-dd-menu{top:auto;bottom:calc(100% + 6px);transform-origin:bottom left;transform:translateY(4px) scale(.98)}
+.asst-dd.drop-up.open .asst-dd-menu{transform:translateY(0) scale(1)}
+.asst-dd-sessions.drop-up .asst-dd-menu{transform-origin:bottom right}
 .asst-dd-opt{padding:7px 12px;border-radius:calc(var(--r2) - 4px);font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);white-space:nowrap;cursor:pointer;transition:background .12s var(--ease-out),color .12s var(--ease-out)}
 .asst-dd-opt:hover{background:rgba(255,255,255,.06);color:var(--t1)}
 .asst-dd-opt.selected{background:rgba(92,214,255,.14);color:var(--a)}
@@ -3611,15 +3619,9 @@ document.addEventListener("pointermove",(e)=>{
       <span id="s-keys-privacy-note" style="font-size:11.5px;line-height:1.5;color:var(--t2)">Keys are stored locally on this device and never leave it.</span>
     </div>
     <div class="setting-row"><div class="setting-label" id="s-ai-lang-label">AI Response Language</div>
-      <div class="asst-dd" id="s-ai-lang-dd" data-onchange="setAiLang">
-        <button class="asst-dd-trigger" onclick="asstDdToggle('s-ai-lang-dd')">
-          <span class="asst-dd-label">Русский</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="asst-dd-menu">
-          <div class="asst-dd-opt selected" data-val="ru" onclick="asstDdChoose('s-ai-lang-dd',this)">Русский</div>
-          <div class="asst-dd-opt" data-val="en" onclick="asstDdChoose('s-ai-lang-dd',this)">English</div>
-        </div>
+      <div class="ui-lang-switch">
+        <button class="ui-lang-btn" id="s-ai-lang-ru" onclick="setAiLang('ru')">Русский</button>
+        <button class="ui-lang-btn" id="s-ai-lang-en" onclick="setAiLang('en')">English</button>
       </div>
     </div>
       </div>
@@ -3958,7 +3960,15 @@ function setUiLang(lang){
 function setAiLang(lang){
   localStorage.setItem('kiki_ai_lang', lang);
   asstDdSync('geo-ai-lang-dd', lang);
-  asstDdSync('s-ai-lang-dd', lang);
+  // Was a dropdown (.asst-dd) synced via asstDdSync — opening downward,
+  // it sat right above the .settings-card's overflow:hidden bottom edge
+  // (this row is near the end of the AI & API Keys tab), which clipped
+  // it to near-invisible and let clicks fall through onto the "Run setup
+  // again" button underneath. Same seg-switch pattern as Interface
+  // Language (#ui-lang-ru/#ui-lang-en) sidesteps the clipping entirely.
+  var ruBtn = document.getElementById('s-ai-lang-ru'), enBtn = document.getElementById('s-ai-lang-en');
+  if(ruBtn) ruBtn.classList.toggle('active', lang === 'ru');
+  if(enBtn) enBtn.classList.toggle('active', lang === 'en');
 }
 setAiLang(localStorage.getItem('kiki_ai_lang') || 'ru');
 function setDockLang(lang){
@@ -5476,7 +5486,24 @@ function asstDdToggle(id){
   var dd = document.getElementById(id);
   var wasOpen = dd.classList.contains('open');
   document.querySelectorAll('.asst-dd.open').forEach(function(d){ d.classList.remove('open'); });
-  if(!wasOpen) dd.classList.add('open');
+  if(wasOpen) return;
+  dd.classList.add('open');
+  // Find the nearest clipping ancestor (overflow hidden/auto/scroll on
+  // either axis) — that's the real boundary a downward menu can get cut
+  // off by, not necessarily the viewport. .settings-card is exactly this:
+  // overflow:hidden for its own rounded corners, unrelated to dropdowns,
+  // but it silently clips any menu that opens near its bottom edge.
+  var clipEl = dd.parentElement;
+  while(clipEl && clipEl !== document.body){
+    var cs = getComputedStyle(clipEl);
+    if(cs.overflowY !== 'visible' || cs.overflowX !== 'visible') break;
+    clipEl = clipEl.parentElement;
+  }
+  var clipBottom = (clipEl && clipEl !== document.body) ? clipEl.getBoundingClientRect().bottom : window.innerHeight;
+  var menu = dd.querySelector('.asst-dd-menu');
+  var triggerRect = dd.getBoundingClientRect();
+  var menuHeight = menu ? menu.offsetHeight : 0;
+  dd.classList.toggle('drop-up', triggerRect.bottom + 6 + menuHeight > clipBottom);
 }
 function asstDdSync(id, val){
   var dd = document.getElementById(id);
@@ -6213,6 +6240,18 @@ function _settingsResyncSliders(cat){
     var body = document.getElementById('settings-section-' + cat);
     if(body) body.querySelectorAll('input[type=range].ur-range').forEach(urUpdateTrack);
   });
+  // previewBgPreset() no-ops itself (canvas.offsetParent===null) whenever
+  // it's called while the Background section is display:none — including
+  // the one-time call at page load, since the default category on first
+  // paint usually isn't 'background'. Nothing ever retried it, so the
+  // preview canvas stayed permanently blank unless the user happened to
+  // click a preset swatch (which calls previewBgPreset itself). Fire it
+  // again now that the section is actually visible.
+  if(cat === 'background' && window.previewBgPreset){
+    requestAnimationFrame(function(){
+      window.previewBgPreset(localStorage.getItem('kiki_bg_preset') || 'aurora');
+    });
+  }
 }
 function setSettingsCategory(cat, instant){
   // Function-local, not module-level — this runs at page load via
