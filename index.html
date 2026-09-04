@@ -55,7 +55,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .panel.leaving{opacity:0;pointer-events:none;transform:scale(.94) translateY(12px);transition:opacity .28s cubic-bezier(.4,0,1,1),transform .28s cubic-bezier(.4,0,1,1)}
 #panel-osint,#panel-hc,#panel-assistant{overflow:hidden;inset:10px;border-radius:var(--r)}
 #panel-dl{align-items:center;justify-content:center;overflow:auto;padding-top:40px;padding-bottom:120px}
-#panel-settings{display:block;overflow:auto;padding-top:40px;padding-bottom:120px}
+#panel-settings{display:block;overflow:auto;scrollbar-gutter:stable;padding-top:40px;padding-bottom:120px}
 #panel-settings .settings-card{margin:0 auto}
 #panel-geoint{display:block;overflow-y:auto;overflow-x:hidden;padding-top:40px;padding-bottom:120px}
 /* These are the only panels that actually scroll — default OS scrollbar
